@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Server CS 1.6 - Gamers Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background: linear-gradient(135deg, #2d0b4e 0%, #6a1b9a 100%);
+      color: #fff;
+      font-family: 'Orbitron', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+    }
+    header {
+      text-align: center;
+      padding: 2rem 0 1rem 0;
+      background: rgba(30, 0, 60, 0.7);
+      box-shadow: 0 2px 8px #0004;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.5rem;
+      letter-spacing: 2px;
+      color: #e040fb;
+      text-shadow: 0 2px 8px #0008;
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin: 1.5rem 0;
+    }
+    nav a {
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.2rem;
+      padding: 0.5rem 1.5rem;
+      border-radius: 20px;
+      background: #7c4dff;
+      transition: background 0.2s;
+      box-shadow: 0 2px 8px #0002;
+    }
+    nav a:hover {
+      background: #e040fb;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2rem;
+      margin: 2rem auto;
+      max-width: 900px;
+    }
+    .card {
+      background: rgba(40, 0, 70, 0.85);
+      border-radius: 18px;
+      box-shadow: 0 4px 16px #0005;
+      padding: 2rem 1.5rem;
+      width: 220px;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: 2px solid #7c4dff;
+    }
+    .card:hover {
+      transform: translateY(-8px) scale(1.04);
+      box-shadow: 0 8px 32px #e040fb55;
+      border-color: #e040fb;
+    }
+    .card h2 {
+      color: #e040fb;
+      margin-bottom: 1rem;
+      font-size: 1.4rem;
+    }
+    .card p {
+      color: #fff;
+      font-size: 1rem;
+      margin: 0;
+    }
+    footer {
+      text-align: center;
+      padding: 1rem 0;
+      background: rgba(30, 0, 60, 0.7);
+      color: #b39ddb;
+      font-size: 0.95rem;
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CS 1.6 Gamers Portal</h1>
+  </header>
+  <nav>
+    <a href="#shop">Shop</a>
+    <a href="#freeitem">Free Item</a>
+    <a href="#about">About</a>
+    <a href="#benefit">Benefit</a>
+  </nav>
+  <div class="container">
+    <div class="card" id="shop">
+      <h2>Shop</h2>
+      <p>Beli skin, senjata, dan item eksklusif untuk memperkuat karaktermu di server CS 1.6!</p>
+    </div>
+    <div class="card" id="freeitem">
+      <h2>Free Item</h2>
+      <p>Klaim item gratis harian dan bonus spesial untuk semua member aktif!</p>
+    </div>
+    <div class="card" id="about">
+      <h2>About</h2>
+      <p>Server Counter Strike 1.6 komunitas gamers Indonesia. Main bareng, seru bareng!</p>
+    </div>
+    <div class="card" id="benefit">
+      <h2>Benefit</h2>
+      <p>Dapatkan XP, ranking, dan hadiah menarik setiap minggunya. Event rutin & komunitas solid!</p>
+    </div>
+  </div>
+  <footer>
+    &copy; 2024 CS 1.6 Gamers Portal | Powered by Free Hosting
+  </footer>
+</body>
+</html>
