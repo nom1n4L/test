@@ -115,10 +115,18 @@ class LeagueModel(
             Triple(t, eloOf(t), ftRatings.attack[ftRatings.indexOf(t)])
         }.sortedByDescending { it.second }
 
-    private fun grid(r: Ratings?, home: String, away: String, maxK: Int, rho: Double = 0.0): Grid? {
+    private fun grid(
+        r: Ratings?,
+        home: String,
+        away: String,
+        maxK: Int,
+        rho: Double = 0.0,
+        overdispersed: Boolean = false,
+    ): Grid? {
         val rates = r?.rates(home, away) ?: return null
-        val hv = Poisson.vector(rates[0], maxK)
-        val av = Poisson.vector(rates[1], maxK)
+        val disp = if (overdispersed) r.dispersion else Double.POSITIVE_INFINITY
+        val hv = NegBin.vector(rates[0], disp, maxK)
+        val av = NegBin.vector(rates[1], disp, maxK)
         return if (rho != 0.0) {
             Grid(hv, av, correction = { i, j -> RatingFitter.tau(i, j, rates[0], rates[1], rho) })
         } else {
@@ -168,10 +176,10 @@ class LeagueModel(
             groups.add(Markets.highestScoringHalf(ht, sh))
         }
 
-        grid(cornerRatings, home, away, MAX_CORNERS)?.let {
+        grid(cornerRatings, home, away, MAX_CORNERS, overdispersed = true)?.let {
             groups.add(Markets.corners(it, home, away))
         }
-        grid(cardRatings, home, away, MAX_CARDS)?.let {
+        grid(cardRatings, home, away, MAX_CARDS, overdispersed = true)?.let {
             groups.add(Markets.cards(it, home, away))
         }
 
@@ -267,6 +275,17 @@ class LeagueModel(
         const val DEFAULT_DECAY = 0.0025
 
         /**
+         * Shrinkage for the corner and card models, kept separate from the goal
+         * models and far stronger.
+         *
+         * Corner counts are noisier than goals and depend much less on which teams
+         * are playing, so an unshrunk fit produces confident-looking numbers that
+         * do not survive contact with reality — measured calibration had it
+         * claiming 80% on outcomes that happened barely half the time.
+         */
+        const val SECONDARY_L2 = 12.0
+
+        /**
          * Fits every sub-model for a league.
          *
          * @param decay per-day exponential weight decay. The default halves a
@@ -280,6 +299,7 @@ class LeagueModel(
             today: Long,
             decay: Double = DEFAULT_DECAY,
             l2: Double = RatingFitter.DEFAULT_L2,
+            secondaryL2: Double = SECONDARY_L2,
         ): LeagueModel? {
             val matches = all.filter { today - it.dateEpochDay in 0..HISTORY_DAYS }
                 .sortedBy { it.dateEpochDay }
@@ -329,10 +349,10 @@ class LeagueModel(
             val shRatings = if (shObs.size >= 30) RatingFitter.fit(teams, shObs, l2 = l2) else null
 
             val cornerObs = observations({ it.hasCorners }, { it.homeCorners }, { it.awayCorners })
-            val cornerRatings = if (cornerObs.size >= 30) RatingFitter.fit(teams, cornerObs, l2 = l2) else null
+            val cornerRatings = if (cornerObs.size >= 30) RatingFitter.fit(teams, cornerObs, l2 = secondaryL2) else null
 
             val cardObs = observations({ it.hasCards }, { it.homeCards }, { it.awayCards })
-            val cardRatings = if (cardObs.size >= 30) RatingFitter.fit(teams, cardObs, l2 = l2) else null
+            val cardRatings = if (cardObs.size >= 30) RatingFitter.fit(teams, cardObs, l2 = secondaryL2) else null
 
             return LeagueModel(
                 league = league,

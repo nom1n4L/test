@@ -13,26 +13,33 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorlogi.app.data.Dates
 import kotlin.math.ln
 import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(
+    vm: AppViewModel,
     state: UiState,
     decay: Double,
     onSync: () -> Unit,
     onDecay: (Double) -> Unit,
+    onOpenLeagues: () -> Unit,
 ) {
     var value by remember { mutableFloatStateOf(decay.toFloat()) }
     val halfLifeDays = (ln(2.0) / value.coerceAtLeast(0.0005f)).roundToInt()
@@ -64,6 +71,18 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        ApiSection(vm)
+
+        SectionCard(title = "Liga") {
+            Button(
+                onClick = onOpenLeagues,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Pilih liga yang diikuti", color = MaterialTheme.colorScheme.onSurface)
+            }
         }
 
         SectionCard(
@@ -142,13 +161,175 @@ fun SettingsScreen(
             )
         }
 
-        SectionCard(title = "Skorlogi 1.0") {
+        SectionCard(title = "Kejujuran Angka") {
+            Text(
+                "Tiap market diuji ulang untuk melihat apakah angkanya bisa dipegang: " +
+                    "kalau model bilang 75%, apakah benar terjadi 75%?\n\n" +
+                    "Yang lolos: Hasil Akhir, Double Chance, Total Gol, Babak 1. " +
+                    "Angka mereka meleset paling banyak beberapa poin.\n\n" +
+                    "Yang tidak lolos: corner dan kartu. Sebelum diperbaiki, prediksi corner " +
+                    "yang mengaku 74% ternyata cuma benar 55%. Sekarang angkanya sudah " +
+                    "ditarik mendekati 50% supaya tidak menyesatkan, dan market ini tidak " +
+                    "pernah dipakai di halaman Pilihan Terbaik.\n\n" +
+                    "BTTS juga sempat kelewat percaya diri (klaim 72%, nyata 64%) dan sudah " +
+                    "dikoreksi.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(title = "Skorlogi 1.1") {
             Text(
                 "Semua perhitungan berjalan di dalam HP. Tidak ada akun, tidak ada iklan, " +
                     "tidak ada data yang dikirim ke mana pun selain mengunduh arsip pertandingan.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+
+/**
+ * API-Football setup. The archive the app ships with covers 38 leagues and about a
+ * week of fixtures; a key here adds the rest of the world, Liga 1 included, and a
+ * schedule that runs days further ahead.
+ */
+@Composable
+private fun ApiSection(vm: AppViewModel) {
+    val status by vm.apiStatus.collectAsStateWithLifecycle()
+    val catalog by vm.apiCatalog.collectAsStateWithLifecycle()
+    val busy by vm.apiBusy.collectAsStateWithLifecycle()
+    var key by remember { mutableStateOf(vm.repo.apiKey) }
+    val followed = remember(catalog, status) { vm.followedApiLeagues() }
+
+    SectionCard(
+        title = "Tambah Liga Dunia (API-Football)",
+        subtitle = "Opsional. Tanpa ini, aplikasi tetap jalan dengan 38 liga dari arsip terbuka.",
+    ) {
+        Text(
+            "Daftar gratis di dashboard.api-football.com, salin kuncinya, tempel di sini. " +
+                "Kuota gratisnya kecil, jadi aplikasi ini menyimpan hasilnya dan hanya " +
+                "mengambil ulang riwayat seminggu sekali.\n\n" +
+                "Catatan jujur: data corner dan kartu tidak ikut lewat jalur ini — di API itu " +
+                "biayanya satu permintaan per pertandingan, yang mustahil muat di kuota gratis. " +
+                "Market itu tetap datang dari arsip untuk 22 liga yang punya datanya.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = { key = it.trim() },
+            label = { Text("Kunci API") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { vm.testApiKey(key) },
+                enabled = !busy && key.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+            ) {
+                Text(if (busy) "Mengecek…" else "Cek kunci")
+            }
+            Button(
+                onClick = { vm.loadApiCatalog() },
+                enabled = !busy && vm.repo.hasApiKey,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+            ) {
+                Text("Ambil daftar liga", color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+        if (status != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                status!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (status!!.startsWith("Gagal")) Rose else Green,
+            )
+        }
+        if (followed.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Diikuti lewat API: ${followed.size} liga — ${followed.take(4).joinToString { it.name }}" +
+                    if (followed.size > 4) ", dan lainnya" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (catalog.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            ApiLeaguePicker(catalog, followed) { vm.setFollowedApiLeagues(it) }
+        }
+    }
+}
+
+/**
+ * Picks from the API catalogue. It runs to well over a thousand entries, so this
+ * filters by typed text rather than trying to list them all.
+ */
+@Composable
+private fun ApiLeaguePicker(
+    catalog: List<com.skorlogi.app.data.ApiLeague>,
+    followed: List<com.skorlogi.app.data.ApiLeague>,
+    onChange: (List<com.skorlogi.app.data.ApiLeague>) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var selected by remember(followed) { mutableStateOf(followed.map { it.id }.toSet()) }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        label = { Text("Cari liga atau negara") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        textStyle = MaterialTheme.typography.bodySmall,
+    )
+    Spacer(Modifier.height(8.dp))
+
+    val matches = remember(query, catalog) {
+        if (query.length < 2) {
+            emptyList()
+        } else {
+            catalog.filter {
+                it.name.contains(query, true) || it.country.contains(query, true)
+            }.take(30)
+        }
+    }
+    if (query.length < 2) {
+        Text(
+            "Ketik minimal 2 huruf. Contoh: \"Indonesia\" untuk Liga 1 dan Liga 2.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    matches.forEach { league ->
+        val on = league.id in selected
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 1.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.Checkbox(
+                checked = on,
+                onCheckedChange = { checked ->
+                    selected = if (checked) selected + league.id else selected - league.id
+                    onChange(catalog.filter { it.id in selected })
+                },
+                colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = Green),
+            )
+            Column(Modifier.weight(1f)) {
+                Text(league.name, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "${league.country} · musim ${league.currentSeason}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

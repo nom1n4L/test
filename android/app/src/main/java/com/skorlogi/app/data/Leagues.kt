@@ -10,6 +10,9 @@ enum class Feed {
 
     /** new/<code>.csv — one file for every season, but goals and odds only. */
     EXTRA,
+
+    /** API-Football. Wide coverage and a long fixture list, no corner or card data. */
+    API,
 }
 
 data class League(
@@ -21,7 +24,7 @@ data class League(
     val id: String get() = code
     val label: String get() = "$country — $name"
 
-    /** EXTRA feeds carry no corner, card or half-time columns. */
+    /** Only the MAIN archive carries corner and card columns. */
     val hasRichStats: Boolean get() = feed == Feed.MAIN
 }
 
@@ -89,9 +92,25 @@ object Leagues {
         League("USA", "Amerika Serikat", "MLS", Feed.EXTRA),
     )
 
-    private val byCode = ALL.associateBy { it.code }
+    private val archiveByCode = ALL.associateBy { it.code }
 
-    fun byCode(code: String): League? = byCode[code]
+    /**
+     * Leagues the user follows through API-Football. Held here rather than in the
+     * catalog above because the set is chosen at runtime and varies per key, but
+     * label lookups need to resolve any code from anywhere in the app.
+     */
+    private val apiByCode = java.util.concurrent.ConcurrentHashMap<String, League>()
 
-    fun label(code: String): String = byCode[code]?.label ?: code
+    fun registerApiLeagues(leagues: List<ApiLeague>) {
+        apiByCode.clear()
+        for (l in leagues) {
+            apiByCode[l.code] = League(l.code, l.country, l.name, Feed.API)
+        }
+    }
+
+    fun apiLeagues(): List<League> = apiByCode.values.sortedBy { it.label }
+
+    fun byCode(code: String): League? = archiveByCode[code] ?: apiByCode[code]
+
+    fun label(code: String): String = byCode(code)?.label ?: code
 }

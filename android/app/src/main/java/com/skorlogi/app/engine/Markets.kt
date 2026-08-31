@@ -56,7 +56,7 @@ object Markets {
     fun totalGoals(ft: Grid): MarketGroup {
         val lines = ArrayList<Line>()
         for (l in listOf(0.5, 1.5, 2.5, 3.5, 4.5, 5.5)) {
-            val over = ft.over(l)
+            val over = Calibration.totals(ft.over(l))
             lines.add(Line("Over $l", over))
             lines.add(Line("Under $l", 1.0 - over))
         }
@@ -71,7 +71,7 @@ object Markets {
     }
 
     fun btts(ft: Grid): MarketGroup {
-        val yes = ft.sumWhere { i, j -> i > 0 && j > 0 }
+        val yes = Calibration.btts(ft.sumWhere { i, j -> i > 0 && j > 0 })
         return MarketGroup(
             "Kedua Tim Cetak Gol (BTTS)",
             listOf(Line("Ya", yes), Line("Tidak", 1.0 - yes)),
@@ -134,10 +134,11 @@ object Markets {
         lines.add(Line("Seri di babak 1", ht.pDraw))
         lines.add(Line("$awayName unggul di babak 1", ht.pAway))
         for (l in listOf(0.5, 1.5, 2.5)) {
-            lines.add(Line("Babak 1 over $l", ht.over(l)))
-            lines.add(Line("Babak 1 under $l", ht.under(l)))
+            val over = Calibration.half(ht.over(l))
+            lines.add(Line("Babak 1 over $l", over))
+            lines.add(Line("Babak 1 under $l", 1.0 - over))
         }
-        lines.add(Line("Babak 1 BTTS", ht.sumWhere { i, j -> i > 0 && j > 0 }))
+        lines.add(Line("Babak 1 BTTS", Calibration.btts(ht.sumWhere { i, j -> i > 0 && j > 0 })))
         return MarketGroup(
             "Babak Pertama",
             lines,
@@ -151,8 +152,9 @@ object Markets {
         lines.add(Line("Seri di babak 2", sh.pDraw))
         lines.add(Line("$awayName menang babak 2", sh.pAway))
         for (l in listOf(0.5, 1.5, 2.5)) {
-            lines.add(Line("Babak 2 over $l", sh.over(l)))
-            lines.add(Line("Babak 2 under $l", sh.under(l)))
+            val over = Calibration.half(sh.over(l))
+            lines.add(Line("Babak 2 over $l", over))
+            lines.add(Line("Babak 2 under $l", 1.0 - over))
         }
         return MarketGroup(
             "Babak Kedua",
@@ -226,32 +228,37 @@ object Markets {
     fun corners(c: Grid, homeName: String, awayName: String): MarketGroup {
         val lines = ArrayList<Line>()
         for (l in listOf(7.5, 8.5, 9.5, 10.5, 11.5, 12.5)) {
-            lines.add(Line("Total corner over $l", c.over(l)))
-            lines.add(Line("Total corner under $l", c.under(l)))
+            val over = Calibration.corners(c.over(l))
+            lines.add(Line("Total corner over $l", over))
+            lines.add(Line("Total corner under $l", 1.0 - over))
         }
-        lines.add(Line("$homeName corner terbanyak", c.pHome))
-        lines.add(Line("Corner sama banyak", c.pDraw))
-        lines.add(Line("$awayName corner terbanyak", c.pAway))
+        val most = Calibration.exclusive(Calibration::corners, doubleArrayOf(c.pHome, c.pDraw, c.pAway))
+        lines.add(Line("$homeName corner terbanyak", most[0]))
+        lines.add(Line("Corner sama banyak", most[1]))
+        lines.add(Line("$awayName corner terbanyak", most[2]))
         for (l in listOf(3.5, 4.5, 5.5, 6.5)) {
-            lines.add(Line("$homeName over $l corner", c.homeOver(l)))
+            lines.add(Line("$homeName over $l corner", Calibration.corners(c.homeOver(l))))
         }
         for (l in listOf(3.5, 4.5, 5.5, 6.5)) {
-            lines.add(Line("$awayName over $l corner", c.awayOver(l)))
+            lines.add(Line("$awayName over $l corner", Calibration.corners(c.awayOver(l))))
         }
-        lines.add(Line("$homeName unggul 3+ corner", c.sumWhere { i, j -> i - j >= 3 }))
-        lines.add(Line("$awayName unggul 3+ corner", c.sumWhere { i, j -> j - i >= 3 }))
+        lines.add(Line("$homeName unggul 3+ corner", Calibration.corners(c.sumWhere { i, j -> i - j >= 3 })))
+        lines.add(Line("$awayName unggul 3+ corner", Calibration.corners(c.sumWhere { i, j -> j - i >= 3 })))
         return MarketGroup(
             "Sepak Pojok",
             lines,
-            note = "Perkiraan total corner: %.1f".format(c.expectedTotal),
+            note = "Perkiraan total corner: %.1f. Market ini yang paling sulit ditebak — "
+                .format(c.expectedTotal) +
+                "angkanya sudah ditarik mendekati 50% sesuai hasil uji.",
         )
     }
 
     fun cards(c: Grid, homeName: String, awayName: String): MarketGroup {
         val lines = ArrayList<Line>()
         for (l in listOf(2.5, 3.5, 4.5, 5.5, 6.5)) {
-            lines.add(Line("Total poin kartu over $l", c.over(l)))
-            lines.add(Line("Total poin kartu under $l", c.under(l)))
+            val over = Calibration.cards(c.over(l))
+            lines.add(Line("Total poin kartu over $l", over))
+            lines.add(Line("Total poin kartu under $l", 1.0 - over))
         }
         lines.add(Line("$homeName kartu lebih banyak", c.pHome))
         lines.add(Line("$awayName kartu lebih banyak", c.pAway))

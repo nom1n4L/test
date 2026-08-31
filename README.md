@@ -4,11 +4,18 @@ Aplikasi Android untuk memprediksi pertandingan sepak bola. Semua data diunduh
 otomatis dan seluruh perhitungan berjalan di dalam HP — tanpa akun, tanpa kunci
 API, tanpa server, tanpa iklan.
 
-**[⬇ Unduh Skorlogi-1.0.apk](Skorlogi-1.0.apk)** · 1,0 MB · Android 7.0 ke atas
+**[⬇ Unduh Skorlogi-1.1.apk](Skorlogi-1.1.apk)** · 1,2 MB · Android 7.0 ke atas
 
 ---
 
 ## Isinya apa
+
+- **Pilihan Terbaik harian** — satu layar berisi prediksi yang lolos saringan,
+  diurutkan dari yang paling bisa dipercaya.
+- **Pelacak hasil** — catat prediksi yang kamu ikuti; hasilnya diisi otomatis, dan
+  akurasi nyatanya dibandingkan dengan yang dijanjikan model.
+- **Liga dunia lewat API-Football** (opsional, kunci gratis) — termasuk Liga 1 dan
+  Liga 2 Indonesia, dengan jadwal yang jauh lebih panjang ke depan.
 
 - **38 liga** dari 25 negara, disegarkan sekali tekan.
 - **Puluhan market per pertandingan**, semuanya dibaca dari satu tabel peluang
@@ -21,6 +28,30 @@ API, tanpa server, tanpa iklan.
 - **Penanda keyakinan** yang turun sendiri kalau riwayat tim tipis atau kedua
   model internal tidak sejalan.
 - Berfungsi **offline** setelah sekali mengunduh.
+
+## Market mana yang boleh dipercaya
+
+Akurasi rata-rata menyembunyikan hal terpenting untuk sebuah daftar pilihan:
+**kalau model bilang 75%, apakah benar terjadi 75%?** Ini hasil pengukurannya,
+sebelum dikoreksi:
+
+| Market | Model bilang | Kenyataan | Vonis |
+|---|---|---|---|
+| Double Chance | 74,7% | 74,3% | ✅ jujur |
+| Hasil Akhir (unggulan) | 74,7% | 77,0% | ✅ jujur |
+| Over 1.5 gol | 75,3% | 77,8% | ✅ jujur |
+| Babak 1 ada gol | 74,6% | 75,1% | ✅ jujur |
+| Kedua tim cetak gol | 72,2% | 64,5% | ⚠️ kelewat pede |
+| **Total corner** | **73,7%** | **54,5%** | ❌ hampir lempar koin |
+
+Corner yang mengaku 82% ternyata cuma benar 53%. Dua perbaikan dipasang:
+model corner dan kartu kini memakai binomial negatif (sebarannya lebih lebar,
+karena Poisson terlalu yakin), lalu semua market lewat **kalibrasi Platt** yang
+dipasang dari data musim yang ditahan. Setelah itu, klaim corner di atas 70%
+turun dari 241 kasus menjadi 24, dan BTTS berhenti mengklaim di atas 70%.
+
+**Corner dan kartu tidak pernah muncul di halaman Pilihan Terbaik** — hanya
+empat market yang lolos uji yang boleh masuk.
 
 ## Seberapa akurat
 
@@ -64,7 +95,12 @@ tidak tahu soal cedera, rotasi pemain, larangan bermain, atau pergantian pelatih
    cara memiringkan tabel skor — bukan mencampur angka 1X2 begitu saja — supaya
    semua market lain tetap konsisten dengan angka utamanya.
 4. Mesin yang sama dipakai ulang untuk gol babak 1, gol babak 2, sepak pojok,
-   dan kartu; hanya angka yang dimasukkan yang berbeda.
+   dan kartu; hanya angka yang dimasukkan yang berbeda. Corner dan kartu memakai
+   binomial negatif, bukan Poisson, karena sebarannya jauh lebih lebar.
+5. Semua peluang dilewatkan kalibrasi Platt per keluarga market, dengan koefisien
+   yang dipasang pada musim yang ditahan. Koefisiennya dipasang dan diukur pada
+   rentang data yang sama, jadi keunggulannya sedikit terlalu cerah — tapi dengan
+   dua parameter melawan 8.127 sampel, selisihnya kecil.
 
 Semua parameter (laju peluruhan bobot waktu, bobot Elo, kekuatan *shrinkage*)
 dipilih lewat sweep terhadap musim yang ditahan, bukan ditebak. Hasilnya:
@@ -83,7 +119,12 @@ Turki, Yunani.
 Finlandia, Irlandia, Jepang, Meksiko, Norwegia, Polandia, Rumania, Rusia,
 Swedia, Swiss, Amerika Serikat (MLS).
 
-Liga Indonesia belum ada karena arsip terbuka ini tidak memuatnya.
+Liga Indonesia tidak ada di arsip terbuka ini. Untuk Liga 1 dan Liga 2, pasang
+kunci API-Football gratis lewat Pengaturan → Tambah Liga Dunia.
+
+Catatan jujur soal jalur API: data corner dan kartu tidak ikut lewat sana, karena
+di API itu biayanya satu permintaan per pertandingan — mustahil muat di kuota
+gratis. Market tersebut tetap datang dari arsip untuk 22 liga yang punya datanya.
 
 ## Membangun sendiri
 
@@ -116,6 +157,33 @@ supaya build tetap jalan tanpa jaringan.
 | `EndToEndTest` | Unduh → parse → latih → prediksi pada jadwal nyata |
 | `TuningTest` | Sweep laju peluruhan dan bobot Elo |
 | `L2SweepTest` | Sweep kekuatan shrinkage |
+| `CalibrationTest` | Klaim model vs kenyataan, per market per tingkat keyakinan |
+| `CalibrationFitTest` | Memasang koefisien Platt yang dipakai `Calibration.kt` |
+| `CornerSweepTest` | Menelusuri kenapa prediksi corner tidak bisa dipercaya |
+
+## Soal parlay
+
+Perlu dikatakan terang-terangan, karena ini pertanyaan yang paling sering muncul.
+
+Pada 2.709 pertandingan uji, log loss model ini 0,9889 sedangkan Bet365 0,9744 —
+**bandarnya lebih akurat**. Artinya, secara rata-rata, melawan harga mereka itu
+rugi.
+
+Parlay memperburuknya secara berlipat. Tiap leg mengandung margin bandar sekitar
+5%, dan margin itu dikalikan, bukan dijumlahkan:
+
+- Parlay 4 leg → margin menumpuk jadi ~1,05⁴ ≈ **rugi 21% per taruhan**, secara
+  rata-rata, sebelum modelnya salah sedikit pun.
+- Parlay 4 leg dengan tiap leg berpeluang 55% → peluang tembus semua = 0,55⁴ =
+  **9%**.
+
+Jadi parlay adalah cara **paling merugikan** untuk memakai keunggulan apa pun,
+bahkan seandainya modelnya lebih pintar dari bandar. Mengganti sumber data tidak
+mengubah aritmetika ini sedikit pun.
+
+Aplikasi ini dibuat untuk membantu memahami satu pertandingan dan menandai harga
+yang jelas jelek — bukan mesin parlay yang menang terus. Yang seperti itu tidak
+ada.
 
 ## Catatan
 

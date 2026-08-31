@@ -8,7 +8,14 @@ import com.skorlogi.app.data.Fixture
 import com.skorlogi.app.data.Repository
 import com.skorlogi.app.data.SyncProgress
 import com.skorlogi.app.data.SyncResult
+import com.skorlogi.app.engine.Pick
+import com.skorlogi.app.engine.Picks
 import com.skorlogi.app.engine.Prediction
+import com.skorlogi.app.data.ApiFootball
+import com.skorlogi.app.data.ApiLeague
+import com.skorlogi.app.data.TrackedPick
+import com.skorlogi.app.data.Tracker
+import com.skorlogi.app.data.TrackerStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -23,6 +30,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 sealed interface Screen {
     data object Fixtures : Screen
+    data object Picks : Screen
+    data object Tracker : Screen
     data class Match(val fixture: Fixture) : Screen
     data object Leagues : Screen
     data object Settings : Screen
@@ -46,7 +55,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
 
-    private val _screen = MutableStateFlow<Screen>(Screen.Fixtures)
+    private val _screen = MutableStateFlow<Screen>(Screen.Picks)
     val screen: StateFlow<Screen> = _screen.asStateFlow()
 
     private val predictions = HashMap<String, Prediction?>()
@@ -63,14 +72,57 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private var warmUpJob: Job? = null
 
+    private val _picks = MutableStateFlow<List<Pick>>(emptyList())
+    val picks: StateFlow<List<Pick>> = _picks.asStateFlow()
+
+    private val _tracked = MutableStateFlow<List<TrackedPick>>(emptyList())
+    val tracked: StateFlow<List<TrackedPick>> = _tracked.asStateFlow()
+
+    private val _trackerStats = MutableStateFlow(Tracker(app.getSharedPreferences("skorlogi", Application.MODE_PRIVATE)).stats())
+    val trackerStats: StateFlow<TrackerStats> = _trackerStats.asStateFlow()
+
+    private val tracker = Tracker(app.getSharedPreferences("skorlogi", Application.MODE_PRIVATE))
+
     init {
         viewModelScope.launch {
+            repo.restoreApiLeagues()
             repo.loadFromCache()
+            refreshTracker()
             refreshLists()
             _state.value = _state.value.copy(loading = false)
             // First run: nothing cached, so fetch straight away.
             if (!repo.hasData) sync() else warmUp()
         }
+    }
+
+    private fun refreshTracker() {
+        tracker.settle(repo.matches)
+        _tracked.value = tracker.all().sortedByDescending { it.dateEpochDay }
+        _trackerStats.value = tracker.stats()
+    }
+
+    fun follow(pick: Pick, odds: Double = 0.0) {
+        tracker.follow(pick, odds)
+        refreshTracker()
+    }
+
+    fun unfollow(id: String) {
+        tracker.unfollow(id)
+        refreshTracker()
+    }
+
+    fun setOdds(id: String, odds: Double) {
+        tracker.setOdds(id, odds)
+        refreshTracker()
+    }
+
+    fun clearSettled() {
+        tracker.clearSettled()
+        refreshTracker()
+    }
+
+    fun isFollowed(pick: Pick): Boolean = _tracked.value.any {
+        it.id == "${pick.fixture.key}|${pick.kind.name}"
     }
 
     private fun refreshLists() {
@@ -137,6 +189,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }.forEach { it.await() }
             }
+            _picks.value = Picks.best(predictions.values.filterNotNull())
+            refreshTracker()
         }
     }
 
@@ -163,7 +217,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun back() {
-        _screen.value = Screen.Fixtures
+        _screen.value = Screen.Picks
     }
 
     fun setLeagueFilter(code: String?) {
@@ -183,6 +237,60 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setEnabledLeagues(codes: Set<String>) {
         repo.setEnabledLeagues(codes)
     }
+
+    // --- API-Football --------------------------------------------------------
+
+    private val _apiStatus = MutableStateFlow<String?>(null)
+    val apiStatus: StateFlow<String?> = _apiStatus.asStateFlow()
+
+    private val _apiCatalog = MutableStateFlow<List<ApiLeague>>(emptyList())
+    val apiCatalog: StateFlow<List<ApiLeague>> = _apiCatalog.asStateFlow()
+
+    private val _apiBusy = MutableStateFlow(false)
+    val apiBusy: StateFlow<Boolean> = _apiBusy.asStateFlow()
+
+    fun saveApiKey(key: String) {
+        repo.apiKey = key
+        _apiStatus.value = null
+    }
+
+    /** Verifies the key and reports the quota it carries. Costs one request. */
+    fun testApiKey(key: String) {
+        if (_apiBusy.value) return
+        viewModelScope.launch {
+            _apiBusy.value = true
+            _apiStatus.value = try {
+                val s = repo.testApiKey(key)
+                repo.apiKey = key
+                "Kunci valid. Paket: ${s.plan.ifBlank { "gratis" }}. " +
+                    "Kuota hari ini: ${s.used}/${s.limitPerDay} terpakai, sisa ${s.remaining}."
+            } catch (e: Exception) {
+                "Gagal: ${e.message}"
+            }
+            _apiBusy.value = false
+        }
+    }
+
+    /** Downloads the league catalogue so leagues can be chosen. Costs one request. */
+    fun loadApiCatalog() {
+        if (_apiBusy.value) return
+        viewModelScope.launch {
+            _apiBusy.value = true
+            try {
+                _apiCatalog.value = repo.fetchApiLeagueCatalog()
+                _apiStatus.value = "${_apiCatalog.value.size} liga tersedia. Pilih yang mau diikuti."
+            } catch (e: Exception) {
+                _apiStatus.value = "Gagal ambil daftar liga: ${e.message}"
+            }
+            _apiBusy.value = false
+        }
+    }
+
+    fun setFollowedApiLeagues(leagues: List<ApiLeague>) {
+        repo.setFollowedApiLeagues(leagues)
+    }
+
+    fun followedApiLeagues(): List<ApiLeague> = repo.followedApiLeagues()
 
     fun daysSinceSync(): Long {
         val last = repo.lastSyncEpochDay

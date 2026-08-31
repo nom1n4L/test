@@ -25,7 +25,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -46,6 +48,9 @@ fun App(vm: AppViewModel) {
     val prediction by vm.prediction.collectAsStateWithLifecycle()
     val predicting by vm.predicting.collectAsStateWithLifecycle()
     val quick by vm.quick.collectAsStateWithLifecycle()
+    val picks by vm.picks.collectAsStateWithLifecycle()
+    val tracked by vm.tracked.collectAsStateWithLifecycle()
+    val trackerStats by vm.trackerStats.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -56,7 +61,7 @@ fun App(vm: AppViewModel) {
         }
     }
 
-    BackHandler(enabled = screen !is Screen.Fixtures) { vm.back() }
+    BackHandler(enabled = screen !is Screen.Picks) { vm.back() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -72,6 +77,20 @@ fun App(vm: AppViewModel) {
                     onOpen = vm::open,
                     onFilter = vm::setLeagueFilter,
                 )
+                is Screen.Picks -> PicksScreen(
+                    picks = picks,
+                    working = state.syncing || (picks.isEmpty() && quick.isEmpty() && state.fixtures.isNotEmpty()),
+                    isFollowed = vm::isFollowed,
+                    onFollow = { vm.follow(it) },
+                    onOpen = vm::open,
+                )
+                is Screen.Tracker -> TrackerScreen(
+                    tracked = tracked,
+                    stats = trackerStats,
+                    onOdds = vm::setOdds,
+                    onRemove = vm::unfollow,
+                    onClearSettled = vm::clearSettled,
+                )
                 is Screen.Match -> MatchScreen(s.fixture, prediction, predicting)
                 is Screen.Leagues -> LeaguesScreen(
                     initial = vm.repo.enabledLeagues(),
@@ -81,10 +100,12 @@ fun App(vm: AppViewModel) {
                     onChange = vm::setEnabledLeagues,
                 )
                 is Screen.Settings -> SettingsScreen(
+                    vm = vm,
                     state = state,
                     decay = vm.repo.decay,
                     onSync = vm::sync,
                     onDecay = vm::setDecay,
+                    onOpenLeagues = { vm.go(Screen.Leagues) },
                 )
             }
         }
@@ -99,7 +120,7 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                 Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (screen is Screen.Match) {
+                if (screen is Screen.Match || screen is Screen.Leagues) {
                     IconButton(onClick = vm::back) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = MaterialTheme.colorScheme.onBackground)
                     }
@@ -109,7 +130,9 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         when (screen) {
-                            is Screen.Fixtures -> "Skorlogi"
+                            is Screen.Picks -> "Skorlogi"
+                            is Screen.Fixtures -> "Jadwal"
+                            is Screen.Tracker -> "Pelacak"
                             is Screen.Match -> "Detail Prediksi"
                             is Screen.Leagues -> "Liga"
                             is Screen.Settings -> "Pengaturan"
@@ -117,7 +140,7 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                     )
-                    if (screen is Screen.Fixtures) {
+                    if (screen is Screen.Picks || screen is Screen.Fixtures) {
                         Text(
                             "${state.fixtures.size} pertandingan mendatang",
                             style = MaterialTheme.typography.labelSmall,
@@ -125,7 +148,7 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                         )
                     }
                 }
-                if (screen is Screen.Fixtures) {
+                if (screen is Screen.Picks || screen is Screen.Fixtures) {
                     IconButton(onClick = vm::sync, enabled = !state.syncing) {
                         Icon(Icons.Filled.Refresh, "Perbarui", tint = Green)
                     }
@@ -144,8 +167,9 @@ private fun BottomBar(screen: Screen, vm: AppViewModel) {
         modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
     ) {
         val items = listOf(
+            Triple("Pilihan", Icons.Filled.Star, Screen.Picks),
             Triple("Jadwal", Icons.Filled.DateRange, Screen.Fixtures),
-            Triple("Liga", Icons.AutoMirrored.Filled.List, Screen.Leagues),
+            Triple("Pelacak", Icons.Filled.CheckCircle, Screen.Tracker),
             Triple("Pengaturan", Icons.Filled.Settings, Screen.Settings),
         )
         items.forEach { (label, icon, target) ->

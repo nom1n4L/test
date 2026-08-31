@@ -59,6 +59,10 @@ class Repository(private val context: Context) {
 
     val hasData: Boolean get() = matches.isNotEmpty()
 
+    /** Requests spent against the API quota by the most recent sync. */
+    @Volatile var lastApiRequests: Int = 0
+        private set
+
     private fun fileFor(name: String) = File(cacheDir, "$name.csv")
 
     private fun readCache(name: String): String? =
@@ -84,8 +88,12 @@ class Repository(private val context: Context) {
                 Feed.EXTRA -> readCache(league.code)?.let {
                     all.addAll(FootballData.parseExtra(league.code, it, since))
                 }
+                // API leagues are cached in their own format and loaded below.
+                Feed.API -> Unit
             }
         }
+        val (apiMatches, _) = loadApiFromCache()
+        all.addAll(apiMatches)
         matches = all
         loadFixturesFromCache()
     }
@@ -93,11 +101,14 @@ class Repository(private val context: Context) {
     /** Reads just the schedule — cheap, and all the first screen needs. */
     fun loadFixturesFromCache() {
         val today = Dates.today()
-        fixtures = readCache("fixtures")
+        val archive = readCache("fixtures")
             ?.let { FootballData.parseFixtures(it) }
             ?.filter { it.dateEpochDay >= today - 1 }
-            ?.sortedWith(compareBy({ it.dateEpochDay }, { it.league }, { it.time }))
             ?: emptyList()
+        val (_, api) = loadApiFromCache()
+        fixtures = (archive + api)
+            .distinctBy { it.key }
+            .sortedWith(compareBy({ it.dateEpochDay }, { it.league }, { it.time }))
     }
 
     /**
@@ -147,6 +158,7 @@ class Repository(private val context: Context) {
                     jobs.add("${l.code}_$s" to FootballData.mainUrl(l.code, s))
                 }
                 Feed.EXTRA -> jobs.add(l.code to FootballData.extraUrl(l.code))
+                Feed.API -> Unit
             }
         }
 
@@ -174,6 +186,16 @@ class Repository(private val context: Context) {
                 }
             }.forEach { it.await() }
         }
+
+        // API-Football, when a key is configured. It runs after the archive so a
+        // quota failure never costs the free data.
+        val apiRequests = try {
+            syncApi(onProgress, failed)
+        } catch (e: Exception) {
+            failed.add("API-Football (${e.message})")
+            0
+        }
+        lastApiRequests = apiRequests
 
         onProgress(SyncProgress(jobs.size, jobs.size, "Menyusun data"))
         loadFromCache()
@@ -218,8 +240,185 @@ class Repository(private val context: Context) {
         prefs.edit().putStringSet("leagues", codes).apply()
     }
 
+    // --- API-Football --------------------------------------------------------
+
+    var apiKey: String
+        get() = prefs.getString("api_key", "").orEmpty()
+        set(v) = prefs.edit().putString("api_key", v.trim()).apply()
+
+    val hasApiKey: Boolean get() = apiKey.isNotBlank()
+
+    /**
+     * Leagues the user follows through the API, cached locally so their names and
+     * season numbers survive a restart without spending a request.
+     */
+    fun followedApiLeagues(): List<ApiLeague> {
+        val raw = prefs.getString("api_leagues", null) ?: return emptyList()
+        return runCatching {
+            val arr = org.json.JSONArray(raw)
+            (0 until arr.length()).mapNotNull { i ->
+                arr.optJSONObject(i)?.let {
+                    ApiLeague(
+                        id = it.optInt("id"),
+                        name = it.optString("name"),
+                        country = it.optString("country"),
+                        type = it.optString("type"),
+                        currentSeason = it.optInt("season"),
+                    )
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    fun setFollowedApiLeagues(leagues: List<ApiLeague>) {
+        val arr = org.json.JSONArray()
+        for (l in leagues) {
+            arr.put(
+                org.json.JSONObject()
+                    .put("id", l.id)
+                    .put("name", l.name)
+                    .put("country", l.country)
+                    .put("type", l.type)
+                    .put("season", l.currentSeason)
+            )
+        }
+        prefs.edit().putString("api_leagues", arr.toString()).apply()
+        Leagues.registerApiLeagues(leagues)
+        models.clear()
+    }
+
+    /** Makes cached API league names available for label lookups at startup. */
+    fun restoreApiLeagues() {
+        Leagues.registerApiLeagues(followedApiLeagues())
+    }
+
+    suspend fun testApiKey(key: String): ApiFootball.Status = withContext(Dispatchers.IO) {
+        ApiFootball.status(key)
+    }
+
+    suspend fun fetchApiLeagueCatalog(): List<ApiLeague> = withContext(Dispatchers.IO) {
+        ApiFootball.leagues(apiKey)
+    }
+
+    /**
+     * Pulls fixtures and season history for the followed API leagues.
+     *
+     * Requests are the scarce resource, so history is refetched only once a week
+     * per league-season and the fixture sweep asks for whole days rather than
+     * per-league lists. Returns how many requests were spent and what failed.
+     */
+    private suspend fun syncApi(
+        onProgress: (SyncProgress) -> Unit,
+        failed: MutableList<String>,
+    ): Int = withContext(Dispatchers.IO) {
+        val key = apiKey
+        val leagues = followedApiLeagues()
+        if (key.isBlank() || leagues.isEmpty()) return@withContext 0
+
+        var spent = 0
+        val today = Dates.today()
+        val codes = leagues.associate { it.id to it.code }
+
+        // Fixtures: one request per day, covering every followed league at once.
+        val fixtureFile = StringBuilder()
+        for (offset in 0 until API_FIXTURE_DAYS) {
+            val day = today + offset
+            val (y, m, d) = Dates.fromEpochDay(day)
+            val iso = "%04d-%02d-%02d".format(y, m, d)
+            onProgress(SyncProgress(offset, API_FIXTURE_DAYS, "Jadwal API $iso"))
+            try {
+                val list = ApiFootball.fixturesOn(key, iso, codes)
+                spent++
+                for (f in list) {
+                    fixtureFile.append(f.league).append('\t')
+                        .append(f.dateEpochDay).append('\t')
+                        .append(f.time).append('\t')
+                        .append(f.home).append('\t')
+                        .append(f.away).append('\n')
+                }
+            } catch (e: ApiFootball.ApiException) {
+                failed.add("Jadwal API $iso (${e.message})")
+                // Quota errors will hit every subsequent day too.
+                if (e.message?.contains("Kuota") == true) break
+            }
+        }
+        if (fixtureFile.isNotEmpty()) writeCache("api_fixtures", fixtureFile.toString())
+
+        // History: three seasons per league, refreshed weekly.
+        for (l in leagues) {
+            if (l.currentSeason <= 0) continue
+            for (back in 0 until API_HISTORY_SEASONS) {
+                val season = l.currentSeason - back
+                val name = "${l.code}_$season"
+                val age = today - prefs.getLong("fetched_$name", 0L)
+                if (readCache(name) != null && age < API_HISTORY_REFRESH_DAYS) continue
+                onProgress(SyncProgress(0, 0, "${l.name} $season"))
+                try {
+                    val results = ApiFootball.seasonResults(key, l.id, season, l.code)
+                    spent++
+                    if (results.isNotEmpty()) {
+                        writeCache(name, results.joinToString("\n") { m ->
+                            "${m.dateEpochDay}\t${m.home}\t${m.away}\t${m.homeGoals}\t" +
+                                "${m.awayGoals}\t${m.htHomeGoals}\t${m.htAwayGoals}"
+                        })
+                        prefs.edit().putLong("fetched_$name", today).apply()
+                    }
+                } catch (e: ApiFootball.ApiException) {
+                    failed.add("${l.name} $season (${e.message})")
+                    if (e.message?.contains("Kuota") == true) return@withContext spent
+                }
+            }
+        }
+        spent
+    }
+
+    /** Reads back the tab-separated caches written by [syncApi]. */
+    private fun loadApiFromCache(): Pair<List<Match>, List<Fixture>> {
+        val leagues = followedApiLeagues()
+        val matches = ArrayList<Match>()
+        val today = Dates.today()
+        for (l in leagues) {
+            for (back in 0 until API_HISTORY_SEASONS) {
+                val body = readCache("${l.code}_${l.currentSeason - back}") ?: continue
+                for (line in body.lineSequence()) {
+                    val p = line.split('\t')
+                    if (p.size < 7) continue
+                    matches.add(
+                        Match(
+                            league = l.code,
+                            dateEpochDay = p[0].toLongOrNull() ?: continue,
+                            home = p[1],
+                            away = p[2],
+                            homeGoals = p[3].toIntOrNull() ?: continue,
+                            awayGoals = p[4].toIntOrNull() ?: continue,
+                            htHomeGoals = p[5].toIntOrNull() ?: -1,
+                            htAwayGoals = p[6].toIntOrNull() ?: -1,
+                        )
+                    )
+                }
+            }
+        }
+        val fixtures = ArrayList<Fixture>()
+        readCache("api_fixtures")?.lineSequence()?.forEach { line ->
+            val p = line.split('\t')
+            if (p.size < 5) return@forEach
+            val day = p[1].toLongOrNull() ?: return@forEach
+            if (day < today - 1) return@forEach
+            fixtures.add(Fixture(p[0], day, p[2], p[3], p[4]))
+        }
+        return matches to fixtures
+    }
+
     private companion object {
         /** Enough to saturate a phone connection without stampeding the archive. */
         const val MAX_PARALLEL_DOWNLOADS = 6
+
+        /** Days of API fixtures to sweep — one request each, so this is a quota dial. */
+        const val API_FIXTURE_DAYS = 5
+
+        const val API_HISTORY_SEASONS = 3
+
+        /** A finished season does not change; a running one barely does week to week. */
+        const val API_HISTORY_REFRESH_DAYS = 7
     }
 }

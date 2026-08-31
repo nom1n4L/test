@@ -20,6 +20,11 @@ class Ratings(
     val intercept: Double,
     val homeAdv: Double,
     val matchesPerTeam: IntArray,
+    /**
+     * Negative-binomial dispersion for these counts. Infinity means the counts are
+     * no more spread out than Poisson allows, so Poisson is used.
+     */
+    val dispersion: Double = Double.POSITIVE_INFINITY,
 ) {
     private val index: Map<String, Int> = teams.withIndex().associate { (i, t) -> t to i }
 
@@ -175,6 +180,18 @@ object RatingFitter {
             counts[o.awayIdx]++
         }
 
+        // Measure how far the counts actually spread around the fit, so callers can
+        // widen the distribution where Poisson would be too sure of itself.
+        val observed = IntArray(obs.size * 2)
+        val means = DoubleArray(obs.size * 2)
+        val weights = DoubleArray(obs.size * 2)
+        for ((i, o) in obs.withIndex()) {
+            val lambda = exp(intercept + attack[o.homeIdx] - defence[o.awayIdx] + homeAdv)
+            val mu = exp(intercept + attack[o.awayIdx] - defence[o.homeIdx])
+            observed[i * 2] = o.homeCount; means[i * 2] = lambda; weights[i * 2] = o.weight
+            observed[i * 2 + 1] = o.awayCount; means[i * 2 + 1] = mu; weights[i * 2 + 1] = o.weight
+        }
+
         return Ratings(
             teams = teams,
             attack = attack,
@@ -182,6 +199,7 @@ object RatingFitter {
             intercept = intercept,
             homeAdv = if (homeAdvantage) homeAdv.coerceIn(-0.5, 0.8) else 0.0,
             matchesPerTeam = counts,
+            dispersion = NegBin.dispersion(observed, means, weights),
         )
     }
 

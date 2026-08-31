@@ -28,6 +28,54 @@ object Poisson {
 }
 
 /**
+ * Negative binomial counts, for quantities whose spread is wider than Poisson
+ * allows.
+ *
+ * Corners and cards are the cases that need it. Poisson forces variance to equal
+ * the mean; real corner counts vary considerably more than that, and a
+ * distribution that is too narrow produces probabilities that are too confident.
+ * The extra parameter `r` controls the excess: variance is mu + mu^2 / r, so a
+ * large r converges back to Poisson.
+ */
+object NegBin {
+
+    /** pmf vector for 0..maxK, tail mass folded into the last cell. */
+    fun vector(mu: Double, r: Double, maxK: Int): DoubleArray {
+        if (!r.isFinite() || r > 1e6 || mu <= 0.0) return Poisson.vector(mu, maxK)
+        val v = DoubleArray(maxK + 1)
+        val p = r / (r + mu)
+        // log C(k+r-1, k) built up term by term, so no gamma function is needed.
+        var logCoef = 0.0
+        var sum = 0.0
+        for (k in 0 until maxK) {
+            if (k > 0) logCoef += ln((r + k - 1) / k)
+            v[k] = exp(logCoef + r * ln(p) + k * ln(1 - p))
+            sum += v[k]
+        }
+        v[maxK] = (1.0 - sum).coerceAtLeast(0.0)
+        return v
+    }
+
+    /**
+     * Moment-matched dispersion from observed counts against fitted means.
+     * Returns infinity when the data show no excess spread, which makes the
+     * caller fall back to Poisson.
+     */
+    fun dispersion(counts: IntArray, means: DoubleArray, weights: DoubleArray): Double {
+        var num = 0.0
+        var den = 0.0
+        for (i in counts.indices) {
+            val mu = means[i]
+            val d = counts[i] - mu
+            num += weights[i] * mu * mu
+            den += weights[i] * (d * d - mu)
+        }
+        if (den <= 0.0 || num <= 0.0) return Double.POSITIVE_INFINITY
+        return (num / den).coerceIn(1.0, 1e6)
+    }
+}
+
+/**
  * A joint distribution over (home count, away count). Every market in the app is a
  * sum over cells of one of these, which keeps all the numbers mutually consistent.
  */

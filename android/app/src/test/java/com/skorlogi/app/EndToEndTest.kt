@@ -90,5 +90,30 @@ class EndToEndTest {
         val u25 = totalGoals.lines.first { it.label == "Under 2.5" }.prob
         assert(kotlin.math.abs(o25 + u25 - 1.0) < 1e-6) { "over/under tidak saling melengkapi" }
         println("Semua pemeriksaan konsistensi lolos.")
+
+        // The shortlist has to survive the same real data, and must never offer a
+        // market that measured badly.
+        val predictions = fixtures.filter { it.league == league }
+            .mapNotNull { f -> model.predict(f) }
+        val shortlist = com.skorlogi.app.engine.Picks.best(predictions)
+        println()
+        println("Pilihan Terbaik dari ${predictions.size} laga ${Leagues.label(league)}: ${shortlist.size} lolos saringan")
+        for (pick in shortlist.take(8)) {
+            println("   %-42s %-26s %3d%%".format(
+                "${pick.fixture.home} v ${pick.fixture.away}", pick.selection, pick.percent))
+        }
+        for (pick in shortlist) {
+            assert(pick.prob >= 0.68) { "pilihan di bawah ambang: ${pick.prob}" }
+            assert(pick.confidence != com.skorlogi.app.engine.Confidence.LOW) {
+                "pilihan dari data tipis lolos saringan"
+            }
+            assert(!pick.market.contains("corner", true) && !pick.market.contains("Kartu")) {
+                "market yang gagal uji kalibrasi muncul di pilihan: ${pick.market}"
+            }
+        }
+        assert(shortlist.distinctBy { it.fixture.key }.size == shortlist.size) {
+            "satu pertandingan muncul lebih dari sekali"
+        }
+        println("Saringan pilihan lolos pemeriksaan.")
     }
 }
