@@ -1,0 +1,12 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Season archives downloaded for the tuning and backtest suites. They are large,
+# they change weekly, and the tests skip themselves when the directory is absent.
+backtest-data/
