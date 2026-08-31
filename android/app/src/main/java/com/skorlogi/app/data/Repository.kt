@@ -3,8 +3,12 @@ package com.skorlogi.app.data
 import android.content.Context
 import com.skorlogi.app.engine.LeagueModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -83,6 +87,12 @@ class Repository(private val context: Context) {
             }
         }
         matches = all
+        loadFixturesFromCache()
+    }
+
+    /** Reads just the schedule — cheap, and all the first screen needs. */
+    fun loadFixturesFromCache() {
+        val today = Dates.today()
         fixtures = readCache("fixtures")
             ?.let { FootballData.parseFixtures(it) }
             ?.filter { it.dateEpochDay >= today - 1 }
@@ -91,18 +101,47 @@ class Repository(private val context: Context) {
     }
 
     /**
-     * Downloads every enabled feed. Individual failures are collected rather than
-     * aborting the run — one dead season file should not cost the user the other 37.
+     * Downloads every enabled feed.
+     *
+     * Order matters more than it looks. The fixture list is small and is the only
+     * thing the first screen needs, so it is fetched first and published straight
+     * away; the ~80 season files behind it are then pulled concurrently, with the
+     * leagues that actually have fixtures going first. Individual failures are
+     * collected rather than aborting the run — one dead season file should not
+     * cost the user the other 37.
+     *
+     * @param onFixturesReady invoked as soon as the schedule is usable, long
+     *   before the history finishes downloading.
      */
     suspend fun sync(
         enabled: Set<String>,
         onProgress: (SyncProgress) -> Unit,
+        onFixturesReady: suspend () -> Unit = {},
     ): SyncResult = withContext(Dispatchers.IO) {
         val leagues = Leagues.ALL.filter { it.code in enabled }
         if (leagues.isEmpty()) return@withContext SyncResult.Failed("Belum ada liga yang dipilih.")
 
-        val jobs = ArrayList<Pair<String, String>>() // cache name to url
-        for (l in leagues) {
+        val failed = ArrayList<String>()
+
+        // 1. The schedule, first and alone.
+        onProgress(SyncProgress(0, 1, "Jadwal pertandingan"))
+        var fixtureLeagues = emptyList<String>()
+        try {
+            val body = Http.getText(FootballData.FIXTURES_URL)
+            if (body.length > 200) {
+                writeCache("fixtures", body)
+                fixtureLeagues = FootballData.parseFixtures(body).map { it.league }.distinct()
+            }
+        } catch (e: FetchException) {
+            failed.add("Jadwal pertandingan (${e.message})")
+        }
+        loadFixturesFromCache()
+        onFixturesReady()
+
+        // 2. History, leagues with fixtures first so predictions can start early.
+        val order = leagues.sortedByDescending { it.code in fixtureLeagues }
+        val jobs = ArrayList<Pair<String, String>>()
+        for (l in order) {
             when (l.feed) {
                 Feed.MAIN -> for (s in Leagues.recentSeasons()) {
                     jobs.add("${l.code}_$s" to FootballData.mainUrl(l.code, s))
@@ -110,30 +149,33 @@ class Repository(private val context: Context) {
                 Feed.EXTRA -> jobs.add(l.code to FootballData.extraUrl(l.code))
             }
         }
-        jobs.add("fixtures" to FootballData.FIXTURES_URL)
 
-        val failed = ArrayList<String>()
-        var done = 0
-        for ((name, url) in jobs) {
-            val label = if (name == "fixtures") {
-                "Jadwal pertandingan"
-            } else {
-                Leagues.label(name.substringBefore('_'))
-            }
-            onProgress(SyncProgress(done, jobs.size, label))
-            try {
-                val body = Http.getText(url)
-                // A season that has not started yet returns a near-empty file; keep
-                // whatever is already cached rather than replacing it with nothing.
-                if (body.length > 200) writeCache(name, body)
-            } catch (e: FetchException) {
-                // A missing season file is normal early in a season, not an error.
-                if (e.message != "404") failed.add("$label (${e.message})")
-            }
-            done++
+        val done = java.util.concurrent.atomic.AtomicInteger(0)
+        val gate = Semaphore(MAX_PARALLEL_DOWNLOADS)
+        coroutineScope {
+            jobs.map { (name, url) ->
+                async {
+                    gate.withPermit {
+                        val label = Leagues.label(name.substringBefore('_'))
+                        try {
+                            val body = Http.getText(url)
+                            // A season that has not started yet returns a near-empty
+                            // file; keep what is cached rather than replacing it with
+                            // nothing.
+                            if (body.length > 200) writeCache(name, body)
+                        } catch (e: FetchException) {
+                            // A missing season file is normal early in a season.
+                            if (e.message != "404") {
+                                synchronized(failed) { failed.add("$label (${e.message})") }
+                            }
+                        }
+                        onProgress(SyncProgress(done.incrementAndGet(), jobs.size, label))
+                    }
+                }
+            }.forEach { it.await() }
         }
-        onProgress(SyncProgress(done, jobs.size, "Menyusun data"))
 
+        onProgress(SyncProgress(jobs.size, jobs.size, "Menyusun data"))
         loadFromCache()
         modelMutex.withLock { models.clear() }
         lastSyncEpochDay = Dates.today()
@@ -174,5 +216,10 @@ class Repository(private val context: Context) {
 
     fun setEnabledLeagues(codes: Set<String>) {
         prefs.edit().putStringSet("leagues", codes).apply()
+    }
+
+    private companion object {
+        /** Enough to saturate a phone connection without stampeding the archive. */
+        const val MAX_PARALLEL_DOWNLOADS = 6
     }
 }

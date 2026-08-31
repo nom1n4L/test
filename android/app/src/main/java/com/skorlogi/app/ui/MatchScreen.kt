@@ -207,9 +207,17 @@ private fun Stat(label: String, value: String, color: androidx.compose.ui.graphi
 @Composable
 private fun ValueSection(p: Prediction) {
     val best = p.values.first()
+    // A big edge computed from a thin sample is noise, not an opportunity, and it is
+    // exactly the case where the model looks most confident. Say so instead of
+    // letting the number speak for itself.
+    val trustworthy = p.confidence != Confidence.LOW
     SectionCard(
         title = "Perbandingan dengan Odds Bandar",
-        subtitle = "Selisih antara peluang model dan harga pasar.",
+        subtitle = if (trustworthy) {
+            "Selisih antara peluang model dan harga pasar."
+        } else {
+            "Riwayat salah satu tim terlalu tipis — angka selisih di bawah ini tidak bisa dipercaya."
+        },
     ) {
         p.values.forEach { v ->
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -224,17 +232,28 @@ private fun ValueSection(p: Prediction) {
                     (if (v.edge >= 0) "+" else "") + "${v.edgePercent}%",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (v.edge > 0.03) Green else if (v.edge < -0.05) Rose else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = when {
+                        !trustworthy -> MaterialTheme.colorScheme.onSurfaceVariant
+                        v.edge > 0.03 -> Green
+                        v.edge < -0.05 -> Rose
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            if (best.edge > 0.03) {
-                "Model menilai \"${best.label}\" sedikit lebih murah dari harganya. " +
-                    "Selisih sekecil ini sering habis oleh margin bandar — bukan sinyal pasti."
-            } else {
-                "Tidak ada selisih berarti. Harga pasar dan model kurang lebih sepakat."
+            when {
+                !trustworthy ->
+                    "Selisih sebesar apa pun di sini kemungkinan besar cuma kekurangan data, " +
+                        "bukan peluang. Abaikan sampai kedua tim main lebih banyak."
+                best.edge > 0.03 ->
+                    "Model menilai \"${best.label}\" sedikit lebih murah dari harganya. " +
+                        "Perlu diingat: pada uji ulang, harga bandar ternyata lebih akurat " +
+                        "daripada model ini, jadi selisih kecil lebih sering berarti model yang " +
+                        "keliru daripada harga yang salah."
+                else ->
+                    "Tidak ada selisih berarti. Harga pasar dan model kurang lebih sepakat."
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

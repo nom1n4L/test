@@ -9,10 +9,17 @@ import com.skorlogi.app.data.Repository
 import com.skorlogi.app.data.SyncProgress
 import com.skorlogi.app.data.SyncResult
 import com.skorlogi.app.engine.Prediction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import java.util.concurrent.ConcurrentHashMap
 
 sealed interface Screen {
     data object Fixtures : Screen
@@ -54,7 +61,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _quick = MutableStateFlow<Map<String, DoubleArray>>(emptyMap())
     val quick: StateFlow<Map<String, DoubleArray>> = _quick.asStateFlow()
 
-    private var warmUpJob: kotlinx.coroutines.Job? = null
+    private var warmUpJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -78,9 +85,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (_state.value.syncing) return
         viewModelScope.launch {
             _state.value = _state.value.copy(syncing = true, message = null)
-            val result = repo.sync(repo.enabledLeagues()) { p ->
-                _state.value = _state.value.copy(progress = p)
-            }
+            val result = repo.sync(
+                enabled = repo.enabledLeagues(),
+                onProgress = { p -> _state.value = _state.value.copy(progress = p) },
+                // The schedule lands long before the history does; show it at once
+                // rather than leaving the user on an empty screen.
+                onFixturesReady = { refreshLists() },
+            )
             predictions.clear()
             refreshLists()
             warmUp()
@@ -98,21 +109,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Fits each league that has fixtures, publishing 1X2 previews as it goes. */
+    /**
+     * Fits each league that has fixtures, publishing 1X2 previews as it goes.
+     * Leagues are independent, so they are fitted in parallel across cores.
+     */
     private fun warmUp() {
         warmUpJob?.cancel()
         _quick.value = emptyMap()
         warmUpJob = viewModelScope.launch {
             val byLeague = repo.fixtures.groupBy { it.league }
-            val acc = HashMap<String, DoubleArray>()
-            for ((league, list) in byLeague) {
-                val model = repo.modelFor(league) ?: continue
-                for (f in list) {
-                    val p = model.predict(f) ?: continue
-                    predictions[f.key] = p
-                    acc[f.key] = doubleArrayOf(p.pHome, p.pDraw, p.pAway)
-                }
-                _quick.value = HashMap(acc)
+            val acc = ConcurrentHashMap<String, DoubleArray>()
+            val gate = Semaphore(Runtime.getRuntime().availableProcessors().coerceIn(2, 4))
+            coroutineScope {
+                byLeague.map { (league, list) ->
+                    async(Dispatchers.Default) {
+                        gate.withPermit {
+                            val model = repo.modelFor(league)
+                            if (model != null) {
+                                for (f in list) {
+                                    val p = model.predict(f) ?: continue
+                                    predictions[f.key] = p
+                                    acc[f.key] = doubleArrayOf(p.pHome, p.pDraw, p.pAway)
+                                }
+                                _quick.value = HashMap(acc)
+                            }
+                        }
+                    }
+                }.forEach { it.await() }
             }
         }
     }
