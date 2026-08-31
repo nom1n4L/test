@@ -13,6 +13,13 @@ enum class Feed {
 
     /** API-Football. Wide coverage and a long fixture list, no corner or card data. */
     API,
+
+    /**
+     * openfootball JSON on GitHub. No key and no odds, so it stays reachable on
+     * networks that block the odds archive, and it carries a full season of
+     * fixtures rather than a week.
+     */
+    OPEN,
 }
 
 data class League(
@@ -92,7 +99,24 @@ object Leagues {
         League("USA", "Amerika Serikat", "MLS", Feed.EXTRA),
     )
 
-    private val archiveByCode = ALL.associateBy { it.code }
+    /**
+     * The openfootball mirrors, kept as separate entries rather than merged into
+     * the archive leagues above. Their team names differ ("Arsenal FC" against
+     * "Arsenal"), and quietly mixing two naming schemes into one league would
+     * produce a squad of ghosts.
+     */
+    val OPEN_LEAGUES: List<League> = listOf(
+        League("of:en.1", "Inggris", "Premier League (cadangan)", Feed.OPEN),
+        League("of:en.2", "Inggris", "Championship (cadangan)", Feed.OPEN),
+        League("of:de.1", "Jerman", "Bundesliga (cadangan)", Feed.OPEN),
+        League("of:es.1", "Spanyol", "La Liga (cadangan)", Feed.OPEN),
+        League("of:it.1", "Italia", "Serie A (cadangan)", Feed.OPEN),
+        League("of:fr.1", "Prancis", "Ligue 1 (cadangan)", Feed.OPEN),
+        League("of:nl.1", "Belanda", "Eredivisie (cadangan)", Feed.OPEN),
+        League("of:pt.1", "Portugal", "Primeira Liga (cadangan)", Feed.OPEN),
+    )
+
+    private val archiveByCode = (ALL + OPEN_LEAGUES).associateBy { it.code }
 
     /**
      * Leagues the user follows through API-Football. Held here rather than in the

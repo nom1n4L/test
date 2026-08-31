@@ -4,9 +4,26 @@ Aplikasi Android untuk memprediksi pertandingan sepak bola. Semua data diunduh
 otomatis dan seluruh perhitungan berjalan di dalam HP — tanpa akun, tanpa kunci
 API, tanpa server, tanpa iklan.
 
-**[⬇ Unduh Skorlogi-1.1.apk](Skorlogi-1.1.apk)** · 1,2 MB · Android 7.0 ke atas
+**[⬇ Unduh Skorlogi-1.2.apk](Skorlogi-1.2.apk)** · 1,2 MB · Android 7.0 ke atas
 
 ---
+
+## Kalau sumber datanya diblokir
+
+Sebagian jaringan — termasuk beberapa ISP Indonesia — mengarahkan
+`football-data.co.uk` ke server blokir, karena arsip itu memuat data odds bandar.
+Gejalanya: aplikasi kosong dan muncul `Failed to connect to ...:443`.
+
+Aplikasi mengenali keadaan ini dan menawarkan **sumber cadangan** sekali tekan:
+arsip openfootball di GitHub. Tanpa kunci, tanpa daftar, dan tanpa data odds —
+sehingga biasanya tidak ikut terblokir. Isinya 8 liga besar (Premier League,
+Championship, La Liga, Serie A, Bundesliga, Ligue 1, Eredivisie, Primeira Liga),
+dan jadwalnya justru **satu musim penuh** — 361 laga ke depan, bukan seminggu.
+
+Yang tidak ikut: market corner dan kartu. Kebetulan itu dua market yang gagal uji
+kalibrasi, jadi yang hilang tidak banyak.
+
+Untuk Liga 1 Indonesia, tetap perlu kunci API-Football gratis lewat Pengaturan.
 
 ## Isinya apa
 
@@ -61,18 +78,24 @@ saat itu, jadi tidak ada hasil yang bocor dari masa depan.
 
 | Yang diprediksi | Akurasi |
 |---|---|
-| Hasil akhir (1X2) | **52,0%** |
-| Over/Under 2.5 gol | **55,9%** |
+| Hasil akhir (1X2) | **51,8%** |
+| Over/Under 2.5 gol | **56,4%** |
 | Kedua tim cetak gol | **55,8%** |
-| Babak 1 ada gol | **72,2%** |
+| Babak 1 ada gol | **72,5%** |
 
 Sebagai pembanding, pada 2.709 laga yang sama:
 
 | Pembanding | Akurasi 1X2 | Log loss |
 |---|---|---|
-| Tebak tuan rumah menang terus | 43,7% | 1,0743 |
-| **Skorlogi** | **52,0%** | **0,9889** |
-| Bandar Bet365 (margin dibuang) | 53,9% | 0,9744 |
+| Tebak tuan rumah menang terus | 43,8% | 1,0737 |
+| **Skorlogi** | **51,8%** | **0,9909** |
+| Bandar Bet365 (margin dibuang) | 53,9% | 0,9742 |
+
+Angka 1X2 turun sedikit dari versi sebelumnya (52,0%) karena ambang minimal
+riwayat tim diturunkan sampai satu laga. Itu memasukkan pertandingan bertim baru
+promosi yang sebelumnya tidak diprediksi sama sekali — sepertiga jadwal di awal
+musim. Rata-ratanya jadi ikut turun, tapi prediksi tipis itu ditandai keyakinan
+rendah dan tidak pernah masuk Pilihan Terbaik.
 
 Jadi model ini jauh di atas tebakan asal dan sekitar 2 poin di bawah bandar —
 kira-kira sebaik yang bisa dicapai model publik.
@@ -114,6 +137,10 @@ Inggris (Premier League, Championship, League One, League Two, National League),
 Skotlandia (4 divisi), Jerman (Bundesliga, 2. Bundesliga), Italia (Serie A, B),
 Spanyol (La Liga, Segunda), Prancis (Ligue 1, 2), Belanda, Belgia, Portugal,
 Turki, Yunani.
+
+**Sumber cadangan tanpa kunci** — 8 liga: Premier League, Championship, La Liga,
+Serie A, Bundesliga, Ligue 1, Eredivisie, Primeira Liga. Jadwal semusim penuh,
+tanpa corner/kartu/odds.
 
 **Gol dan odds saja** — 16 liga: Argentina, Austria, Brasil, China, Denmark,
 Finlandia, Irlandia, Jepang, Meksiko, Norwegia, Polandia, Rumania, Rusia,
@@ -160,6 +187,7 @@ supaya build tetap jalan tanpa jaringan.
 | `CalibrationTest` | Klaim model vs kenyataan, per market per tingkat keyakinan |
 | `CalibrationFitTest` | Memasang koefisien Platt yang dipakai `Calibration.kt` |
 | `CornerSweepTest` | Menelusuri kenapa prediksi corner tidak bisa dipercaya |
+| `OpenFootballTest` | Alur penuh lewat sumber cadangan tanpa kunci |
 
 ## Soal parlay
 

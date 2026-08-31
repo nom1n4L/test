@@ -32,14 +32,22 @@ import com.skorlogi.app.data.Leagues
 @Composable
 fun LeaguesScreen(
     initial: Set<String>,
+    initialOpen: Set<String>,
     matchCounts: Map<String, Int>,
     onChange: (Set<String>) -> Unit,
+    onChangeOpen: (Set<String>) -> Unit,
 ) {
     var selected by remember { mutableStateOf(initial) }
+    var selectedOpen by remember { mutableStateOf(initialOpen) }
 
     fun update(next: Set<String>) {
         selected = next
         onChange(next)
+    }
+
+    fun updateOpen(next: Set<String>) {
+        selectedOpen = next
+        onChangeOpen(next)
     }
 
     LazyColumn(
@@ -50,7 +58,7 @@ fun LeaguesScreen(
         item {
             SectionCard(
                 title = "Liga yang Diikuti",
-                subtitle = "${selected.size} dari ${Leagues.ALL.size} liga aktif. " +
+                subtitle = "${selected.size + selectedOpen.size} liga aktif. " +
                     "Mematikan liga yang tidak dipakai bikin proses perbarui lebih cepat.",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -61,6 +69,25 @@ fun LeaguesScreen(
                         Text("Kosongkan")
                     }
                 }
+            }
+        }
+
+        item {
+            GroupHeader("Sumber cadangan — tanpa kunci, jadwal semusim penuh")
+            Text(
+                "Dari arsip terbuka di GitHub. Tidak memuat data odds, jadi biasanya tetap " +
+                    "bisa dibuka di jaringan yang memblokir sumber utama. Jadwalnya sampai " +
+                    "akhir musim, bukan seminggu — tapi tanpa market corner dan kartu.\n\n" +
+                    "Nyalakan ini kalau sumber utama diblokir. Kalau keduanya jalan, " +
+                    "pertandingan yang sama akan muncul dua kali.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 6.dp),
+            )
+        }
+        items(Leagues.OPEN_LEAGUES, key = { it.code }) { l ->
+            LeagueRow(l, l.code in selectedOpen, matchCounts[l.code] ?: 0) { on ->
+                updateOpen(if (on) selectedOpen + l.code else selectedOpen - l.code)
             }
         }
 

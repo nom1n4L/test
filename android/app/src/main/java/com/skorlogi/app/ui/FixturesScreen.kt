@@ -37,6 +37,8 @@ fun FixturesScreen(
     quick: Map<String, DoubleArray>,
     onOpen: (Fixture) -> Unit,
     onFilter: (String?) -> Unit,
+    onUseFallback: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val shown = state.fixtures.filter { state.leagueFilter == null || it.league == state.leagueFilter }
 
@@ -70,6 +72,13 @@ fun FixturesScreen(
         }
 
         LeagueFilterRow(state, onFilter)
+
+        if (state.blocked) {
+            Column(Modifier.fillMaxSize().padding(12.dp)) {
+                BlockedNotice(onUseFallback, onOpenSettings)
+            }
+            return@Column
+        }
 
         if (shown.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

@@ -46,6 +46,8 @@ data class UiState(
     val lastSync: Long = -1L,
     val matchCount: Int = 0,
     val leagueFilter: String? = null,
+    /** The open archive is unreachable on this network and nothing replaces it. */
+    val blocked: Boolean = false,
 )
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
@@ -156,7 +158,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     is SyncResult.Partial ->
                         "Selesai sebagian — ${result.matches} pertandingan. Gagal: ${result.failed.take(2).joinToString()}"
                     is SyncResult.Failed -> "Gagal: ${result.reason}"
+                    is SyncResult.Blocked ->
+                        "Sumber data arsip diblokir oleh jaringan ini. Buka Pengaturan untuk " +
+                            "memasang sumber alternatif."
                 },
+                blocked = result is SyncResult.Blocked,
             )
         }
     }
@@ -236,6 +242,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setEnabledLeagues(codes: Set<String>) {
         repo.setEnabledLeagues(codes)
+    }
+
+    fun setEnabledOpenLeagues(codes: Set<String>) {
+        repo.setEnabledOpenLeagues(codes)
+    }
+
+    /** One tap out of a blocked archive: switch on the keyless source and refetch. */
+    fun useFallbackSource() {
+        repo.enableAllOpenLeagues()
+        _state.value = _state.value.copy(blocked = false)
+        sync()
     }
 
     // --- API-Football --------------------------------------------------------

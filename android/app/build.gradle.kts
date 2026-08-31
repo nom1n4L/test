@@ -12,8 +12,8 @@ android {
         applicationId = "com.skorlogi.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -68,4 +68,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     testImplementation("junit:junit:4.13.2")
+    // android.jar ships org.json as stubs that throw; unit tests need the real thing.
+    testImplementation("org.json:json:20240303")
 }

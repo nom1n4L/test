@@ -178,7 +178,7 @@ fun SettingsScreen(
             )
         }
 
-        SectionCard(title = "Skorlogi 1.1") {
+        SectionCard(title = "Skorlogi 1.2") {
             Text(
                 "Semua perhitungan berjalan di dalam HP. Tidak ada akun, tidak ada iklan, " +
                     "tidak ada data yang dikirim ke mana pun selain mengunduh arsip pertandingan.",

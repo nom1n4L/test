@@ -307,11 +307,19 @@ class LeagueModel(
 
             // Only teams currently active — a side that stopped appearing a year ago
             // has been relegated or has left the division.
+            //
+            // The threshold is as low as it goes, on purpose. A week into a season a
+            // promoted side has played once, and demanding more would leave a third
+            // of the fixture list with no prediction at all. Such a team gets a
+            // rating pulled almost entirely to the league average by the shrinkage
+            // prior — close to saying "a typical team in this division", which is
+            // the honest position to hold — and lands as low confidence, keeping it
+            // out of the shortlist without blanking it out of the app.
             val recentCutoff = today - 400
             val active = matches.filter { it.dateEpochDay >= recentCutoff }
                 .flatMap { listOf(it.home, it.away) }
                 .groupingBy { it }.eachCount()
-                .filter { it.value >= 4 }
+                .filter { it.value >= 1 }
                 .keys
 
             val teams = matches.flatMap { listOf(it.home, it.away) }

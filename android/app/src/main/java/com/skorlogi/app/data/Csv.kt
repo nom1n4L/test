@@ -59,8 +59,20 @@ object Csv {
     }
 }
 
-/** Thrown when a download fails in a way worth showing the user. */
-class FetchException(message: String, cause: Throwable? = null) : Exception(message, cause)
+/**
+ * Thrown when a download fails in a way worth showing the user.
+ *
+ * @param unreachable true when the host could not be reached at all, as opposed to
+ *   answering with an error. The distinction matters: a network that blocks a
+ *   domain fails every request against it, so there is no point grinding through
+ *   eighty more downloads, and the user needs to be told something quite
+ *   different from "file not found".
+ */
+class FetchException(
+    message: String,
+    cause: Throwable? = null,
+    val unreachable: Boolean = false,
+) : Exception(message, cause)
 
 object Http {
     private const val TIMEOUT_MS = 25_000
@@ -90,7 +102,12 @@ object Http {
         } catch (e: FetchException) {
             throw e
         } catch (e: Exception) {
-            throw FetchException(e.message ?: e.javaClass.simpleName, e)
+            val unreachable = e is java.net.UnknownHostException ||
+                e is java.net.ConnectException ||
+                e is java.net.NoRouteToHostException ||
+                e is java.net.SocketTimeoutException ||
+                e is javax.net.ssl.SSLException
+            throw FetchException(e.message ?: e.javaClass.simpleName, e, unreachable)
         } finally {
             conn?.disconnect()
         }

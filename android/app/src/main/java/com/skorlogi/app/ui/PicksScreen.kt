@@ -35,18 +35,25 @@ import com.skorlogi.app.engine.Pick
 fun PicksScreen(
     picks: List<Pick>,
     working: Boolean,
+    blocked: Boolean,
     isFollowed: (Pick) -> Boolean,
     onFollow: (Pick) -> Unit,
     onOpen: (Fixture) -> Unit,
+    onUseFallback: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (blocked) {
+            item { BlockedNotice(onUseFallback, onOpenSettings) }
+        }
+
         item { Explainer() }
 
-        if (picks.isEmpty()) {
+        if (picks.isEmpty() && !blocked) {
             item {
                 Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                     if (working) {

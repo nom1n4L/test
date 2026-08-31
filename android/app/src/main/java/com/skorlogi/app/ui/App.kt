@@ -76,13 +76,18 @@ fun App(vm: AppViewModel) {
                     quick = quick,
                     onOpen = vm::open,
                     onFilter = vm::setLeagueFilter,
+                    onUseFallback = vm::useFallbackSource,
+                    onOpenSettings = { vm.go(Screen.Settings) },
                 )
                 is Screen.Picks -> PicksScreen(
                     picks = picks,
                     working = state.syncing || (picks.isEmpty() && quick.isEmpty() && state.fixtures.isNotEmpty()),
+                    blocked = state.blocked,
                     isFollowed = vm::isFollowed,
                     onFollow = { vm.follow(it) },
                     onOpen = vm::open,
+                    onUseFallback = vm::useFallbackSource,
+                    onOpenSettings = { vm.go(Screen.Settings) },
                 )
                 is Screen.Tracker -> TrackerScreen(
                     tracked = tracked,
@@ -94,10 +99,12 @@ fun App(vm: AppViewModel) {
                 is Screen.Match -> MatchScreen(s.fixture, prediction, predicting)
                 is Screen.Leagues -> LeaguesScreen(
                     initial = vm.repo.enabledLeagues(),
+                    initialOpen = vm.repo.enabledOpenLeagues(),
                     matchCounts = remember(state.matchCount) {
                         vm.repo.matches.groupingBy { it.league }.eachCount()
                     },
                     onChange = vm::setEnabledLeagues,
+                    onChangeOpen = vm::setEnabledOpenLeagues,
                 )
                 is Screen.Settings -> SettingsScreen(
                     vm = vm,

@@ -18,6 +18,14 @@ sealed interface SyncResult {
     data class Ok(val matches: Int, val fixtures: Int, val leagues: Int) : SyncResult
     data class Partial(val matches: Int, val fixtures: Int, val leagues: Int, val failed: List<String>) : SyncResult
     data class Failed(val reason: String) : SyncResult
+
+    /**
+     * The open archive could not be reached and nothing else is configured. This is
+     * its own case because it is not a fault the user can retry away — some networks
+     * resolve football-data.co.uk to a block server — and the way out is a different
+     * source, not another attempt.
+     */
+    data object Blocked : SyncResult
 }
 
 /**
@@ -63,7 +71,7 @@ class Repository(private val context: Context) {
     @Volatile var lastApiRequests: Int = 0
         private set
 
-    private fun fileFor(name: String) = File(cacheDir, "$name.csv")
+    private fun fileFor(name: String) = File(cacheDir, "${name.replace(':', '-')}.csv")
 
     private fun readCache(name: String): String? =
         fileFor(name).takeIf { it.exists() && it.length() > 0 }?.readText()
@@ -88,12 +96,13 @@ class Repository(private val context: Context) {
                 Feed.EXTRA -> readCache(league.code)?.let {
                     all.addAll(FootballData.parseExtra(league.code, it, since))
                 }
-                // API leagues are cached in their own format and loaded below.
-                Feed.API -> Unit
+                // API and openfootball leagues use their own formats, loaded below.
+                Feed.API, Feed.OPEN -> Unit
             }
         }
         val (apiMatches, _) = loadApiFromCache()
         all.addAll(apiMatches)
+        all.addAll(loadOpenFromCache().first)
         matches = all
         loadFixturesFromCache()
     }
@@ -106,7 +115,9 @@ class Repository(private val context: Context) {
             ?.filter { it.dateEpochDay >= today - 1 }
             ?: emptyList()
         val (_, api) = loadApiFromCache()
-        fixtures = (archive + api)
+        val (_, open) = loadOpenFromCache()
+        fixtures = (archive + api + open)
+            .filter { it.dateEpochDay >= today - 1 }
             .distinctBy { it.key }
             .sortedWith(compareBy({ it.dateEpochDay }, { it.league }, { it.time }))
     }
@@ -130,27 +141,44 @@ class Repository(private val context: Context) {
         onFixturesReady: suspend () -> Unit = {},
     ): SyncResult = withContext(Dispatchers.IO) {
         val leagues = Leagues.ALL.filter { it.code in enabled }
-        if (leagues.isEmpty()) return@withContext SyncResult.Failed("Belum ada liga yang dipilih.")
+        val apiConfigured = hasApiKey && followedApiLeagues().isNotEmpty()
+        val openConfigured = enabledOpenLeagues().isNotEmpty()
+        if (leagues.isEmpty() && !apiConfigured && !openConfigured) {
+            return@withContext SyncResult.Failed("Belum ada liga yang dipilih.")
+        }
 
         val failed = ArrayList<String>()
 
         // 1. The schedule, first and alone.
-        onProgress(SyncProgress(0, 1, "Jadwal pertandingan"))
+        var archiveBlocked = false
         var fixtureLeagues = emptyList<String>()
-        try {
-            val body = Http.getText(FootballData.FIXTURES_URL)
-            if (body.length > 200) {
-                writeCache("fixtures", body)
-                fixtureLeagues = FootballData.parseFixtures(body).map { it.league }.distinct()
+        if (leagues.isNotEmpty()) {
+            onProgress(SyncProgress(0, 1, "Jadwal pertandingan"))
+            try {
+                val body = Http.getText(FootballData.FIXTURES_URL)
+                if (body.length > 200) {
+                    writeCache("fixtures", body)
+                    fixtureLeagues = FootballData.parseFixtures(body).map { it.league }.distinct()
+                }
+            } catch (e: FetchException) {
+                // If the archive host cannot be reached, every one of the eighty
+                // season files behind it will fail the same way, one timeout at a
+                // time. Stop here instead of making the user wait for that.
+                archiveBlocked = e.unreachable
+                failed.add(
+                    if (e.unreachable) {
+                        "football-data.co.uk tidak bisa dijangkau dari jaringan ini"
+                    } else {
+                        "Jadwal pertandingan (${e.message})"
+                    }
+                )
             }
-        } catch (e: FetchException) {
-            failed.add("Jadwal pertandingan (${e.message})")
         }
         loadFixturesFromCache()
         onFixturesReady()
 
         // 2. History, leagues with fixtures first so predictions can start early.
-        val order = leagues.sortedByDescending { it.code in fixtureLeagues }
+        val order = if (archiveBlocked) emptyList() else leagues.sortedByDescending { it.code in fixtureLeagues }
         val jobs = ArrayList<Pair<String, String>>()
         for (l in order) {
             when (l.feed) {
@@ -158,7 +186,7 @@ class Repository(private val context: Context) {
                     jobs.add("${l.code}_$s" to FootballData.mainUrl(l.code, s))
                 }
                 Feed.EXTRA -> jobs.add(l.code to FootballData.extraUrl(l.code))
-                Feed.API -> Unit
+                Feed.API, Feed.OPEN -> Unit
             }
         }
 
@@ -187,6 +215,14 @@ class Repository(private val context: Context) {
             }.forEach { it.await() }
         }
 
+        // The keyless fallback. Independent of the archive, so it still works when
+        // that host is blocked.
+        try {
+            syncOpen(onProgress, failed)
+        } catch (e: Exception) {
+            failed.add("Sumber cadangan (${e.message})")
+        }
+
         // API-Football, when a key is configured. It runs after the archive so a
         // quota failure never costs the free data.
         val apiRequests = try {
@@ -204,6 +240,7 @@ class Repository(private val context: Context) {
 
         val leagueCount = matches.map { it.league }.distinct().size
         return@withContext when {
+            archiveBlocked && !apiConfigured && !openConfigured -> SyncResult.Blocked
             matches.isEmpty() -> SyncResult.Failed(
                 failed.firstOrNull() ?: "Tidak ada data yang berhasil diunduh."
             )
@@ -238,6 +275,76 @@ class Repository(private val context: Context) {
 
     fun setEnabledLeagues(codes: Set<String>) {
         prefs.edit().putStringSet("leagues", codes).apply()
+    }
+
+    // --- openfootball fallback ----------------------------------------------
+
+    /**
+     * Off unless chosen. When the odds archive is reachable it covers the same
+     * leagues with more detail, and enabling both would list every match twice
+     * under two spellings.
+     */
+    fun enabledOpenLeagues(): Set<String> =
+        prefs.getStringSet("open_leagues", emptySet()) ?: emptySet()
+
+    fun setEnabledOpenLeagues(codes: Set<String>) {
+        prefs.edit().putStringSet("open_leagues", codes).apply()
+        models.clear()
+    }
+
+    /** Turns on every fallback league. Offered when the archive turns out blocked. */
+    fun enableAllOpenLeagues() {
+        setEnabledOpenLeagues(Leagues.OPEN_LEAGUES.map { it.code }.toSet())
+    }
+
+    private suspend fun syncOpen(
+        onProgress: (SyncProgress) -> Unit,
+        failed: MutableList<String>,
+    ) = withContext(Dispatchers.IO) {
+        val enabled = enabledOpenLeagues()
+        val leagues = Leagues.OPEN_LEAGUES.filter { it.code in enabled }
+        if (leagues.isEmpty()) return@withContext
+        val seasons = OpenFootball.recentSeasons()
+
+        val jobs = leagues.flatMap { l ->
+            seasons.map { season -> Triple(l, season, l.code.removePrefix("of:")) }
+        }
+        val done = java.util.concurrent.atomic.AtomicInteger(0)
+        val gate = Semaphore(MAX_PARALLEL_DOWNLOADS)
+        coroutineScope {
+            jobs.map { (league, season, path) ->
+                async {
+                    gate.withPermit {
+                        onProgress(SyncProgress(done.get(), jobs.size, "${league.name} $season"))
+                        try {
+                            val body = Http.getText(OpenFootball.url(season, path))
+                            if (body.length > 200) writeCache("${league.code}_$season", body)
+                        } catch (e: FetchException) {
+                            // Seasons before a league joined the archive simply 404.
+                            if (e.message != "404") {
+                                synchronized(failed) { failed.add("${league.name} $season (${e.message})") }
+                            }
+                        }
+                        done.incrementAndGet()
+                    }
+                }
+            }.forEach { it.await() }
+        }
+    }
+
+    private fun loadOpenFromCache(): Pair<List<Match>, List<Fixture>> {
+        val enabled = enabledOpenLeagues()
+        val matches = ArrayList<Match>()
+        val fixtures = ArrayList<Fixture>()
+        for (league in Leagues.OPEN_LEAGUES.filter { it.code in enabled }) {
+            for (season in OpenFootball.recentSeasons()) {
+                val body = readCache("${league.code}_$season") ?: continue
+                val (played, upcoming) = OpenFootball.parse(league.code, body)
+                matches.addAll(played)
+                fixtures.addAll(upcoming)
+            }
+        }
+        return matches to fixtures
     }
 
     // --- API-Football --------------------------------------------------------

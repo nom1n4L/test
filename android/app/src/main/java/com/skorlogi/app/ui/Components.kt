@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -164,6 +166,87 @@ fun FormPills(form: String) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(c.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = color)
+            }
+        }
+    }
+}
+
+
+/**
+ * Shown when the open archive cannot be reached at all.
+ *
+ * Some networks — Indonesian ISPs among them — resolve football-data.co.uk to a
+ * block server, because the archive publishes bookmaker odds alongside its match
+ * results. Nothing the app does will get through that, so the panel says what is
+ * happening and points at the source that does not depend on it.
+ */
+@Composable
+fun BlockedNotice(onUseFallback: () -> Unit, onOpenSettings: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(
+                "Sumber data diblokir jaringanmu",
+                style = MaterialTheme.typography.titleMedium,
+                color = Amber,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Aplikasi tidak bisa menjangkau football-data.co.uk. Ini bukan kerusakan " +
+                    "aplikasi: jaringanmu mengarahkan alamat itu ke server blokir, " +
+                    "kemungkinan karena arsipnya memuat data odds.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                "Cara tercepat — tanpa daftar apa pun",
+                style = MaterialTheme.typography.labelSmall,
+                color = Green,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Ada sumber cadangan di GitHub yang tidak memuat data odds, jadi biasanya " +
+                    "tidak ikut diblokir. Isinya 8 liga besar — Premier League, La Liga, " +
+                    "Serie A, Bundesliga, Ligue 1, Eredivisie, Primeira Liga, Championship — " +
+                    "dan jadwalnya justru satu musim penuh, bukan seminggu.\n\n" +
+                    "Yang tidak ada di sana: market corner dan kartu. Itu justru dua market " +
+                    "yang gagal uji kejujuran, jadi tidak banyak yang hilang.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = onUseFallback,
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Pakai sumber cadangan sekarang")
+            }
+            Spacer(Modifier.height(16.dp))
+            Text(
+                "Kalau mau Liga 1 Indonesia",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Perlu kunci API-Football gratis: daftar di dashboard.api-football.com, " +
+                    "tempel kuncinya di Pengaturan, tekan Cek kunci, lalu cari \"Indonesia\".",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = onOpenSettings,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+            ) {
+                Text("Buka Pengaturan", color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
