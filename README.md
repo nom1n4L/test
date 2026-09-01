@@ -4,7 +4,7 @@ Aplikasi Android untuk memprediksi pertandingan sepak bola. Semua data diunduh
 otomatis dan seluruh perhitungan berjalan di dalam HP — tanpa akun, tanpa kunci
 API, tanpa server, tanpa iklan.
 
-**[⬇ Unduh Skorlogi-1.3.apk](Skorlogi-1.3.apk)** · 1,2 MB · Android 7.0 ke atas
+**[⬇ Unduh Skorlogi-1.4.apk](Skorlogi-1.4.apk)** · 3,5 MB · Android 7.0 ke atas
 
 ---
 
@@ -32,6 +32,10 @@ Untuk Liga 1 Indonesia, tetap perlu kunci API-Football gratis lewat Pengaturan.
   berapa gol. Semua kalimatnya dihasilkan dari angka yang dipakai model, bukan
   ringkasan terpisah, dan ada test yang memastikan teksnya tidak pernah
   bertentangan dengan angkanya.
+- **Chatbot Claude** (opsional, berbayar) — dibatasi hanya boleh memakai angka
+  yang dihitung aplikasi ini; dilarang mengarang statistik dari ingatannya.
+- **Menu Parlay** — susun sendiri atau pakai saran, lengkap dengan peluang gabungan
+  dan imbal hasil harapan yang sebenarnya.
 - **Pencarian** — cari tim, liga, atau pertandingan.
 - **Halaman tim** — peringkat, Elo, faktor serangan/pertahanan, pemisahan
   kandang vs tandang, laga terakhir, dan jadwal berikutnya beserta peluangnya.
@@ -197,8 +201,16 @@ supaya build tetap jalan tanpa jaringan.
 | `CornerSweepTest` | Menelusuri kenapa prediksi corner tidak bisa dipercaya |
 | `OpenFootballTest` | Alur penuh lewat sumber cadangan tanpa kunci |
 | `AnalysisTest` | Teks penjelasan tidak boleh bertentangan dengan angka model |
+| `ParlayTest` | Aritmetika parlay, termasuk klaim 1/margin^n |
 
 ## Soal parlay
+
+Ada menu Parlay di aplikasi, dan menu itu memimpin dengan aritmetikanya, bukan
+menyembunyikannya. Diuji di `ParlayTest`: tiga leg "aman" (peluang gabungan
+72,1%) dan tiga leg berisiko (17,2%) menghasilkan imbal hasil harapan yang
+**persis sama**, 83,9%. Pilihan yang lebih baik menaikkan peluang menang dan
+menurunkan bayaran dengan faktor yang sama; yang tersisa hanyalah margin.
+
 
 Perlu dikatakan terang-terangan, karena ini pertanyaan yang paling sering muncul.
 

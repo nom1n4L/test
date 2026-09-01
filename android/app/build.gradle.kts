@@ -12,8 +12,8 @@ android {
         applicationId = "com.skorlogi.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -30,6 +30,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // The Anthropic SDK is built for the JVM and reaches for java.time and
+        // friends that minSdk 24 does not have. Desugaring back-fills them.
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
 
@@ -48,6 +51,10 @@ android {
             "DebugProbesKt.bin",
             "kotlin-tooling-metadata.json",
             "**/*.kotlin_metadata",
+            "META-INF/DEPENDENCIES",
+            "META-INF/LICENSE*",
+            "META-INF/NOTICE*",
+            "META-INF/*.kotlin_module",
         )
     }
 }
@@ -66,6 +73,8 @@ dependencies {
     implementation("androidx.compose.material:material-icons-core")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("com.anthropic:anthropic-java:2.34.0")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 
     testImplementation("junit:junit:4.13.2")
     // android.jar ships org.json as stubs that throw; unit tests need the real thing.

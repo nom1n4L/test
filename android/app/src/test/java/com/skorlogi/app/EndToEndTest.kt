@@ -104,6 +104,9 @@ class EndToEndTest {
         }
         for (pick in shortlist) {
             assert(pick.prob >= 0.68) { "pilihan di bawah ambang: ${pick.prob}" }
+            assert(pick.prob <= 0.92) {
+                "pilihan di atas ambang atas — odds adilnya tidak bisa dipasang: ${pick.prob}"
+            }
             assert(pick.confidence != com.skorlogi.app.engine.Confidence.LOW) {
                 "pilihan dari data tipis lolos saringan"
             }

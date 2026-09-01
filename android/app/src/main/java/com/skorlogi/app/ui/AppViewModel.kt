@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.skorlogi.app.data.ApiFootball
+import com.skorlogi.app.data.Assistant
+import com.skorlogi.app.data.ChatMessage
 import com.skorlogi.app.data.ApiLeague
 import com.skorlogi.app.data.Dates
 import com.skorlogi.app.data.Fixture
@@ -18,6 +20,8 @@ import com.skorlogi.app.engine.Analysis
 import com.skorlogi.app.engine.Insight
 import com.skorlogi.app.engine.Pick
 import com.skorlogi.app.engine.Picks
+import com.skorlogi.app.engine.Parlay
+import com.skorlogi.app.engine.ParlayOption
 import com.skorlogi.app.engine.Prediction
 import com.skorlogi.app.engine.TeamProfile
 import java.util.concurrent.ConcurrentHashMap
@@ -38,6 +42,8 @@ sealed interface Screen {
     data object Picks : Screen
     data object Tracker : Screen
     data object Search : Screen
+    data object Chat : Screen
+    data object Parlay : Screen
     data class Team(val team: String, val league: String) : Screen
     data class Match(val fixture: Fixture) : Screen
     data object Leagues : Screen
@@ -83,6 +89,122 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _insights = MutableStateFlow<List<Insight>>(emptyList())
     val insights: StateFlow<List<Insight>> = _insights.asStateFlow()
+
+    // --- Assistant -----------------------------------------------------------
+
+    private val _chat = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val chat: StateFlow<List<ChatMessage>> = _chat.asStateFlow()
+
+    private val _chatBusy = MutableStateFlow(false)
+    val chatBusy: StateFlow<Boolean> = _chatBusy.asStateFlow()
+
+    fun sendChat(text: String) {
+        if (_chatBusy.value || text.isBlank()) return
+        val history = _chat.value + ChatMessage(fromUser = true, text = text.trim())
+        _chat.value = history
+        _chatBusy.value = true
+        viewModelScope.launch {
+            val reply = try {
+                Assistant(repo.claudeKey).ask(history, buildContext(), repo.claudeModel)
+            } catch (e: Assistant.AssistantException) {
+                "Gagal menghubungi Claude: ${e.message}"
+            } catch (e: Exception) {
+                "Gagal: ${e.message}"
+            }
+            _chat.value = _chat.value + ChatMessage(fromUser = false, text = reply)
+            _chatBusy.value = false
+        }
+    }
+
+    fun clearChat() {
+        _chat.value = emptyList()
+    }
+
+    /**
+     * The figures the assistant is allowed to talk about. Everything it might be
+     * asked comes from here, because the system prompt forbids it inventing any
+     * number that is not in this text.
+     */
+    private fun buildContext(): String = buildString {
+        val today = Dates.today()
+        appendLine("Tanggal hari ini: ${Dates.formatWithDay(today)}")
+        appendLine("Pertandingan mendatang tersimpan: ${repo.fixtures.size}")
+        appendLine("Riwayat pertandingan tersimpan: ${repo.matches.size}")
+        appendLine()
+
+        val picks = _picks.value
+        if (picks.isEmpty()) {
+            appendLine("PILIHAN TERBAIK: belum ada yang lolos saringan hari ini.")
+        } else {
+            appendLine("PILIHAN TERBAIK (${picks.size} lolos saringan, ambang 68-92%):")
+            picks.take(20).forEach { p ->
+                appendLine(
+                    "- ${p.fixture.home} vs ${p.fixture.away} (${Leagues.label(p.fixture.league)}, " +
+                        "${Dates.formatShort(p.fixture.dateEpochDay)}): ${p.selection} [${p.market}] " +
+                        "${p.percent}%, odds adil %.2f, keyakinan ${p.confidence.label}".format(p.fairOdds)
+                )
+            }
+        }
+        appendLine()
+
+        val open = _prediction.value
+        if (open != null) {
+            appendLine("PERTANDINGAN YANG SEDANG DIBUKA PENGGUNA:")
+            appendLine("${open.fixture.home} vs ${open.fixture.away} — ${Leagues.label(open.fixture.league)}")
+            appendLine("Perkiraan gol: %.2f - %.2f".format(open.lambdaHome, open.lambdaAway))
+            appendLine(
+                "1X2: kandang %.0f%%, seri %.0f%%, tandang %.0f%%"
+                    .format(open.pHome * 100, open.pDraw * 100, open.pAway * 100)
+            )
+            appendLine("Keyakinan: ${open.confidence.label} — ${open.confidence.note}")
+            open.groups.forEach { g ->
+                appendLine("  [${g.title}] " + g.lines.take(8).joinToString("; ") {
+                    "${it.label} %.0f%%".format(it.prob * 100)
+                })
+            }
+            open.homeForm?.let {
+                appendLine(
+                    "Form ${it.team}: ${it.formString}, cetak %.2f, kebobolan %.2f per laga"
+                        .format(it.avgScored, it.avgConceded)
+                )
+            }
+            open.awayForm?.let {
+                appendLine(
+                    "Form ${it.team}: ${it.formString}, cetak %.2f, kebobolan %.2f per laga"
+                        .format(it.avgScored, it.avgConceded)
+                )
+            }
+            appendLine()
+        }
+
+        val stats = _trackerStats.value
+        if (stats.settled > 0) {
+            appendLine("RAPOR PELACAK PENGGUNA:")
+            appendLine(
+                "${stats.won} tembus dari ${stats.settled} selesai (%.0f%%), " +
+                    "sedangkan model menjanjikan %.0f%%."
+                        .format(stats.hitRate * 100, stats.expected * 100)
+            )
+            if (stats.hasMoney) {
+                appendLine("Untung/rugi: %+.2f satuan, ROI %+.0f%%".format(stats.profit, stats.roi * 100))
+            }
+            appendLine()
+        }
+
+        val parlays = Parlay.suggestions(picks)
+        if (parlays.isNotEmpty()) {
+            appendLine("HITUNGAN PARLAY dari pilihan di atas:")
+            parlays.forEach { o ->
+                appendLine(
+                    "- ${o.size} leg: peluang tembus semua %.1f%% (sekitar 1 dari ${o.oneInN}), " +
+                        "bayaran wajar %.2f, bayaran nyata setelah margin %.2f, " +
+                        "imbal hasil harapan %.0f%% (rugi %d%% rata-rata)"
+                            .format(o.combinedProb * 100, o.fairOdds, o.realisticOdds,
+                                o.expectedReturn * 100, o.expectedLossPercent)
+                )
+            }
+        }
+    }
 
     // --- Search --------------------------------------------------------------
 
@@ -418,6 +540,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun followedApiLeagues(): List<ApiLeague> = repo.followedApiLeagues()
+
+    // --- Parlay --------------------------------------------------------------
+
+    private val _parlayLegs = MutableStateFlow<List<Pick>>(emptyList())
+    val parlayLegs: StateFlow<List<Pick>> = _parlayLegs.asStateFlow()
+
+    fun toggleParlayLeg(pick: Pick) {
+        val key = pick.fixture.key
+        val current = _parlayLegs.value
+        _parlayLegs.value = if (current.any { it.fixture.key == key && it.kind == pick.kind }) {
+            current.filterNot { it.fixture.key == key && it.kind == pick.kind }
+        } else {
+            // One leg per match: two bets on the same game are not independent, and
+            // multiplying them as if they were would overstate the parlay badly.
+            current.filterNot { it.fixture.key == key } + pick
+        }
+    }
+
+    fun clearParlay() {
+        _parlayLegs.value = emptyList()
+    }
+
+    fun parlayOf(legs: List<Pick>): ParlayOption = Parlay.combine(legs)
+
+    fun parlaySuggestions(): List<ParlayOption> = Parlay.suggestions(_picks.value)
+
+    fun setClaudeKey(key: String) {
+        repo.claudeKey = key
+    }
+
+    fun setClaudeModel(model: String) {
+        repo.claudeModel = model
+    }
 
     fun daysSinceSync(): Long {
         val last = repo.lastSyncEpochDay

@@ -14,6 +14,12 @@ import com.skorlogi.app.data.Fixture
  *
  * Everything here is still a probability, not a tip. A 78% pick loses roughly one
  * time in five, and that is the honest expectation, not a failure of the model.
+ *
+ * The list is also bounded at both ends. Anything under 68% is not confident
+ * enough to lead with, and anything over 92% is not a bet: it prices near 1.05,
+ * which no bookmaker offers, and it sits past the range where the calibration was
+ * measured. A shortlist full of near-certainties nobody can back is a shortlist
+ * that wastes the reader's attention.
  */
 /**
  * The machine-readable half of a pick. Stored alongside the label so a followed
@@ -57,10 +63,54 @@ object Picks {
     /** Below this the pick is not worth listing as a "best" anything. */
     private const val MIN_PROB = 0.68
 
-    private const val RELIABLE_DC = "Terukur akurat: saat model bilang ~75%, nyatanya 74%"
-    private const val RELIABLE_RESULT = "Terukur akurat: saat model bilang ~75%, nyatanya 77%"
-    private const val RELIABLE_OVER15 = "Terukur akurat: saat model bilang ~75%, nyatanya 78%"
-    private const val RELIABLE_HALF = "Terukur akurat: saat model bilang ~75%, nyatanya 75%"
+    /**
+     * And above this it is not worth listing either, for two reasons.
+     *
+     * A 98% call prices at 1.02, which no bookmaker offers and no margin survives,
+     * so it is not a bet anyone can place. It is also past where calibration was
+     * measured — the archive leagues never produced claims that extreme, so there
+     * is no evidence the number means what it says up there. Both arguments point
+     * the same way: leave it off the list.
+     */
+    private const val MAX_PROB = 0.92
+
+    /**
+     * What the measurements actually say, per market and per confidence band.
+     *
+     * Quoting a figure measured at 75% next to a 95% claim is the kind of thing
+     * that reads as evidence and is not, so each band carries its own number and
+     * the unmeasured ones say so.
+     */
+    private fun reliability(family: String, prob: Double): String {
+        val band = when {
+            prob < 0.70 -> 0
+            prob < 0.80 -> 1
+            prob < 0.90 -> 2
+            else -> 3
+        }
+        return when (family) {
+            "DC" -> when (band) {
+                1 -> "Diuji: klaim ~75%, nyatanya 74%"
+                2 -> "Diuji: klaim ~84%, nyatanya 84%"
+                else -> "Diuji: klaim ~93%, nyatanya 95%"
+            }
+            "RESULT" -> when (band) {
+                1 -> "Diuji: klaim ~75%, nyatanya 77%"
+                2 -> "Diuji: klaim ~84%, nyatanya 90%"
+                else -> "Di atas 90% belum pernah teruji — perlakukan dengan hati-hati"
+            }
+            "TOTAL" -> when (band) {
+                1 -> "Diuji: klaim ~75%, nyatanya 78%"
+                2 -> "Diuji: klaim ~84%, nyatanya 84%"
+                else -> "Diuji: klaim ~92%, nyatanya 92%"
+            }
+            else -> when (band) {
+                1 -> "Diuji: klaim ~75%, nyatanya 75%"
+                2 -> "Diuji: klaim ~83%, nyatanya 79% — sedikit kelewat pede"
+                else -> "Di atas 90% belum pernah teruji — perlakukan dengan hati-hati"
+            }
+        }
+    }
 
     /** Candidate picks from one match, best first. */
     fun from(p: Prediction): List<Pick> {
@@ -79,8 +129,11 @@ object Picks {
                     line.label.contains("(12)") -> PickKind.DC_12
                     else -> PickKind.DC_X2
                 }
-                if (line.prob >= MIN_PROB) {
-                    out.add(Pick(fx, "Double Chance", line.label, kind, line.prob, RELIABLE_DC, p.confidence))
+                if (line.prob in MIN_PROB..MAX_PROB) {
+                    out.add(
+                        Pick(fx, "Double Chance", line.label, kind, line.prob,
+                            reliability("DC", line.prob), p.confidence)
+                    )
                 }
             }
 
@@ -89,17 +142,21 @@ object Picks {
             Triple(p.pDraw, "Seri", PickKind.DRAW),
             Triple(p.pAway, "${fx.away} menang", PickKind.AWAY),
         ).maxByOrNull { it.first }!!
-        if (favourite.first >= MIN_PROB) {
+        if (favourite.first in MIN_PROB..MAX_PROB) {
             out.add(
-                Pick(fx, "Hasil Akhir", favourite.second, favourite.third, favourite.first, RELIABLE_RESULT, p.confidence)
+                Pick(fx, "Hasil Akhir", favourite.second, favourite.third, favourite.first,
+                    reliability("RESULT", favourite.first), p.confidence)
             )
         }
 
         p.groups.firstOrNull { it.title == "Total Gol" }?.lines?.let { lines ->
             for ((label, kind) in listOf("Over 1.5" to PickKind.OVER_15, "Under 3.5" to PickKind.UNDER_35)) {
                 lines.firstOrNull { it.label == label }?.let {
-                    if (it.prob >= MIN_PROB) {
-                        out.add(Pick(fx, "Total Gol", it.label, kind, it.prob, RELIABLE_OVER15, p.confidence))
+                    if (it.prob in MIN_PROB..MAX_PROB) {
+                        out.add(
+                            Pick(fx, "Total Gol", it.label, kind, it.prob,
+                                reliability("TOTAL", it.prob), p.confidence)
+                        )
                     }
                 }
             }
@@ -108,9 +165,10 @@ object Picks {
         p.groups.firstOrNull { it.title == "Babak Pertama" }
             ?.lines?.firstOrNull { it.label == "Babak 1 over 0.5" }
             ?.let {
-                if (it.prob >= MIN_PROB) {
+                if (it.prob in MIN_PROB..MAX_PROB) {
                     out.add(
-                        Pick(fx, "Babak 1", "Ada gol di babak 1", PickKind.HT_OVER_05, it.prob, RELIABLE_HALF, p.confidence)
+                        Pick(fx, "Babak 1", "Ada gol di babak 1", PickKind.HT_OVER_05, it.prob,
+                            reliability("HALF", it.prob), p.confidence)
                     )
                 }
             }

@@ -47,13 +47,18 @@ object OpenFootball {
             val date = parseDate(m.optString("date")) ?: continue
             val time = m.optString("time")
 
-            val score = m.optJSONObject("score")
-            val ft = score?.optJSONArray("ft")
-            if (score == null || ft == null || ft.length() < 2) {
+            // The archive is hand-maintained and the score field comes in two
+            // shapes: usually {"ft": [2,1], "ht": [1,0]}, but sometimes a bare
+            // [2,1]. Reading only the first shape silently files finished matches
+            // as upcoming and throws away the result.
+            val scoreObject = m.optJSONObject("score")
+            val scoreArray = m.optJSONArray("score")
+            val ft = scoreObject?.optJSONArray("ft") ?: scoreArray
+            if (ft == null || ft.length() < 2 || ft.isNull(0) || ft.isNull(1)) {
                 upcoming.add(Fixture(code, date, time, home, away))
                 continue
             }
-            val ht = score.optJSONArray("ht")
+            val ht = scoreObject?.optJSONArray("ht")
             played.add(
                 Match(
                     league = code,

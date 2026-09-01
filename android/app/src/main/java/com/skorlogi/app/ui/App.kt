@@ -27,7 +27,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Refresh
@@ -58,6 +60,9 @@ fun App(vm: AppViewModel) {
     val profile by vm.profile.collectAsStateWithLifecycle()
     val teamFixtures by vm.teamFixtures.collectAsStateWithLifecycle()
     val profileLoading by vm.profileLoading.collectAsStateWithLifecycle()
+    val chatMessages by vm.chat.collectAsStateWithLifecycle()
+    val chatBusy by vm.chatBusy.collectAsStateWithLifecycle()
+    val parlayLegs by vm.parlayLegs.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -104,6 +109,22 @@ fun App(vm: AppViewModel) {
                     onClearSettled = vm::clearSettled,
                 )
                 is Screen.Match -> MatchScreen(s.fixture, prediction, insights, predicting)
+                is Screen.Chat -> ChatScreen(
+                    messages = chatMessages,
+                    busy = chatBusy,
+                    hasKey = vm.repo.hasClaudeKey,
+                    onSend = vm::sendChat,
+                    onClear = vm::clearChat,
+                    onOpenSettings = { vm.go(Screen.Settings) },
+                )
+                is Screen.Parlay -> ParlayScreen(
+                    picks = picks,
+                    legs = parlayLegs,
+                    suggestions = remember(picks) { vm.parlaySuggestions() },
+                    onToggle = vm::toggleParlayLeg,
+                    onClear = vm::clearParlay,
+                    build = vm::parlayOf,
+                )
                 is Screen.Search -> SearchScreen(
                     query = query,
                     results = results,
@@ -162,6 +183,8 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                             is Screen.Fixtures -> "Jadwal"
                             is Screen.Tracker -> "Pelacak"
                             is Screen.Search -> "Cari"
+                            is Screen.Chat -> "Tanya Claude"
+                            is Screen.Parlay -> "Parlay"
                             is Screen.Team -> s.team
                             is Screen.Match -> "Detail Prediksi"
                             is Screen.Leagues -> "Liga"
@@ -178,9 +201,27 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                         )
                     }
                 }
+                if (screen !is Screen.Match && screen !is Screen.Team && screen !is Screen.Search) {
+                    IconButton(onClick = { vm.go(Screen.Search) }) {
+                        Icon(
+                            Icons.Filled.Search,
+                            "Cari",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 if (screen is Screen.Picks || screen is Screen.Fixtures) {
                     IconButton(onClick = vm::sync, enabled = !state.syncing) {
                         Icon(Icons.Filled.Refresh, "Perbarui", tint = Green)
+                    }
+                }
+                if (screen !is Screen.Match && screen !is Screen.Team && screen !is Screen.Settings) {
+                    IconButton(onClick = { vm.go(Screen.Settings) }) {
+                        Icon(
+                            Icons.Filled.Settings,
+                            "Pengaturan",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                 }
             }
@@ -191,17 +232,19 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
 
 @Composable
 private fun BottomBar(screen: Screen, vm: AppViewModel) {
-    if (screen is Screen.Match || screen is Screen.Team) return
+    if (screen is Screen.Match || screen is Screen.Team || screen is Screen.Search) return
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
     ) {
+        // Five is the most a bottom bar carries without becoming a wall of icons.
+        // Search moved to the top bar, where it is reachable from every screen.
         val items = listOf(
             Triple("Pilihan", Icons.Filled.Star, Screen.Picks),
             Triple("Jadwal", Icons.Filled.DateRange, Screen.Fixtures),
-            Triple("Cari", Icons.Filled.Search, Screen.Search),
+            Triple("Parlay", Icons.Filled.ShoppingCart, Screen.Parlay),
+            Triple("Tanya", Icons.Filled.Face, Screen.Chat),
             Triple("Pelacak", Icons.Filled.CheckCircle, Screen.Tracker),
-            Triple("Pengaturan", Icons.Filled.Settings, Screen.Settings),
         )
         items.forEach { (label, icon, target) ->
             NavigationBarItem(

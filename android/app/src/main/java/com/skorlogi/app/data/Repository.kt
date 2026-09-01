@@ -58,6 +58,29 @@ class Repository(private val context: Context) {
         get() = prefs.getLong("last_sync", -1L)
         private set(v) = prefs.edit().putLong("last_sync", v).apply()
 
+    /**
+     * When the archive host was last found unreachable.
+     *
+     * A network that blocks a domain keeps blocking it, so retrying on every
+     * refresh only buys the same timeout and the same error message. This
+     * remembers the verdict for a while and quietly skips the source instead of
+     * reporting a failure the user can do nothing about.
+     */
+    var archiveBlockedOn: Long
+        get() = prefs.getLong("archive_blocked_on", -1L)
+        set(v) = prefs.edit().putLong("archive_blocked_on", v).apply()
+
+    val archiveKnownBlocked: Boolean
+        get() {
+            val on = archiveBlockedOn
+            return on >= 0 && Dates.today() - on < ARCHIVE_RETRY_DAYS
+        }
+
+    /** Forgets the verdict, so the next refresh tries the archive again. */
+    fun retryArchive() {
+        archiveBlockedOn = -1L
+    }
+
     var decay: Double
         get() = prefs.getFloat("decay", com.skorlogi.app.engine.LeagueModel.DEFAULT_DECAY.toFloat()).toDouble()
         set(v) {
@@ -150,9 +173,9 @@ class Repository(private val context: Context) {
         val failed = ArrayList<String>()
 
         // 1. The schedule, first and alone.
-        var archiveBlocked = false
+        var archiveBlocked = archiveKnownBlocked
         var fixtureLeagues = emptyList<String>()
-        if (leagues.isNotEmpty()) {
+        if (leagues.isNotEmpty() && !archiveBlocked) {
             onProgress(SyncProgress(0, 1, "Jadwal pertandingan"))
             try {
                 val body = Http.getText(FootballData.FIXTURES_URL)
@@ -165,13 +188,16 @@ class Repository(private val context: Context) {
                 // season files behind it will fail the same way, one timeout at a
                 // time. Stop here instead of making the user wait for that.
                 archiveBlocked = e.unreachable
-                failed.add(
-                    if (e.unreachable) {
-                        "football-data.co.uk tidak bisa dijangkau dari jaringan ini"
-                    } else {
-                        "Jadwal pertandingan (${e.message})"
+                if (e.unreachable) {
+                    archiveBlockedOn = Dates.today()
+                    // Only worth saying once. If something else is supplying data,
+                    // this is not a failure the user needs to see at all.
+                    if (!openConfigured && !apiConfigured) {
+                        failed.add("football-data.co.uk tidak bisa dijangkau dari jaringan ini")
                     }
-                )
+                } else {
+                    failed.add("Jadwal pertandingan (${e.message})")
+                }
             }
         }
         loadFixturesFromCache()
@@ -346,6 +372,19 @@ class Repository(private val context: Context) {
         }
         return matches to fixtures
     }
+
+    // --- Claude assistant ----------------------------------------------------
+
+    var claudeKey: String
+        get() = prefs.getString("claude_key", "").orEmpty()
+        set(v) = prefs.edit().putString("claude_key", v.trim()).apply()
+
+    val hasClaudeKey: Boolean get() = claudeKey.isNotBlank()
+
+    var claudeModel: String
+        get() = prefs.getString("claude_model", Assistant.DEFAULT_MODEL).orEmpty()
+            .ifBlank { Assistant.DEFAULT_MODEL }
+        set(v) = prefs.edit().putString("claude_model", v).apply()
 
     // --- API-Football --------------------------------------------------------
 
@@ -527,5 +566,8 @@ class Repository(private val context: Context) {
 
         /** A finished season does not change; a running one barely does week to week. */
         const val API_HISTORY_REFRESH_DAYS = 7
+
+        /** How long to take a blocked archive's word for it before trying again. */
+        const val ARCHIVE_RETRY_DAYS = 7
     }
 }

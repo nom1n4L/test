@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -72,6 +73,8 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        ClaudeSection(vm)
 
         ApiSection(vm)
 
@@ -178,7 +181,7 @@ fun SettingsScreen(
             )
         }
 
-        SectionCard(title = "Skorlogi 1.3") {
+        SectionCard(title = "Skorlogi 1.4") {
             Text(
                 "Semua perhitungan berjalan di dalam HP. Tidak ada akun, tidak ada iklan, " +
                     "tidak ada data yang dikirim ke mana pun selain mengunduh arsip pertandingan.",
@@ -329,6 +332,79 @@ private fun ApiLeaguePicker(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+    }
+}
+
+
+/**
+ * Claude assistant setup. Unlike everything else here this costs money per
+ * message, so the price of each model is shown rather than buried.
+ */
+@Composable
+private fun ClaudeSection(vm: AppViewModel) {
+    var key by remember { mutableStateOf(vm.repo.claudeKey) }
+    var model by remember { mutableStateOf(vm.repo.claudeModel) }
+
+    SectionCard(
+        title = "Chatbot Claude",
+        subtitle = "Opsional, dan satu-satunya bagian aplikasi ini yang berbayar.",
+    ) {
+        Text(
+            "Buat kunci di console.anthropic.com, tempel di sini. Tiap pesan menagih " +
+                "akun Anthropic-mu sesuai jumlah token. Obrolan pendek biasanya di bawah " +
+                "satu sen, tapi tetap ada biayanya.\n\n" +
+                "Claude di aplikasi ini hanya boleh memakai angka yang dihitung " +
+                "aplikasi — ia dilarang mengarang statistik dari ingatannya.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = {
+                key = it.trim()
+                vm.setClaudeKey(key)
+            },
+            label = { Text("Kunci Claude API") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Model",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        com.skorlogi.app.data.Assistant.MODELS.forEach { (label, id, price) ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        model = id
+                        vm.setClaudeModel(id)
+                    }
+                    .padding(vertical = 5.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.RadioButton(
+                    selected = model == id,
+                    onClick = {
+                        model = id
+                        vm.setClaudeModel(id)
+                    },
+                    colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = Green),
+                )
+                Column(Modifier.weight(1f)) {
+                    Text(label, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        price,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
