@@ -41010,6 +41010,7 @@ kotlin.text.StringsKt__IndentKt$getIndentFunction$1
 kotlin.text.StringsKt__IndentKt$getIndentFunction$2
 kotlin.text.StringsKt__StringNumberConversionsKt
 kotlin.text.StringsKt__StringsJVMKt:
+    public static boolean equals(java.lang.String,java.lang.String)
     public static boolean startsWith$default(java.lang.String,java.lang.String)
 kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$2:
     public static kotlin.Pair invoke()

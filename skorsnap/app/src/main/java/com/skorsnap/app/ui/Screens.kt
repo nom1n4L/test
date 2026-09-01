@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -238,7 +239,11 @@ fun AddScreen(
     var note by remember { mutableStateOf("") }
 
     Column(
-        Modifier.fillMaxSize().imePadding().padding(12.dp),
+        Modifier
+            .fillMaxSize()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Card(
@@ -713,7 +718,11 @@ fun SettingsScreen(vm: AppViewModel) {
     var model by remember(available) { mutableStateOf(vm.store.model) }
 
     Column(
-        Modifier.fillMaxSize().imePadding().padding(12.dp),
+        Modifier
+            .fillMaxSize()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Card(title = "Kunci Gemini", subtitle = "Dibutuhkan untuk membaca gambar.") {
@@ -788,7 +797,9 @@ fun SettingsScreen(vm: AppViewModel) {
                     Column(Modifier.weight(1f)) {
                         Text(label, style = MaterialTheme.typography.bodySmall)
                         Text(
-                            if (note.isBlank()) id else note,
+                            // The description is often just the label again; the id
+                            // is what the user needs when a model misbehaves.
+                            if (note.isBlank() || note.equals(label, true)) id else note,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

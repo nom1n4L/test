@@ -66,10 +66,7 @@ class Analyst(private val apiKey: String) {
                 if (!supported) continue
 
                 val name = m.optString("name").removePrefix("models/")
-                // Only the vision-capable general models are useful here; the
-                // embedding, image-generation and audio variants are not.
-                if (!name.startsWith("gemini-")) continue
-                if (listOf("embedding", "-tts", "-image", "native-audio", "live-").any { it in name }) continue
+                if (!usable(name)) continue
 
                 out.add(
                     Model(
@@ -79,8 +76,7 @@ class Analyst(private val apiKey: String) {
                     )
                 )
             }
-            // Newest first tends to be best at reading dense tables.
-            out.sortedByDescending { it.id }
+            rank(out)
         } catch (e: AnalystException) {
             throw e
         } catch (e: Exception) {
@@ -290,6 +286,27 @@ Aturan pengisian:
         private const val HOST = "https://generativelanguage.googleapis.com"
 
         const val DEFAULT_MODEL = "gemini-2.5-flash"
+
+        /** Variants built for other jobs entirely. */
+        private val SPECIALISED = listOf(
+            "embedding", "-tts", "-image", "native-audio", "live-",
+            "robotics", "transcribe", "guard", "computer-use", "-thinking-",
+        )
+
+        /**
+         * Whether a model can plausibly read a screenshot of a stats table. The
+         * API also offers embedding, speech, image-generation, robotics and
+         * transcription variants, and listing them all buries the three or four
+         * that are actually usable.
+         */
+        internal fun usable(name: String): Boolean =
+            name.startsWith("gemini-") && SPECIALISED.none { it in name }
+
+        /** Flash and Pro first — the real choice — then newest within each group. */
+        internal fun rank(models: List<Model>): List<Model> = models.sortedWith(
+            compareByDescending<Model> { "flash" in it.id || "pro" in it.id }
+                .thenByDescending { it.id }
+        )
 
         /** Label, model id, and what to expect. */
         val MODELS = listOf(

@@ -142,6 +142,41 @@ class CoreTest {
         println("Skema mencakup ${props.length()} field, ${requiredNames.size} di antaranya wajib.")
     }
 
+    /**
+     * The models endpoint returns everything the key can call, most of which
+     * cannot read a picture. A user shown forty rows will pick a wrong one.
+     */
+    @Test
+    fun onlyOffersModelsThatCanReadAScreenshot() {
+        val keep = listOf(
+            "gemini-2.5-flash", "gemini-2.5-pro", "gemini-3-flash",
+            "gemini-flash-latest", "gemini-pro-latest",
+        )
+        val drop = listOf(
+            "gemini-embedding-001", "gemini-2.5-flash-preview-tts",
+            "gemini-2.5-flash-image", "gemini-robotics-er-2-preview",
+            "gemini-2.5-flash-native-audio-preview", "gemini-3.5-transcribe",
+            "gemini-live-2.5-flash", "text-bison-001",
+        )
+        for (m in keep) assert(Analyst.usable(m)) { "'$m' harusnya ditawarkan" }
+        for (m in drop) assert(!Analyst.usable(m)) { "'$m' harusnya disembunyikan" }
+        println()
+        println("Penyaring model: ${keep.size} dipertahankan, ${drop.size} disembunyikan.")
+    }
+
+    @Test
+    fun putsTheUsefulModelsFirst() {
+        val listed = listOf(
+            "gemini-2.0-flash-lite", "gemini-exp-1206", "gemini-2.5-pro", "gemini-3-flash",
+        ).map { Analyst.Model(it, it, "") }
+        val ranked = Analyst.rank(listed).map { it.id }
+        assert(ranked.first().contains("flash") || ranked.first().contains("pro")) {
+            "model pilihan utama tidak di atas: $ranked"
+        }
+        assert(ranked.last() == "gemini-exp-1206") { "model tak dikenal harusnya di bawah: $ranked" }
+        println("Urutan model: $ranked")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},
