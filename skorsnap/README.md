@@ -1,0 +1,82 @@
+# Skorsnap
+
+Kirim screenshot statistik pertandingan, dapat prediksi dan rekomendasi market.
+Centang beberapa pertandingan, dapat parlay lengkap dengan peluang gabungannya.
+
+**Alurnya:** screenshot → analisa → rekomendasi → centang → parlay.
+
+## Cara pakai
+
+1. **Pengaturan** → tempel kunci Claude API dari `console.anthropic.com`
+2. **+ Tambah Pertandingan** → pilih screenshot dari galeri (boleh beberapa
+   gambar untuk satu pertandingan)
+3. Tekan **Analisa** → keluar prediksi, market terbaik, dan odds impasnya
+4. Ulangi untuk pertandingan lain
+5. **Centang** yang mau digabung → **Lihat parlay**
+
+## Aturan yang tidak bisa dilanggar
+
+Hanya angka yang **terlihat di screenshot-mu** yang dipakai. Model bahasa akan
+dengan senang hati mengarang rata-rata gol yang terdengar masuk akal dari
+ingatannya yang sudah basi, dan di layar angka karangan itu tidak bisa dibedakan
+dari angka asli. Jadi prompt-nya melarang itu, dan meminta model menyebutkan
+kembali:
+
+- **statistik apa saja yang benar-benar dibaca** dari gambar
+- **statistik apa yang dicari tapi tidak ada** di gambar
+
+Keduanya ditampilkan di tiap pertandingan, di bagian *"Yang Dibaca dari
+Gambarmu"*. Itulah yang membuat pendekatan ini lebih baik daripada menebak — dan
+cara kamu memeriksanya.
+
+## Matematika parlay dihitung aplikasi, bukan model
+
+Model bahasa yang diminta menggabungkan enam peluang biasanya menghasilkan angka
+yang terdengar masuk akal dan salah. Padahal justru angka itu yang harus tepat,
+jadi aplikasi yang menghitungnya:
+
+| Kasus | Hasil |
+|---|---|
+| 4 leg @ 80% | tembus semua **41%** — 1 dari 2 |
+| 6 leg @ 75% | tembus semua **18%** — 1 dari 6 |
+
+Dan margin bandar ikut dikalikan tiap leg (6,03% per leg, diukur dari 7.314 harga
+1X2 Bet365). Akibatnya imbal hasil harapan parlay **tidak bergantung pada sebagus
+apa pilihanmu**, hanya pada berapa banyak leg-nya:
+
+| Leg | Rugi rata-rata |
+|---|---|
+| 2 | −11% |
+| 4 | −21% |
+| 6 | −30% |
+
+Diuji di `CoreTest`: tiga leg "aman" (peluang gabungan 72,1%) dan tiga leg
+berisiko (17,2%) menghasilkan imbal hasil harapan yang **persis sama**, 83,9%.
+
+## Yang tidak bisa dijanjikan
+
+Prediksi yang keluar adalah **peluang**, bukan kepastian. Peluang 80% tetap
+meleset 1 dari 5 kali, dan itu bukan tanda ada yang rusak — itu arti dari angka
+80%.
+
+Tidak ada versi aplikasi ini, atau aplikasi mana pun, yang membuat parlay pasti
+menang.
+
+## Test
+
+| Test | Gunanya |
+|---|---|
+| `CoreTest` | Peluang parlay, rumus imbal hasil, dan pembacaan balasan JSON |
+
+Yang diuji sengaja hanya dua: menggabungkan peluang, dan mengubah balasan model
+jadi angka. Membaca gambar adalah tugas model dan tidak bisa di-unit-test;
+menghitung slip adalah tugas aplikasi, dan angka parlay yang salah akan dipercaya
+begitu saja.
+
+## Membangun sendiri
+
+```bash
+cd skorsnap
+echo "sdk.dir=/path/ke/android-sdk" > local.properties
+./gradlew assembleRelease
+```
