@@ -72,6 +72,31 @@ apa pilihanmu**, hanya pada berapa banyak leg-nya:
 Diuji di `CoreTest`: tiga leg "aman" (peluang gabungan 72,1%) dan tiga leg
 berisiko (17,2%) menghasilkan imbal hasil harapan yang **persis sama**, 83,9%.
 
+## Long capture
+
+Screenshot panjang satu halaman penuh justru input terbaik untuk aplikasi ini,
+tapi ukurannya menipu: 1080×20.000 piksel butuh **82 MB** sekali decode, melawan
+jatah memori aplikasi Android yang sering cuma 128 MB. Versi awal men-decode-nya
+utuh hanya untuk menggambar pratinjau 96dp — dan crash.
+
+Sekarang tidak ada satu pun bitmap berukuran penuh yang pernah dimuat:
+
+- **Pratinjau** di-decode dengan `inSampleSize`, jadi biayanya kilobita.
+- **Pengiriman** memotong gambar jadi beberapa band lewat `BitmapRegionDecoder`,
+  satu per satu langsung dari berkasnya, tanpa menyentuh sisanya.
+
+Band-nya **beresolusi penuh dan saling tumpang tindih 120 piksel**, jadi tidak ada
+baris angka yang terpotong di sambungan. Resolusinya sengaja tidak dikecilkan:
+model membaca tabel ini per petak 768 piksel, jadi memperkecil justru yang akan
+mengubah `1.42` yang terbaca jelas menjadi tebakan.
+
+| Tinggi screenshot | Jadi berapa band |
+|---|---|
+| ≤ 2.600 | 1 (tidak dipotong) |
+| 8.000 | 6 |
+| 20.000 | 10 |
+| 45.000 | 10 (band-nya yang ditinggikan) |
+
 ## Rapor akurasi
 
 Tiap pertandingan bisa ditandai **Tembus** atau **Meleset** setelah selesai main.

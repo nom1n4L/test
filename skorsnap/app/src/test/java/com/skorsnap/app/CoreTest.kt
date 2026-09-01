@@ -2,6 +2,7 @@ package com.skorsnap.app
 
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MarketOption
+import com.skorsnap.app.data.Images
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
@@ -253,6 +254,38 @@ class CoreTest {
         val mixed = listOf(settled(0.8, true), match(0.8), settled(0.8, false))
         val r = Report(mixed.filter { it.settled })
         assert(r.total == 2) { "laga yang belum ditandai ikut terhitung" }
+    }
+
+    /**
+     * Slicing a long capture is silent when it goes wrong: a gap between bands
+     * loses a row of numbers and nothing on screen would say so.
+     */
+    @Test
+    fun bandsCoverALongCaptureWithoutGaps() {
+        for (height in listOf(2600, 4000, 8000, 20000, 45000)) {
+            val bands = Images.plan(height)
+            assert(bands.first().first == 0) { "band pertama tidak mulai dari atas" }
+            assert(bands.last().second == height) { "band terakhir tidak sampai bawah ($height)" }
+            for (i in 1 until bands.size) {
+                val previousBottom = bands[i - 1].second
+                val currentTop = bands[i].first
+                assert(currentTop < previousBottom) {
+                    "ada celah antara band di $height: $previousBottom lalu $currentTop"
+                }
+            }
+            assert(bands.size <= 12) { "terlalu banyak potongan untuk $height: ${bands.size}" }
+            val tallest = bands.maxOf { it.second - it.first }
+            println("  tinggi %5d → %2d potong, tertinggi %d px".format(height, bands.size, tallest))
+        }
+    }
+
+    @Test
+    fun ordinaryScreenshotsAreNotSliced() {
+        for (height in listOf(800, 1600, 2400, 2600)) {
+            assert(Images.plan(height).size == 1) { "screenshot biasa ($height) ikut dipotong" }
+        }
+        println()
+        println("Screenshot biasa dibiarkan utuh; hanya long capture yang dipotong.")
     }
 
     @Test

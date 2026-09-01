@@ -95,8 +95,9 @@ class Analyst(private val apiKey: String) {
         if (images.isEmpty()) throw AnalystException("Belum ada gambar.")
 
         val parts = JSONArray()
-        for (original in images) {
-            val bytes = shrinkIfHuge(original)
+        // A long capture arrives as several full-resolution bands rather than one
+        // image too big to decode; see Images.forUpload.
+        for (bytes in images.flatMap { Images.forUpload(it) }) {
             parts.put(
                 JSONObject().put(
                     "inline_data",
@@ -247,32 +248,6 @@ class Analyst(private val apiKey: String) {
         "Model $model berfungsi. Balasannya: ${reply.take(60)}"
     }
 
-    /**
-     * Re-encodes an oversized screenshot, keeping every pixel.
-     *
-     * A long capture arrives as a multi-megabyte PNG and base64 adds a third on
-     * top, which is how a request with only four images gets close to the payload
-     * limit. Re-encoding as JPEG shrinks it by a large factor. Dimensions are left
-     * alone on purpose: the model reads these tables 768 pixels at a time, so
-     * scaling down is exactly what would turn a legible 1.42 into a guess.
-     */
-    private fun shrinkIfHuge(bytes: ByteArray): ByteArray {
-        if (bytes.size <= MAX_IMAGE_BYTES) return bytes
-        return try {
-            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                ?: return bytes
-            val out = java.io.ByteArrayOutputStream(bytes.size / 4)
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
-            bitmap.recycle()
-            val shrunk = out.toByteArray()
-            if (shrunk.isNotEmpty() && shrunk.size < bytes.size) shrunk else bytes
-        } catch (e: OutOfMemoryError) {
-            bytes
-        } catch (e: Exception) {
-            bytes
-        }
-    }
-
     /** Sniffs the format from the file's own header rather than trusting a name. */
     private fun mimeTypeOf(bytes: ByteArray): String = when {
         bytes.size > 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
@@ -370,11 +345,6 @@ Aturan pengisian:
         /** Thinking allowance on the retry, leaving the rest for the JSON. */
         internal const val THINKING_BUDGET = 8192
 
-        /** Above this a screenshot is re-encoded before sending. */
-        private const val MAX_IMAGE_BYTES = 1_200_000
-
-        /** High enough that small figures in a stats table stay sharp. */
-        private const val JPEG_QUALITY = 88
 
         /** Variants built for other jobs entirely. */
         private val SPECIALISED = listOf(

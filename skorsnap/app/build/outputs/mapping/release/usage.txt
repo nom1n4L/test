@@ -19219,11 +19219,16 @@ com.skorsnap.app.data.Analyst:
     public static final int $stable
     public static final java.lang.String DEFAULT_MODEL
     private static final java.lang.String HOST
-    private static final int JPEG_QUALITY
-    private static final int MAX_IMAGE_BYTES
     public static final int MAX_OUTPUT_TOKENS
     public static final int THINKING_BUDGET
     public static synthetic java.lang.Object analyse$default(com.skorsnap.app.data.Analyst,java.util.List,java.lang.String,java.lang.String,kotlin.coroutines.Continuation,int,java.lang.Object)
+com.skorsnap.app.data.Images:
+    public static final int $stable
+    private static final int JPEG_QUALITY
+    private static final int MAX_SLICES
+    private static final int OVERLAP
+    private static final int SLICE_HEIGHT
+    private static final int TALL_THRESHOLD
 com.skorsnap.app.data.MarketOption:
     public static final int $stable
     public final java.lang.String component1()
@@ -19270,6 +19275,7 @@ com.skorsnap.app.data.Slip:
     public final int getExpectedLossPercent()
     public final double getExpectedReturn()
 com.skorsnap.app.ui.AppViewModel:
+    public static final int MAX_FILE_BYTES
     public final void clearAll()
     public final void clearStaged()
 com.skorsnap.app.ui.Screen$Add:
@@ -40392,9 +40398,12 @@ com.skorsnap.app.data.Analyst:
     public static java.lang.String mimeTypeOf()
     public static com.skorsnap.app.data.MatchPrediction parse$app_release()
     public static java.lang.String post()
-    public static byte[] shrinkIfHuge()
     public static java.lang.Object testModel()
     public static java.lang.String userPrompt()
+com.skorsnap.app.data.Images:
+    public static java.util.List plan()
+    public static android.graphics.Bitmap preview()
+    public static byte[] recompressIfLarge()
 com.skorsnap.app.data.MarketOption:
     static void <clinit>()
     public static double getBreakEven()
@@ -40478,6 +40487,7 @@ com.skorsnap.app.ui.AppKt$TopBar$1$1$1$1$1:
     public final void invoke()
 com.skorsnap.app.ui.AppKt$TopBar$1:
     public final void invoke$2()
+com.skorsnap.app.ui.AppViewModel$Companion
 com.skorsnap.app.ui.AppViewModel$analyse$1:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$loadModels$1:
@@ -40491,6 +40501,7 @@ com.skorsnap.app.ui.AppViewModel$testModel$1:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel:
     public static final int $stable
+    public static final com.skorsnap.app.ui.AppViewModel$Companion Companion
     static void <clinit>()
     public static void analyse()
     public final void back()
@@ -40647,13 +40658,13 @@ com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$5$1$1:
     public final void invoke()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$5$2:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$62$lambda$61$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$62$lambda$61$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$61$lambda$60$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$61$lambda$60$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$62$lambda$61$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$62$lambda$61$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$61$lambda$60$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$61$lambda$60$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$62$lambda$61$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$61$lambda$60$$inlined$items$default$4:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$1:
     public final void invoke$2()
@@ -40681,21 +40692,21 @@ com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$5:
     public final void invoke$82()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$6:
     public final void invoke$82()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$44$lambda$43$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$44$lambda$43$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$43$lambda$42$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$43$lambda$42$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$44$lambda$43$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$44$lambda$43$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$43$lambda$42$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$43$lambda$42$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$44$lambda$43$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$43$lambda$42$$inlined$items$default$4:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$StatsReadCard$2$1$2:
     public static void invoke$83()
 com.skorsnap.app.ui.ScreensKt$StatsReadCard$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt:
-    public static final boolean StatsReadCard$lambda$29(androidx.compose.runtime.MutableState)
-    public static final boolean access$SettingsScreen$lambda$51(androidx.compose.runtime.MutableState)
+    public static final boolean StatsReadCard$lambda$28(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$50(androidx.compose.runtime.MutableState)
 kotlin.DeprecationLevel:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
     public static final enum kotlin.DeprecationLevel ERROR

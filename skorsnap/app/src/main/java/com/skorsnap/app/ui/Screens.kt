@@ -1,6 +1,5 @@
 package com.skorsnap.app.ui
 
-import android.graphics.BitmapFactory
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -51,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorsnap.app.data.Analyst
+import com.skorsnap.app.data.Images
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Report
@@ -288,6 +288,17 @@ fun AddScreen(
             ) {
                 Text(if (staged.isEmpty()) "Pilih Gambar" else "Tambah Gambar Lagi")
             }
+            val bands = remember(staged) { staged.sumOf { Images.forUpload(it).size } }
+            if (bands > staged.size) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Ada long capture di sini. Gambarnya dipotong jadi $bands bagian " +
+                        "beresolusi penuh supaya angkanya tetap terbaca jelas — tidak " +
+                        "dikecilkan.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Sky,
+                )
+            }
         }
 
         if (staged.isNotEmpty()) {
@@ -298,9 +309,7 @@ fun AddScreen(
                 staged.forEachIndexed { index, bytes ->
                     Box {
                         val bitmap = remember(bytes) {
-                            runCatching {
-                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
-                            }.getOrNull()
+                            Images.preview(bytes)?.asImageBitmap()
                         }
                         if (bitmap != null) {
                             Image(

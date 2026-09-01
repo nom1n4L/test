@@ -107,14 +107,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
             val resolver = getApplication<Application>().contentResolver
+            var oversized = 0
             val read = withContext(Dispatchers.IO) {
                 uris.mapNotNull { uri ->
-                    runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+                    runCatching {
+                        // Reading the file is cheap next to decoding it, but a
+                        // pathological pick should still not take the process down.
+                        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+                        if (bytes != null && bytes.size > MAX_FILE_BYTES) {
+                            oversized++
+                            null
+                        } else {
+                            bytes
+                        }
+                    }.getOrNull()
                 }
             }
             if (read.isEmpty()) {
-                _message.value = "Gambarnya tidak bisa dibaca."
+                _message.value = if (oversized > 0) {
+                    "Gambarnya terlalu besar (di atas 40 MB). Coba screenshot yang lebih pendek."
+                } else {
+                    "Gambarnya tidak bisa dibaca."
+                }
                 return@launch
+            }
+            if (oversized > 0) {
+                _message.value = "$oversized gambar dilewati karena di atas 40 MB."
             }
             _staged.value = _staged.value + read
         }
@@ -201,6 +219,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setModel(model: String) {
         store.model = model
+    }
+
+    private companion object {
+        /** Well above any real screenshot, low enough to refuse a pathological file. */
+        const val MAX_FILE_BYTES = 40 * 1024 * 1024
     }
 
     /** Checks the chosen model with one cheap call rather than a whole analysis. */
