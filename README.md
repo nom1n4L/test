@@ -4,7 +4,7 @@ Aplikasi Android untuk memprediksi pertandingan sepak bola. Semua data diunduh
 otomatis dan seluruh perhitungan berjalan di dalam HP — tanpa akun, tanpa kunci
 API, tanpa server, tanpa iklan.
 
-**[⬇ Unduh Skorlogi-1.4.apk](Skorlogi-1.4.apk)** · 3,5 MB · Android 7.0 ke atas
+**[⬇ Unduh Skorlogi-1.5.apk](Skorlogi-1.5.apk)** · 3,5 MB · Android 7.0 ke atas
 
 ---
 
@@ -24,6 +24,24 @@ Yang tidak ikut: market corner dan kartu. Kebetulan itu dua market yang gagal uj
 kalibrasi, jadi yang hilang tidak banyak.
 
 Untuk Liga 1 Indonesia, tetap perlu kunci API-Football gratis lewat Pengaturan.
+
+### Mendapatkan kunci API-Football
+
+Layanan yang sama dijual lewat dua pintu, dan kunci dari satu pintu ditolak pintu
+lainnya dengan pesan yang terdengar seperti kuncinya rusak. Aplikasi ini mencoba
+keduanya otomatis, jadi jalur mana pun bisa dipakai.
+
+1. Buka `dashboard.api-football.com`, daftar gratis — email dan kata sandi, tanpa
+   kartu kredit.
+2. Menu **Profile** memuat kuncinya: deretan panjang huruf dan angka.
+3. Tempel di Pengaturan → Tambah Liga Dunia, tekan **Cek kunci**. Sisa kuota hari
+   itu langsung ditampilkan.
+4. **Ambil daftar liga** (satu permintaan), cari `Indonesia`, centang Liga 1.
+5. Kembali ke atas, **Perbarui Data Sekarang**.
+
+Sekali perbarui menghabiskan sekitar 5 permintaan untuk jadwal, plus 3 per liga
+baru. Riwayat hanya diambil ulang seminggu sekali, jadi kuota gratis harian cukup
+untuk pemakaian pribadi.
 
 ## Isinya apa
 

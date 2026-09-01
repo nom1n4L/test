@@ -181,7 +181,7 @@ fun SettingsScreen(
             )
         }
 
-        SectionCard(title = "Skorlogi 1.4") {
+        SectionCard(title = "Skorlogi 1.5") {
             Text(
                 "Semua perhitungan berjalan di dalam HP. Tidak ada akun, tidak ada iklan, " +
                     "tidak ada data yang dikirim ke mana pun selain mengunduh arsip pertandingan.",
@@ -211,9 +211,18 @@ private fun ApiSection(vm: AppViewModel) {
         subtitle = "Opsional. Tanpa ini, aplikasi tetap jalan dengan 38 liga dari arsip terbuka.",
     ) {
         Text(
-            "Daftar gratis di dashboard.api-football.com, salin kuncinya, tempel di sini. " +
-                "Kuota gratisnya kecil, jadi aplikasi ini menyimpan hasilnya dan hanya " +
-                "mengambil ulang riwayat seminggu sekali.\n\n" +
+            "Langkahnya:\n" +
+                "1. Buka dashboard.api-football.com, daftar gratis (email + kata sandi, " +
+                "tanpa kartu kredit)\n" +
+                "2. Buka menu Profile — kuncinya ada di sana, deretan panjang huruf dan angka\n" +
+                "3. Salin, tempel di kolom bawah, tekan Cek kunci\n" +
+                "4. Tekan Ambil daftar liga, cari \"Indonesia\", centang Liga 1\n" +
+                "5. Kembali ke atas, tekan Perbarui Data Sekarang\n\n" +
+                "Kalau kamu terlanjur daftar lewat RapidAPI, kuncinya tetap dipakai — " +
+                "aplikasi ini mencoba kedua jalur otomatis.\n\n" +
+                "Kuota gratisnya kecil, jadi hasilnya disimpan dan riwayat hanya diambil " +
+                "ulang seminggu sekali. Sekali perbarui menghabiskan sekitar 5 permintaan " +
+                "untuk jadwal, plus 3 per liga yang baru kamu tambahkan.\n\n" +
                 "Catatan jujur: data corner dan kartu tidak ikut lewat jalur ini — di API itu " +
                 "biayanya satu permintaan per pertandingan, yang mustahil muat di kuota gratis. " +
                 "Market itu tetap datang dari arsip untuk 22 liga yang punya datanya.",

@@ -438,12 +438,24 @@ class Repository(private val context: Context) {
         Leagues.registerApiLeagues(followedApiLeagues())
     }
 
+    /**
+     * Which front door this key belongs to. Worked out once when the key is
+     * checked, then reused so every later call skips the guessing.
+     */
+    var apiKeyMode: ApiFootball.KeyMode
+        get() = runCatching {
+            ApiFootball.KeyMode.valueOf(prefs.getString("api_key_mode", null) ?: "")
+        }.getOrDefault(ApiFootball.KeyMode.DIRECT)
+        set(v) = prefs.edit().putString("api_key_mode", v.name).apply()
+
     suspend fun testApiKey(key: String): ApiFootball.Status = withContext(Dispatchers.IO) {
-        ApiFootball.status(key)
+        val (status, mode) = ApiFootball.status(key)
+        apiKeyMode = mode
+        status
     }
 
     suspend fun fetchApiLeagueCatalog(): List<ApiLeague> = withContext(Dispatchers.IO) {
-        ApiFootball.leagues(apiKey)
+        ApiFootball.leagues(apiKey, apiKeyMode)
     }
 
     /**
@@ -473,7 +485,7 @@ class Repository(private val context: Context) {
             val iso = "%04d-%02d-%02d".format(y, m, d)
             onProgress(SyncProgress(offset, API_FIXTURE_DAYS, "Jadwal API $iso"))
             try {
-                val list = ApiFootball.fixturesOn(key, iso, codes)
+                val list = ApiFootball.fixturesOn(key, iso, codes, apiKeyMode)
                 spent++
                 for (f in list) {
                     fixtureFile.append(f.league).append('\t')
@@ -500,7 +512,7 @@ class Repository(private val context: Context) {
                 if (readCache(name) != null && age < API_HISTORY_REFRESH_DAYS) continue
                 onProgress(SyncProgress(0, 0, "${l.name} $season"))
                 try {
-                    val results = ApiFootball.seasonResults(key, l.id, season, l.code)
+                    val results = ApiFootball.seasonResults(key, l.id, season, l.code, apiKeyMode)
                     spent++
                     if (results.isNotEmpty()) {
                         writeCache(name, results.joinToString("\n") { m ->

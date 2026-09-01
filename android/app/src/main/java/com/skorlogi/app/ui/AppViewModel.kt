@@ -511,7 +511,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _apiStatus.value = try {
                 val s = repo.testApiKey(key)
                 repo.apiKey = key
-                "Kunci valid. Paket: ${s.plan.ifBlank { "gratis" }}. " +
+                val via = if (repo.apiKeyMode == ApiFootball.KeyMode.RAPIDAPI) {
+                    " (lewat RapidAPI)"
+                } else {
+                    ""
+                }
+                "Kunci valid$via. Paket: ${s.plan.ifBlank { "gratis" }}. " +
                     "Kuota hari ini: ${s.used}/${s.limitPerDay} terpakai, sisa ${s.remaining}."
             } catch (e: Exception) {
                 "Gagal: ${e.message}"

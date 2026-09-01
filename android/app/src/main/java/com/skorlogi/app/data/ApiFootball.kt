@@ -20,7 +20,20 @@ import java.net.URL
  */
 object ApiFootball {
 
-    private const val HOST = "https://v3.football.api-sports.io"
+    /**
+     * The service sells the same API through two front doors, and a key from one
+     * is rejected by the other with a message that reads like the key is invalid.
+     * People sign up through whichever they land on, so the app accepts both and
+     * works out which it has been given.
+     */
+    enum class KeyMode(val host: String) {
+        /** dashboard.api-football.com — header `x-apisports-key`. */
+        DIRECT("https://v3.football.api-sports.io"),
+
+        /** rapidapi.com — headers `x-rapidapi-key` and `x-rapidapi-host`. */
+        RAPIDAPI("https://api-football-v1.p.rapidapi.com/v3"),
+    }
+
     private const val TIMEOUT_MS = 25_000
 
     class ApiException(message: String) : Exception(message)
@@ -35,16 +48,26 @@ object ApiFootball {
         val remaining: Int get() = (limitPerDay - used).coerceAtLeast(0)
     }
 
-    private fun request(key: String, path: String, query: String = ""): JSONObject {
+    private fun request(
+        key: String,
+        path: String,
+        query: String = "",
+        mode: KeyMode = KeyMode.DIRECT,
+    ): JSONObject {
         if (key.isBlank()) throw ApiException("Kunci API belum diisi.")
-        val url = "$HOST/$path" + if (query.isEmpty()) "" else "?$query"
+        val url = "${mode.host}/$path" + if (query.isEmpty()) "" else "?$query"
         var conn: HttpURLConnection? = null
         try {
             conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 connectTimeout = TIMEOUT_MS
                 readTimeout = TIMEOUT_MS
-                setRequestProperty("x-apisports-key", key)
+                if (mode == KeyMode.RAPIDAPI) {
+                    setRequestProperty("x-rapidapi-key", key)
+                    setRequestProperty("x-rapidapi-host", "api-football-v1.p.rapidapi.com")
+                } else {
+                    setRequestProperty("x-apisports-key", key)
+                }
                 setRequestProperty("Accept", "application/json")
             }
             val code = conn.responseCode
@@ -53,7 +76,15 @@ object ApiFootball {
                 ?: throw ApiException("Tidak ada balasan dari server.")
 
             if (code == 499 || code == 429) throw ApiException("Kuota harian habis.")
-            if (code !in 200..299) throw ApiException("HTTP $code")
+            // The service answers a rejected key with a bare status code, which
+            // tells the user nothing about what to do next.
+            if (code == 401 || code == 403) {
+                throw ApiException(
+                    "Kunci ditolak. Pastikan disalin utuh dari menu Profile di " +
+                        "dashboard.api-football.com, tanpa spasi di ujung."
+                )
+            }
+            if (code !in 200..299) throw ApiException("Server menolak (HTTP $code)")
 
             val json = JSONObject(body)
             // The service reports failures inside a 200 response. "errors" is an
@@ -74,22 +105,35 @@ object ApiFootball {
         }
     }
 
-    /** Verifies a key and reports the quota attached to it. */
-    fun status(key: String): Status {
-        val response = request(key, "status").optJSONObject("response")
-            ?: throw ApiException("Balasan tidak dikenali.")
-        val requests = response.optJSONObject("requests")
-        return Status(
-            account = response.optJSONObject("account")?.optString("email").orEmpty(),
-            plan = response.optJSONObject("subscription")?.optString("plan").orEmpty(),
-            used = requests?.optInt("current") ?: 0,
-            limitPerDay = requests?.optInt("limit_day") ?: 0,
-        )
+    /**
+     * Verifies a key and reports the quota attached to it, trying the direct front
+     * door first and RapidAPI second. Returns the mode that worked so the rest of
+     * the session can skip the guessing.
+     */
+    fun status(key: String): Pair<Status, KeyMode> {
+        var firstFailure: ApiException? = null
+        for (mode in KeyMode.entries) {
+            try {
+                val response = request(key, "status", mode = mode).optJSONObject("response")
+                    ?: throw ApiException("Balasan tidak dikenali.")
+                val requests = response.optJSONObject("requests")
+                return Status(
+                    account = response.optJSONObject("account")?.optString("email").orEmpty(),
+                    plan = response.optJSONObject("subscription")?.optString("plan").orEmpty(),
+                    used = requests?.optInt("current") ?: 0,
+                    limitPerDay = requests?.optInt("limit_day") ?: 0,
+                ) to mode
+            } catch (e: ApiException) {
+                if (firstFailure == null) firstFailure = e
+            }
+        }
+        throw firstFailure
+            ?: ApiException("Kunci tidak dikenali, baik lewat jalur langsung maupun RapidAPI.")
     }
 
     /** Every league the key can see, so the user can pick which to follow. */
-    fun leagues(key: String): List<ApiLeague> {
-        val arr = request(key, "leagues").optJSONArray("response") ?: JSONArray()
+    fun leagues(key: String, mode: KeyMode = KeyMode.DIRECT): List<ApiLeague> {
+        val arr = request(key, "leagues", mode = mode).optJSONArray("response") ?: JSONArray()
         val out = ArrayList<ApiLeague>(arr.length())
         for (i in 0 until arr.length()) {
             val item = arr.optJSONObject(i) ?: continue
@@ -126,8 +170,14 @@ object ApiFootball {
      * Half-time scores come back with the fixture, so first-half and second-half
      * markets survive this source. Corners and cards do not — see the class note.
      */
-    fun seasonResults(key: String, leagueId: Int, season: Int, leagueCode: String): List<Match> {
-        val arr = request(key, "fixtures", "league=$leagueId&season=$season&status=FT")
+    fun seasonResults(
+        key: String,
+        leagueId: Int,
+        season: Int,
+        leagueCode: String,
+        mode: KeyMode = KeyMode.DIRECT,
+    ): List<Match> {
+        val arr = request(key, "fixtures", "league=$leagueId&season=$season&status=FT", mode)
             .optJSONArray("response") ?: JSONArray()
         val out = ArrayList<Match>(arr.length())
         for (i in 0 until arr.length()) {
@@ -165,8 +215,13 @@ object ApiFootball {
      * Upcoming fixtures for a single day across every league the key can see.
      * One request covers the whole day, which is what keeps this affordable.
      */
-    fun fixturesOn(key: String, isoDate: String, leagueCodes: Map<Int, String>): List<Fixture> {
-        val arr = request(key, "fixtures", "date=$isoDate")
+    fun fixturesOn(
+        key: String,
+        isoDate: String,
+        leagueCodes: Map<Int, String>,
+        mode: KeyMode = KeyMode.DIRECT,
+    ): List<Fixture> {
+        val arr = request(key, "fixtures", "date=$isoDate", mode)
             .optJSONArray("response") ?: JSONArray()
         val out = ArrayList<Fixture>(arr.length())
         for (i in 0 until arr.length()) {
