@@ -63,6 +63,11 @@ fun App(vm: AppViewModel) {
     val chatMessages by vm.chat.collectAsStateWithLifecycle()
     val chatBusy by vm.chatBusy.collectAsStateWithLifecycle()
     val parlayLegs by vm.parlayLegs.collectAsStateWithLifecycle()
+    val oddsEvents by vm.oddsEvents.collectAsStateWithLifecycle()
+    val edges by vm.edges.collectAsStateWithLifecycle()
+    val oddsQuota by vm.oddsQuota.collectAsStateWithLifecycle()
+    val oddsBusy by vm.oddsBusy.collectAsStateWithLifecycle()
+    val oddsMessage by vm.oddsMessage.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -115,6 +120,17 @@ fun App(vm: AppViewModel) {
                     hasKey = vm.repo.hasClaudeKey,
                     onSend = vm::sendChat,
                     onClear = vm::clearChat,
+                    onOpenSettings = { vm.go(Screen.Settings) },
+                )
+                is Screen.Odds -> OddsScreen(
+                    events = oddsEvents,
+                    edges = edges,
+                    quota = oddsQuota,
+                    busy = oddsBusy,
+                    message = oddsMessage,
+                    hasKey = vm.repo.hasOddsKey,
+                    myBookmaker = vm.myBookmaker(),
+                    onRefresh = vm::refreshOdds,
                     onOpenSettings = { vm.go(Screen.Settings) },
                 )
                 is Screen.Parlay -> ParlayScreen(
@@ -185,6 +201,7 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                             is Screen.Search -> "Cari"
                             is Screen.Chat -> "Tanya Claude"
                             is Screen.Parlay -> "Parlay"
+                            is Screen.Odds -> "Odds & Value"
                             is Screen.Team -> s.team
                             is Screen.Match -> "Detail Prediksi"
                             is Screen.Leagues -> "Liga"
@@ -198,6 +215,15 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                             "${state.fixtures.size} pertandingan mendatang",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                if (screen !is Screen.Match && screen !is Screen.Team && screen !is Screen.Fixtures) {
+                    IconButton(onClick = { vm.go(Screen.Fixtures) }) {
+                        Icon(
+                            Icons.Filled.DateRange,
+                            "Jadwal",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -241,8 +267,8 @@ private fun BottomBar(screen: Screen, vm: AppViewModel) {
         // Search moved to the top bar, where it is reachable from every screen.
         val items = listOf(
             Triple("Pilihan", Icons.Filled.Star, Screen.Picks),
-            Triple("Jadwal", Icons.Filled.DateRange, Screen.Fixtures),
-            Triple("Parlay", Icons.Filled.ShoppingCart, Screen.Parlay),
+            Triple("Odds", Icons.Filled.ShoppingCart, Screen.Odds),
+            Triple("Parlay", Icons.AutoMirrored.Filled.List, Screen.Parlay),
             Triple("Tanya", Icons.Filled.Face, Screen.Chat),
             Triple("Pelacak", Icons.Filled.CheckCircle, Screen.Tracker),
         )

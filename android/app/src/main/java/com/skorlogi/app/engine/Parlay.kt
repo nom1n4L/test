@@ -25,6 +25,12 @@ import kotlin.math.roundToInt
 data class ParlayOption(
     val legs: List<Pick>,
     val combinedProb: Double,
+    /**
+     * The actual prices a bookmaker is offering for these legs, where the odds
+     * feed covers them. When present the payout below stops being an estimate
+     * built on an average margin and becomes the real number.
+     */
+    val quotedOdds: List<Double> = emptyList(),
 ) {
     val size: Int get() = legs.size
 
@@ -40,6 +46,19 @@ data class ParlayOption(
     val expectedLossPercent: Int get() = ((1.0 - expectedReturn) * 100).roundToInt()
 
     val percent: Int get() = (combinedProb * 100).roundToInt()
+
+    /** True when every leg has a real price, so nothing here is assumed. */
+    val fullyPriced: Boolean get() = quotedOdds.size == size && size > 0
+
+    /** What this slip actually pays at the best prices found. */
+    val quotedPayout: Double? get() =
+        if (fullyPriced) quotedOdds.fold(1.0) { acc, o -> acc * o } else null
+
+    /**
+     * Expected return using the real prices rather than the average margin. This
+     * is the honest number when the feed covers every leg.
+     */
+    val quotedExpectedReturn: Double? get() = quotedPayout?.let { combinedProb * it }
 
     /** Roughly how often this comes in — "1 dari 7" reads better than "14%". */
     val oneInN: Int get() = if (combinedProb > 1e-9) (1.0 / combinedProb).roundToInt() else 0

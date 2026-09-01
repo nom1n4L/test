@@ -166,18 +166,54 @@ private fun Slip(option: ParlayOption, onClear: () -> Unit) {
             Metric("Bayaran wajar", "%.2f".format(option.fairOdds), Modifier.weight(1f))
             Metric("Setelah margin", "%.2f".format(option.realisticOdds), Modifier.weight(1f))
         }
+        val realPayout = option.quotedPayout
+        val realReturn = option.quotedExpectedReturn
+        if (realPayout != null && realReturn != null) {
+            Spacer(Modifier.height(12.dp))
+            Row {
+                Metric("Bayaran nyata", "%.2f".format(realPayout), Modifier.weight(1f), Green)
+                Metric(
+                    "Harapan nyata",
+                    "%.0f%%".format(realReturn * 100),
+                    Modifier.weight(1f),
+                    if (realReturn >= 1.0) Green else Rose,
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Dihitung dari harga terbaik yang benar-benar ditawarkan bandar untuk tiap " +
+                    "leg — bukan dari rata-rata margin.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         Spacer(Modifier.height(12.dp))
         Surface(
-            color = Rose.copy(alpha = 0.12f),
+            color = if (realReturn != null && realReturn >= 1.0) {
+                Green.copy(alpha = 0.12f)
+            } else {
+                Rose.copy(alpha = 0.12f)
+            },
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                "Imbal hasil harapan: %.0f%% dari taruhanmu — rata-rata rugi %d%% tiap kali dipasang."
-                    .format(option.expectedReturn * 100, option.expectedLossPercent),
+                when {
+                    realReturn != null && realReturn >= 1.0 ->
+                        "Dengan harga ini imbal hasil harapannya %.0f%% — di atas modal. " +
+                            "Itu jarang, dan datangnya dari harga yang bagus, bukan dari " +
+                            "prediksi yang bagus.".format(realReturn * 100)
+                    realReturn != null ->
+                        "Imbal hasil harapan %.0f%% dengan harga nyata — rata-rata rugi %d%%."
+                            .format(realReturn * 100, ((1 - realReturn) * 100).toInt())
+                    else ->
+                        "Imbal hasil harapan: %.0f%% dari taruhanmu — rata-rata rugi %d%% tiap kali dipasang."
+                            .format(option.expectedReturn * 100, option.expectedLossPercent)
+                },
                 modifier = Modifier.padding(11.dp),
                 style = MaterialTheme.typography.bodySmall,
-                color = Rose,
+                color = if (realReturn != null && realReturn >= 1.0) Green else Rose,
             )
         }
         Spacer(Modifier.height(6.dp))

@@ -74,6 +74,8 @@ fun SettingsScreen(
             )
         }
 
+        OddsSection(vm)
+
         ClaudeSection(vm)
 
         ApiSection(vm)
@@ -181,7 +183,7 @@ fun SettingsScreen(
             )
         }
 
-        SectionCard(title = "Skorlogi 1.5") {
+        SectionCard(title = "Skorlogi 1.6") {
             Text(
                 "Semua perhitungan berjalan di dalam HP. Tidak ada akun, tidak ada iklan, " +
                     "tidak ada data yang dikirim ke mana pun selain mengunduh arsip pertandingan.",
@@ -412,6 +414,120 @@ private fun ClaudeSection(vm: AppViewModel) {
                         price,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * The odds aggregator. Set up separately from everything else because it answers
+ * a different question: not what will happen, but who pays most for it.
+ */
+@Composable
+private fun OddsSection(vm: AppViewModel) {
+    var key by remember { mutableStateOf(vm.repo.oddsKey) }
+    var book by remember { mutableStateOf(vm.myBookmaker()) }
+    val catalog by vm.sportCatalog.collectAsStateWithLifecycle()
+    val busy by vm.oddsBusy.collectAsStateWithLifecycle()
+    val message by vm.oddsMessage.collectAsStateWithLifecycle()
+    var chosen by remember(catalog) { mutableStateOf(vm.oddsSports()) }
+
+    SectionCard(
+        title = "Odds Banyak Bandar (the-odds-api)",
+        subtitle = "Sumber keunggulan yang bisa dibuktikan, bukan diperkirakan.",
+    ) {
+        Text(
+            "Daftar gratis di the-odds-api.com — email saja, 500 permintaan per bulan. " +
+                "Dari situ aplikasi membaca harga 1xBet, Marathonbet, Betsson, William Hill, " +
+                "Pinnacle dan puluhan bandar lain sekaligus.\n\n" +
+                "Hemat kuota: memuat daftar kompetisi itu gratis, tapi sekali ambil odds " +
+                "memakai 1 kredit per market per liga. Pilih liga seperlunya.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = {
+                key = it.trim()
+                vm.setOddsKey(key)
+            },
+            label = { Text("Kunci the-odds-api") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { vm.loadSportCatalog() },
+            enabled = !busy && key.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = Green),
+        ) {
+            Text(if (busy) "Memuat…" else "Muat daftar kompetisi (gratis)")
+        }
+        if (message != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                message!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (message!!.startsWith("Gagal")) Rose else Green,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Bandar yang kamu pakai — dipakai untuk menghitung berapa yang kamu hemat " +
+                "kalau mengejar harga terbaik",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(4.dp))
+        OutlinedTextField(
+            value = book,
+            onValueChange = {
+                book = it.trim()
+                vm.setMyBookmaker(book)
+            },
+            label = { Text("Kode bandar (mis. onexbet, marathonbet)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+
+        if (catalog.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Kompetisi yang diambil odds-nya (${chosen.size} dipilih)",
+                style = MaterialTheme.typography.labelSmall,
+                color = Green,
+            )
+            catalog.take(40).forEach { sport ->
+                val on = sport.key in chosen
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            chosen = if (on) chosen - sport.key else chosen + sport.key
+                            vm.setOddsSports(chosen)
+                        }
+                        .padding(vertical = 1.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = on,
+                        onCheckedChange = { checked ->
+                            chosen = if (checked) chosen + sport.key else chosen - sport.key
+                            vm.setOddsSports(chosen)
+                        },
+                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = Green),
+                    )
+                    Text(
+                        sport.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }

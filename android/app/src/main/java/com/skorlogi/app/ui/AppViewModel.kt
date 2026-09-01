@@ -6,6 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.skorlogi.app.data.ApiFootball
 import com.skorlogi.app.data.Assistant
 import com.skorlogi.app.data.ChatMessage
+import com.skorlogi.app.data.OddsApi
+import com.skorlogi.app.data.OddsEvent
+import com.skorlogi.app.data.OddsQuota
+import com.skorlogi.app.data.SportKey
 import com.skorlogi.app.data.ApiLeague
 import com.skorlogi.app.data.Dates
 import com.skorlogi.app.data.Fixture
@@ -21,9 +25,11 @@ import com.skorlogi.app.engine.Insight
 import com.skorlogi.app.engine.Pick
 import com.skorlogi.app.engine.Picks
 import com.skorlogi.app.engine.Parlay
+import com.skorlogi.app.engine.PricedEdge
 import com.skorlogi.app.engine.ParlayOption
 import com.skorlogi.app.engine.Prediction
 import com.skorlogi.app.engine.TeamProfile
+import com.skorlogi.app.engine.Value
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -44,6 +50,7 @@ sealed interface Screen {
     data object Search : Screen
     data object Chat : Screen
     data object Parlay : Screen
+    data object Odds : Screen
     data class Team(val team: String, val league: String) : Screen
     data class Match(val fixture: Fixture) : Screen
     data object Leagues : Screen
@@ -89,6 +96,93 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _insights = MutableStateFlow<List<Insight>>(emptyList())
     val insights: StateFlow<List<Insight>> = _insights.asStateFlow()
+
+    // --- Odds ----------------------------------------------------------------
+
+    private val _oddsEvents = MutableStateFlow<List<OddsEvent>>(emptyList())
+    val oddsEvents: StateFlow<List<OddsEvent>> = _oddsEvents.asStateFlow()
+
+    private val _edges = MutableStateFlow<List<Pair<OddsEvent, PricedEdge>>>(emptyList())
+    val edges: StateFlow<List<Pair<OddsEvent, PricedEdge>>> = _edges.asStateFlow()
+
+    private val _oddsBusy = MutableStateFlow(false)
+    val oddsBusy: StateFlow<Boolean> = _oddsBusy.asStateFlow()
+
+    private val _oddsMessage = MutableStateFlow<String?>(null)
+    val oddsMessage: StateFlow<String?> = _oddsMessage.asStateFlow()
+
+    private val _oddsQuota = MutableStateFlow<OddsQuota?>(null)
+    val oddsQuota: StateFlow<OddsQuota?> = _oddsQuota.asStateFlow()
+
+    private val _sportCatalog = MutableStateFlow<List<SportKey>>(emptyList())
+    val sportCatalog: StateFlow<List<SportKey>> = _sportCatalog.asStateFlow()
+
+    private fun publishOdds() {
+        val events = repo.oddsEvents
+        _oddsEvents.value = events
+        _edges.value = events
+            .flatMap { e -> Value.edges(e).map { e to it } }
+            .sortedByDescending { it.second.edge }
+        _oddsQuota.value = OddsApi.lastQuota
+    }
+
+    fun refreshOdds() {
+        if (_oddsBusy.value) return
+        viewModelScope.launch {
+            _oddsBusy.value = true
+            _oddsMessage.value = null
+            try {
+                val count = repo.refreshOdds { sport ->
+                    _oddsMessage.value = "Mengambil odds $sport…"
+                }
+                publishOdds()
+                val quota = OddsApi.lastQuota
+                _oddsMessage.value = "Selesai — $count pertandingan berharga." +
+                    (quota?.let { " Sisa kuota bulan ini: ${it.remaining}." } ?: "")
+            } catch (e: Exception) {
+                _oddsMessage.value = "Gagal: ${e.message}"
+                _oddsQuota.value = OddsApi.lastQuota
+            }
+            _oddsBusy.value = false
+        }
+    }
+
+    /** Free call — the sports listing costs no credits. */
+    fun loadSportCatalog() {
+        if (_oddsBusy.value) return
+        viewModelScope.launch {
+            _oddsBusy.value = true
+            try {
+                _sportCatalog.value = repo.oddsSportCatalog()
+                _oddsMessage.value = "${_sportCatalog.value.size} kompetisi sepak bola tersedia. " +
+                    "Memuat daftar ini tidak memakai kuota."
+            } catch (e: Exception) {
+                _oddsMessage.value = "Gagal: ${e.message}"
+            }
+            _oddsBusy.value = false
+        }
+    }
+
+    fun setOddsKey(key: String) {
+        repo.oddsKey = key
+    }
+
+    fun setOddsSports(keys: Set<String>) {
+        repo.setOddsSports(keys)
+    }
+
+    fun oddsSports(): Set<String> = repo.oddsSports()
+
+    fun setMyBookmaker(key: String) {
+        repo.myBookmaker = key
+        publishOdds()
+    }
+
+    fun myBookmaker(): String = repo.myBookmaker
+
+    /** Odds attached to the match currently open, if the feed covers it. */
+    fun oddsForOpenMatch(): OddsEvent? =
+        (_screen.value as? Screen.Match)?.fixture?.let { repo.oddsFor(it) }
 
     // --- Assistant -----------------------------------------------------------
 
@@ -187,6 +281,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             )
             if (stats.hasMoney) {
                 appendLine("Untung/rugi: %+.2f satuan, ROI %+.0f%%".format(stats.profit, stats.roi * 100))
+            }
+            appendLine()
+        }
+
+        val topEdges = _edges.value
+        if (topEdges.isNotEmpty()) {
+            appendLine("HARGA DI ATAS WAJAR (patokan Pinnacle, margin dibuang):")
+            topEdges.take(12).forEach { (event, edge) ->
+                appendLine(
+                    "- ${event.home} vs ${event.away}: ${edge.selection.label} " +
+                        "di ${edge.best.bookmaker} @ %.2f, harga wajar %.2f, peluang %d%%, unggul %+d%%"
+                            .format(edge.best.price, edge.fairOdds, edge.sharpPercent, edge.edgePercent)
+                )
             }
             appendLine()
         }
@@ -308,6 +415,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.restoreApiLeagues()
             repo.loadFromCache()
+            publishOdds()
             refreshTracker()
             refreshLists()
             _state.value = _state.value.copy(loading = false)
@@ -567,7 +675,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _parlayLegs.value = emptyList()
     }
 
-    fun parlayOf(legs: List<Pick>): ParlayOption = Parlay.combine(legs)
+    /** Combines legs, attaching real prices wherever the odds feed covers them. */
+    fun parlayOf(legs: List<Pick>): ParlayOption {
+        val base = Parlay.combine(legs)
+        val quoted = base.legs.mapNotNull { leg ->
+            repo.oddsFor(leg.fixture)?.let { event ->
+                Value.priceFor(event, leg.kind, leg.fixture.home, leg.fixture.away)?.price
+            }
+        }
+        return base.copy(quotedOdds = quoted)
+    }
 
     fun parlaySuggestions(): List<ParlayOption> = Parlay.suggestions(_picks.value)
 

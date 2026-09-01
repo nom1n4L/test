@@ -123,6 +123,7 @@ class Repository(private val context: Context) {
                 Feed.API, Feed.OPEN -> Unit
             }
         }
+        loadOddsFromCache()
         val (apiMatches, _) = loadApiFromCache()
         all.addAll(apiMatches)
         all.addAll(loadOpenFromCache().first)
@@ -371,6 +372,122 @@ class Repository(private val context: Context) {
             }
         }
         return matches to fixtures
+    }
+
+    // --- Odds aggregator -----------------------------------------------------
+
+    var oddsKey: String
+        get() = prefs.getString("odds_key", "").orEmpty()
+        set(v) = prefs.edit().putString("odds_key", v.trim()).apply()
+
+    val hasOddsKey: Boolean get() = oddsKey.isNotBlank()
+
+    /** Which bookmaker the user actually places bets with, for the margin comparison. */
+    var myBookmaker: String
+        get() = prefs.getString("my_bookmaker", "onexbet").orEmpty().ifBlank { "onexbet" }
+        set(v) = prefs.edit().putString("my_bookmaker", v).apply()
+
+    /** Competitions to pull prices for. Each one costs credits, so it is opt-in. */
+    fun oddsSports(): Set<String> = prefs.getStringSet("odds_sports", emptySet()) ?: emptySet()
+
+    fun setOddsSports(keys: Set<String>) {
+        prefs.edit().putStringSet("odds_sports", keys).apply()
+    }
+
+    @Volatile var oddsEvents: List<OddsEvent> = emptyList()
+        private set
+
+    var oddsFetchedOn: Long
+        get() = prefs.getLong("odds_fetched", -1L)
+        private set(v) = prefs.edit().putLong("odds_fetched", v).apply()
+
+    suspend fun oddsSportCatalog(): List<SportKey> = withContext(Dispatchers.IO) {
+        // The sports listing is free, so this never eats into the month's credits.
+        OddsApi.sports(oddsKey).filter { it.group.equals("Soccer", true) && it.active }
+    }
+
+    /**
+     * Pulls prices for the chosen competitions.
+     *
+     * A request costs one credit per market, so the market list is deliberately
+     * short: the four that the value check can actually work with, and no more.
+     */
+    suspend fun refreshOdds(
+        markets: List<String> = listOf("h2h", "totals", "btts"),
+        onProgress: (String) -> Unit = {},
+    ): Int = withContext(Dispatchers.IO) {
+        val sports = oddsSports()
+        if (oddsKey.isBlank()) throw OddsApi.OddsException("Kunci the-odds-api belum diisi.")
+        if (sports.isEmpty()) throw OddsApi.OddsException("Belum ada liga yang dipilih untuk odds.")
+
+        val all = ArrayList<OddsEvent>()
+        for (sport in sports) {
+            onProgress(sport)
+            all.addAll(OddsApi.odds(oddsKey, sport, markets))
+        }
+        oddsEvents = all
+        oddsFetchedOn = Dates.today()
+        writeCache("odds_cache", serialiseOdds(all))
+        all.size
+    }
+
+    fun loadOddsFromCache() {
+        val body = readCache("odds_cache") ?: return
+        oddsEvents = deserialiseOdds(body)
+    }
+
+    /** Odds for one of the app's own fixtures, matched across the two spellings. */
+    fun oddsFor(fixture: Fixture): OddsEvent? = oddsEvents.firstOrNull {
+        com.skorlogi.app.engine.Value.matches(it, fixture.home, fixture.away, fixture.dateEpochDay)
+    }
+
+    // A compact hand-rolled format: the payload is wide and shallow, and adding a
+    // JSON serialiser for it would cost more than it saves.
+    private fun serialiseOdds(events: List<OddsEvent>): String = buildString {
+        for (e in events) {
+            append("E\t").append(e.id).append('\t').append(e.sportKey).append('\t')
+                .append(e.commenceEpochDay).append('\t').append(e.commenceTime).append('\t')
+                .append(e.home).append('\t').append(e.away).append('\n')
+            for (s in e.selections) {
+                append("S\t").append(s.market).append('\t').append(s.name).append('\t')
+                    .append(s.point?.toString() ?: "").append('\t')
+                    .append(s.prices.joinToString(";") { "${it.bookmakerKey}|${it.bookmaker}|${it.price}" })
+                    .append('\n')
+            }
+        }
+    }
+
+    private fun deserialiseOdds(body: String): List<OddsEvent> {
+        val out = ArrayList<OddsEvent>()
+        var id = ""; var sport = ""; var day = 0L; var time = ""; var home = ""; var away = ""
+        var selections = ArrayList<Selection>()
+        fun flush() {
+            if (id.isNotEmpty()) {
+                out.add(OddsEvent(id, sport, day, time, home, away, selections))
+            }
+        }
+        for (line in body.lineSequence()) {
+            val p = line.split('\t')
+            when {
+                p.size >= 7 && p[0] == "E" -> {
+                    flush()
+                    selections = ArrayList()
+                    id = p[1]; sport = p[2]; day = p[3].toLongOrNull() ?: 0L
+                    time = p[4]; home = p[5]; away = p[6]
+                }
+                p.size >= 5 && p[0] == "S" -> {
+                    val prices = p[4].split(';').mapNotNull { chunk ->
+                        val f = chunk.split('|')
+                        if (f.size < 3) null else f[2].toDoubleOrNull()?.let { Price(f[1], f[0], it) }
+                    }
+                    if (prices.isNotEmpty()) {
+                        selections.add(Selection(p[1], p[2], p[3].toDoubleOrNull(), prices))
+                    }
+                }
+            }
+        }
+        flush()
+        return out
     }
 
     // --- Claude assistant ----------------------------------------------------

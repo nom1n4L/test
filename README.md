@@ -4,7 +4,7 @@ Aplikasi Android untuk memprediksi pertandingan sepak bola. Semua data diunduh
 otomatis dan seluruh perhitungan berjalan di dalam HP — tanpa akun, tanpa kunci
 API, tanpa server, tanpa iklan.
 
-**[⬇ Unduh Skorlogi-1.5.apk](Skorlogi-1.5.apk)** · 3,5 MB · Android 7.0 ke atas
+**[⬇ Unduh Skorlogi-1.6.apk](Skorlogi-1.6.apk)** · 3,6 MB · Android 7.0 ke atas
 
 ---
 
@@ -50,6 +50,9 @@ untuk pemakaian pribadi.
   berapa gol. Semua kalimatnya dihasilkan dari angka yang dipakai model, bukan
   ringkasan terpisah, dan ada test yang memastikan teksnya tidak pernah
   bertentangan dengan angkanya.
+- **Odds banyak bandar** (opsional, kunci gratis) — harga 1xBet, Marathonbet,
+  Betsson, William Hill, Pinnacle dan puluhan lainnya berdampingan, dengan harga
+  tertinggi disorot dan selisih terhadap patokan Pinnacle ditandai.
 - **Chatbot Claude** (opsional, berbayar) — dibatasi hanya boleh memakai angka
   yang dihitung aplikasi ini; dilarang mengarang statistik dari ingatannya.
 - **Menu Parlay** — susun sendiri atau pakai saran, lengkap dengan peluang gabungan
@@ -220,6 +223,37 @@ supaya build tetap jalan tanpa jaringan.
 | `OpenFootballTest` | Alur penuh lewat sumber cadangan tanpa kunci |
 | `AnalysisTest` | Teks penjelasan tidak boleh bertentangan dengan angka model |
 | `ParlayTest` | Aritmetika parlay, termasuk klaim 1/margin^n |
+| `ValueTest` | Aritmetika harga: buang margin, deteksi selisih, cocokkan nama klub |
+| `MarketBlendTest` | Model vs harga pasar, per jenis taruhan |
+
+## Keunggulan yang bisa dibuktikan: harga, bukan ramalan
+
+`MarketBlendTest` mengukur model ini melawan harga bandar di 2.770 laga. Log loss
+turun terus seiring bobot pasar dinaikkan — 0,9909 (model saja) sampai 0,9742
+(pasar saja), tanpa titik balik. Dipecah per jenis taruhan, dan dibandingkan
+dengan odds *pembukaan* supaya seadil mungkin bagi model:
+
+| | Model | Pasar |
+|---|---|---|
+| 1X2 | 0,9909 | **0,9742** buka · **0,9722** tutup |
+| Over/Under 2,5 | 0,6816 (56,4%) | **0,6728 (57,7%)** |
+
+Jaraknya menyempit separuh di over/under — arah yang memang diperkirakan, karena
+bandar mengasah market utamanya lebih tajam — tapi tidak pernah menyeberang.
+**Model ini tidak mengalahkan harga di mana pun.**
+
+Maka halaman Odds bekerja tanpa ramalan sama sekali. Dua mekanisme:
+
+1. **Kejar harga terbaik.** Taruhan identik, harga berbeda antar bandar. Di
+   `ValueTest`, margin turun dari 7% ke 1% hanya dengan mengambil yang tertinggi —
+   untung pasti, nol tebakan.
+2. **Pinnacle sebagai patokan.** Marginnya paling tipis dan harganya bergerak
+   mengikuti uang. Kalau bandar lain membayar di atas peluang yang tersirat dari
+   harga Pinnacle, selisihnya nyata dan terukur.
+
+Margin dibuang secara proporsional, yang sedikit melebihkan longshot. Karena itu
+selisih di bawah 2% diabaikan — di bawah itu angkanya masih di dalam galat
+metodenya sendiri.
 
 ## Soal parlay
 
