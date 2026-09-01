@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MatchPrediction
+import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Report
@@ -43,6 +44,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
+
+    private val _mode = MutableStateFlow(Mode.MATCH)
+    val mode: StateFlow<Mode> = _mode.asStateFlow()
+
+    fun setMode(mode: Mode) {
+        _mode.value = mode
+    }
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
@@ -157,7 +165,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _busy.value = true
             _message.value = null
             try {
-                val result = Analyst(store.apiKey).analyse(images, note, store.model)
+                val result = Analyst(store.apiKey).analyse(images, note, store.model, _mode.value)
                 val updated = _matches.value + result
                 _matches.value = updated
                 store.save(updated)

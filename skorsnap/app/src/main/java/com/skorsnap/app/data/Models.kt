@@ -1,15 +1,32 @@
 package com.skorsnap.app.data
 
+/** Which set of markets an analysis was asked for. */
+enum class Mode(val label: String) {
+    MATCH("Analisis Match"),
+    CORNER("Analisis Corner"),
+}
+
 /** One market the model is willing to name a number for. */
 data class MarketOption(
     val name: String,
     val prob: Double,
     val why: String,
+    /** Heading this belongs under, so forty markets stay readable. */
+    val group: String = "Lainnya",
 ) {
     val percent: Int get() = Math.round(prob * 100).toInt()
 
-    /** The price this bet has to beat to be worth placing at all. */
+    /**
+     * The price this bet has to beat to be worth placing at all.
+     *
+     * This is the whole of value betting in one number: if the bookmaker pays more
+     * than this, the bet is worth taking; if less, it is not, however comfortable
+     * the percentage looks.
+     */
     val breakEven: Double get() = if (prob > 1e-9) 1.0 / prob else 0.0
+
+    /** High enough to lead with, low enough that a bookmaker will price it. */
+    val safe: Boolean get() = prob in 0.68..0.92
 }
 
 /** How a followed pick actually turned out. */
@@ -35,6 +52,7 @@ data class MatchPrediction(
     val pickProb: Double,
     val confidence: String,
     val confidenceWhy: String,
+    val mode: Mode = Mode.MATCH,
     val outcome: Outcome = Outcome.PENDING,
     val raw: String = "",
 ) {
@@ -55,6 +73,32 @@ data class MatchPrediction(
     val thin: Boolean get() = confidence.equals("rendah", true) || statsMissing.size > 3
 
     val settled: Boolean get() = outcome != Outcome.PENDING
+
+    /** Markets under their headings, in the order the catalogue lists them. */
+    fun grouped(): List<Pair<String, List<MarketOption>>> =
+        markets.groupBy { it.group }
+            .toList()
+            .sortedBy { (group, _) -> Markets.order.indexOf(group).takeIf { it >= 0 } ?: 99 }
+            .map { (group, list) -> group to list.sortedByDescending { it.prob } }
+}
+
+/** The market catalogue, shared between the prompt and the screen. */
+object Markets {
+
+    val order = listOf(
+        "Hasil Akhir",
+        "Double Chance",
+        "Total Gol",
+        "Total Babak 1",
+        "Total per Tim",
+        "Kombinasi Hasil + Total",
+        "Handicap Asia",
+        "Handicap Eropa",
+        "Corner",
+        "Corner Babak 1",
+        "Corner per Tim",
+        "Lainnya",
+    )
 }
 
 /**

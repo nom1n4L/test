@@ -2,6 +2,7 @@ package com.skorsnap.app
 
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MarketOption
+import com.skorsnap.app.data.Markets
 import com.skorsnap.app.data.Images
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Outcome
@@ -286,6 +287,69 @@ class CoreTest {
         }
         println()
         println("Screenshot biasa dibiarkan utuh; hanya long capture yang dipotong.")
+    }
+
+    /**
+     * The prompt names the group for each market and the screen sorts by those
+     * names. If the two ever drift, every market silently lands in "Lainnya" and
+     * the grouping quietly stops working.
+     */
+    @Test
+    fun everyGroupInThePromptIsOneTheScreenKnows() {
+        val inPrompt = Regex("""\[([^\]]+)]""")
+            .findAll(Analyst.MATCH_MARKETS + Analyst.CORNER_MARKETS)
+            .map { it.groupValues[1] }
+            .toSet()
+        assert(inPrompt.isNotEmpty()) { "tidak ada grup yang terbaca dari prompt" }
+        for (group in inPrompt) {
+            assert(group in Markets.order) { "grup '$group' ada di prompt tapi tidak dikenali layar" }
+        }
+        println()
+        println("Grup di prompt: ${inPrompt.sorted()}")
+    }
+
+    @Test
+    fun thePromptCoversTheMarketsAsked() {
+        val match = Analyst.MATCH_MARKETS
+        for (needle in listOf(
+            "Double Chance", "Babak 1", "Handicap Asia", "Handicap Eropa",
+            "BTTS", "Minimal satu tim", "1X & Over 2.5", "Tuan rumah -0.25",
+        )) {
+            assert(match.contains(needle)) { "market '$needle' hilang dari katalog" }
+        }
+        val corner = Analyst.CORNER_MARKETS
+        for (needle in listOf(
+            "Total corner Over 9.5", "Corner babak 1", "Corner tuan rumah", "Corner tandang",
+        )) {
+            assert(corner.contains(needle)) { "market corner '$needle' hilang" }
+        }
+        println("Katalog match dan corner lengkap.")
+    }
+
+    @Test
+    fun marketsAreGroupedInCatalogueOrder() {
+        val m = match(0.8).copy(
+            markets = listOf(
+                MarketOption("Handicap A", 0.5, "", "Handicap Asia"),
+                MarketOption("Over 2.5", 0.7, "", "Total Gol"),
+                MarketOption("Over 1.5", 0.9, "", "Total Gol"),
+                MarketOption("1X", 0.8, "", "Double Chance"),
+            )
+        )
+        val groups = m.grouped()
+        assert(groups.map { it.first } == listOf("Double Chance", "Total Gol", "Handicap Asia")) {
+            "urutan grup salah: ${groups.map { it.first }}"
+        }
+        val totals = groups.first { it.first == "Total Gol" }.second
+        assert(totals.first().name == "Over 1.5") { "isi grup tidak diurutkan dari peluang tertinggi" }
+        println("Urutan grup: ${groups.map { it.first }}")
+    }
+
+    @Test
+    fun theSafeBandMatchesTheOneThePickUses() {
+        assert(!MarketOption("x", 0.60, "").safe) { "60% harusnya belum masuk aman" }
+        assert(MarketOption("x", 0.75, "").safe)
+        assert(!MarketOption("x", 0.96, "").safe) { "96% odds-nya terlalu kecil untuk dipasang" }
     }
 
     @Test

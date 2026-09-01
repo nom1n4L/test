@@ -72,6 +72,28 @@ apa pilihanmu**, hanya pada berapa banyak leg-nya:
 Diuji di `CoreTest`: tiga leg "aman" (peluang gabungan 72,1%) dan tiga leg
 berisiko (17,2%) menghasilkan imbal hasil harapan yang **persis sama**, 83,9%.
 
+## Market yang dianalisis
+
+Dua mode, dipilih sebelum menekan Analisa.
+
+**Analisis Match** — 1X2, Double Chance, Total Gol (0.5–4.5), Total Babak 1,
+Total per Tim, BTTS, "minimal satu tim cetak 2+ gol", Kombinasi Hasil + Total
+(1X & Over 2.5, dst), Handicap Asia (±0.25, ±0.5, ±0.75, ±1), Handicap Eropa.
+
+**Analisis Corner** — Total Corner FT (7.5–11.5), Corner Babak 1, Corner per Tim,
+dan siapa yang unggul corner.
+
+Hasilnya dikelompokkan per jenis dan bisa dilipat, karena empat puluh baris dalam
+satu daftar tidak terbaca. Ada dua urutan: **paling aman** (peluang tertinggi) dan
+**bayaran terbesar** (peluang terendah, bayaran tertinggi).
+
+Tiap baris menampilkan peluang **dan odds impasnya**. Pasangan itulah inti value
+betting: pasang kalau bandar membayar di atas angka impas, tinggalkan kalau di
+bawah — sebesar apa pun persentasenya terlihat nyaman. Aplikasi tidak bisa melihat
+harga bandarmu, jadi ia memberi angka pembandingnya, bukan berpura-pura menilai.
+
+**Rekomendasi utama tetap satu.** Empat puluh market bukan empat puluh saran.
+
 ## Long capture
 
 Screenshot panjang satu halaman penuh justru input terbaik untuk aplikasi ini,

@@ -42,6 +42,7 @@ fun App(vm: AppViewModel) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
+    val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     // The system photo picker needs no storage permission and is available back to
@@ -81,6 +82,8 @@ fun App(vm: AppViewModel) {
                 is Screen.Add -> AddScreen(
                     staged = staged,
                     busy = busy,
+                    mode = mode,
+                    onMode = vm::setMode,
                     onPick = {
                         picker.launch(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)

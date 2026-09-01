@@ -1,33 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.skorsnap.app.CoreTest" tests="18" skipped="0" failures="0" errors="0" timestamp="2026-09-01T13:44:13.518Z" hostname="vm" time="0.252">
+<testsuite name="com.skorsnap.app.CoreTest" tests="22" skipped="0" failures="0" errors="0" timestamp="2026-09-01T15:49:07.666Z" hostname="vm" time="0.163">
   <properties/>
-  <testcase name="duplicateLegsAreCollapsed" classname="com.skorsnap.app.CoreTest" time="0.07"/>
-  <testcase name="survivesAStraySentenceBeforeTheJson" classname="com.skorsnap.app.CoreTest" time="0.032"/>
-  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="cappedThinkingLeavesRoomForTheAnswer" classname="com.skorsnap.app.CoreTest" time="0.009"/>
-  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.086"/>
-  <testcase name="reportsTheGapBetweenPromisedAndDelivered" classname="com.skorsnap.app.CoreTest" time="0.011"/>
-  <testcase name="ordinaryScreenshotsAreNotSliced" classname="com.skorsnap.app.CoreTest" time="0.003"/>
+  <testcase name="duplicateLegsAreCollapsed" classname="com.skorsnap.app.CoreTest" time="0.046"/>
+  <testcase name="survivesAStraySentenceBeforeTheJson" classname="com.skorsnap.app.CoreTest" time="0.02"/>
+  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="cappedThinkingLeavesRoomForTheAnswer" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="thePromptCoversTheMarketsAsked" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.031"/>
+  <testcase name="everyGroupInThePromptIsOneTheScreenKnows" classname="com.skorsnap.app.CoreTest" time="0.016"/>
+  <testcase name="reportsTheGapBetweenPromisedAndDelivered" classname="com.skorsnap.app.CoreTest" time="0.008"/>
+  <testcase name="marketsAreGroupedInCatalogueOrder" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="ordinaryScreenshotsAreNotSliced" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="refusesGarbageInsteadOfInventing" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="bandsCoverALongCaptureWithoutGaps" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <testcase name="precisionTightensAsResultsAccumulate" classname="com.skorsnap.app.CoreTest" time="0.004"/>
-  <testcase name="onlyOffersModelsThatCanReadAScreenshot" classname="com.skorsnap.app.CoreTest" time="0.016"/>
-  <testcase name="elevenFromTwelveIsNotYetEvidence" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <testcase name="pendingMatchesStayOutOfTheRecord" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="precisionTightensAsResultsAccumulate" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="onlyOffersModelsThatCanReadAScreenshot" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="elevenFromTwelveIsNotYetEvidence" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="pendingMatchesStayOutOfTheRecord" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="responseSchemaCoversEveryFieldTheParserNeeds" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <testcase name="sixLegsIsTheCaseTheUserAsksFor" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="sixLegsIsTheCaseTheUserAsksFor" classname="com.skorsnap.app.CoreTest" time="0.003"/>
   <testcase name="ignoresImpossibleProbabilities" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="putsTheUsefulModelsFirst" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theSafeBandMatchesTheOneThePickUses" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="expectedReturnDependsOnlyOnLegCount" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <system-out><![CDATA[Kalimat tambahan di luar JSON tidak merusak hasil.
 4 leg @80% → 41% (1 dari 2)
 
 Jatah output 32768, berpikir dibatasi 8192, sisa 24576 untuk jawaban.
+Katalog match dan corner lengkap.
 
 Terbaca: Preston vs Bristol City, pilih Over 1.5 82%, impas di 1.22
 
+Grup di prompt: [Corner, Corner Babak 1, Corner per Tim, Double Chance, Handicap Asia, Handicap Eropa, Hasil Akhir, Kombinasi Hasil + Total, Total Babak 1, Total Gol, Total per Tim]
+
 Janji 75%, tembus 75% → Akurasi nyatamu kurang lebih sama dengan yang dijanjikan model. Artiny…
 Janji 85%, tembus 55% → Hasilnya di bawah yang dijanjikan model. Kalau bertahan sampai 100 has…
+Urutan grup: [Double Chance, Total Gol, Handicap Asia]
 
 Screenshot biasa dibiarkan utuh; hanya long capture yang dipotong.
 Balasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.

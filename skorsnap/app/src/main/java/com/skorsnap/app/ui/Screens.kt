@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.Images
 import com.skorsnap.app.data.MatchPrediction
+import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Report
 import com.skorsnap.app.data.Parlay
@@ -255,6 +256,8 @@ private fun MatchRow(
 fun AddScreen(
     staged: List<ByteArray>,
     busy: Boolean,
+    mode: Mode,
+    onMode: (Mode) -> Unit,
     onPick: () -> Unit,
     onRemove: (Int) -> Unit,
     onAnalyse: (String) -> Unit,
@@ -269,6 +272,39 @@ fun AddScreen(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Card(title = "Jenis Analisis") {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Mode.entries.forEach { option ->
+                    Surface(
+                        color = if (mode == option) Sky.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).clickable { onMode(option) },
+                    ) {
+                        Text(
+                            option.label,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = if (mode == option) FontWeight.Bold else FontWeight.Normal,
+                            color = if (mode == option) Sky else MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (mode == Mode.CORNER) {
+                    "Khusus sepak pojok: total corner, corner babak 1, dan corner per tim. " +
+                        "Kirim screenshot yang memuat statistik corner."
+                } else {
+                    "1X2, double chance, total gol, total babak 1, total per tim, " +
+                        "kombinasi hasil + total, handicap Asia dan Eropa."
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         Card(
             title = "Screenshot Statistik",
             subtitle = "Boleh lebih dari satu gambar untuk satu pertandingan.",
@@ -392,13 +428,12 @@ fun DetailScreen(
         item {
             Card {
                 Text(match.title, style = MaterialTheme.typography.titleLarge)
-                if (match.league.isNotBlank()) {
-                    Text(
-                        match.league,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    listOfNotNull(match.league.takeIf { it.isNotBlank() }, match.mode.label)
+                        .joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (!match.readable && match.problem.isNotBlank()) {
                     Spacer(Modifier.height(10.dp))
                     Surface(
@@ -465,37 +500,7 @@ fun DetailScreen(
         }
 
         if (match.markets.isNotEmpty()) {
-            item {
-                Card(title = "Semua Market", subtitle = "Angka di kanan adalah odds impasnya.") {
-                    match.markets.forEachIndexed { i, m ->
-                        if (i > 0) Spacer(Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(m.name, style = MaterialTheme.typography.bodyMedium)
-                                if (m.why.isNotBlank()) {
-                                    Text(
-                                        m.why,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                            }
-                            Text(
-                                "${m.percent}%",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = probColor(m.prob),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                "%.2f".format(m.breakEven),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-            }
+            item { MarketsCard(match) }
         }
 
         item { OutcomeCard(match, onMark) }
@@ -505,6 +510,133 @@ fun DetailScreen(
         item {
             TextButton(onClick = onDelete) {
                 Text("Hapus pertandingan ini", color = Rose, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+/**
+ * Every market the analysis produced, grouped so forty rows stay readable.
+ *
+ * Each row carries the break-even price beside the probability, because that pair
+ * is the whole of value betting: back it when the bookmaker pays more than the
+ * break-even figure, leave it when they pay less, however comfortable the
+ * percentage looks on its own. The app cannot see the bookmaker's prices, so it
+ * gives the number to compare them against rather than pretending to judge.
+ */
+@Composable
+private fun MarketsCard(match: MatchPrediction) {
+    var bySafety by remember { mutableStateOf(true) }
+    val groups = remember(match, bySafety) {
+        if (bySafety) match.grouped()
+        else listOf("Bayaran terbesar dulu" to match.markets.sortedBy { it.prob })
+    }
+
+    Card(
+        title = "Semua Market (${match.markets.size})",
+        subtitle = "Angka kanan adalah odds impas — pasang kalau bandar bayar di atas itu.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SortChip("Paling aman", bySafety, Modifier.weight(1f)) { bySafety = true }
+            SortChip("Bayaran terbesar", !bySafety, Modifier.weight(1f)) { bySafety = false }
+        }
+        Spacer(Modifier.height(4.dp))
+        groups.forEach { (group, options) ->
+            MarketGroup(group, options, expandedByDefault = groups.size == 1 || options.any { it.safe })
+        }
+    }
+}
+
+@Composable
+private fun SortChip(text: String, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Surface(
+        color = if (active) Sky.copy(alpha = 0.20f) else MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier.clickable(onClick = onClick),
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(vertical = 8.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (active) Sky else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun MarketGroup(
+    group: String,
+    options: List<com.skorsnap.app.data.MarketOption>,
+    expandedByDefault: Boolean,
+) {
+    var open by remember(group) { mutableStateOf(expandedByDefault) }
+    Column(Modifier.padding(top = 12.dp)) {
+        Row(
+            Modifier.fillMaxWidth().clickable { open = !open },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                group,
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                color = Sky,
+            )
+            Text(
+                "${options.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(if (open) "−" else "+", style = MaterialTheme.typography.titleMedium)
+        }
+        AnimatedVisibility(open) {
+            Column {
+                options.forEach { option ->
+                    Row(
+                        Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(option.name, style = MaterialTheme.typography.bodySmall)
+                                if (option.safe) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Surface(
+                                        color = Green.copy(alpha = 0.18f),
+                                        shape = RoundedCornerShape(5.dp),
+                                    ) {
+                                        Text(
+                                            "aman",
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = Green,
+                                        )
+                                    }
+                                }
+                            }
+                            if (option.why.isNotBlank()) {
+                                Text(
+                                    option.why,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Text(
+                            "${option.percent}%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = probColor(option.prob),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(
+                            "%.2f".format(option.breakEven),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }

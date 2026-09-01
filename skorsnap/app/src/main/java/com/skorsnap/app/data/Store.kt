@@ -57,11 +57,15 @@ class Store(context: Context) {
         put("confidence", m.confidence)
         put("confidence_why", m.confidenceWhy)
         put("outcome", m.outcome.name)
+        put("mode", m.mode.name)
         put(
             "markets",
             JSONArray().apply {
                 m.markets.forEach {
-                    put(JSONObject().put("name", it.name).put("prob", it.prob).put("why", it.why))
+                    put(
+                        JSONObject().put("name", it.name).put("prob", it.prob)
+                            .put("why", it.why).put("group", it.group)
+                    )
                 }
             }
         )
@@ -76,7 +80,14 @@ class Store(context: Context) {
         o.optJSONArray("markets")?.let { arr ->
             for (i in 0 until arr.length()) {
                 val m = arr.optJSONObject(i) ?: continue
-                markets.add(MarketOption(m.optString("name"), m.optDouble("prob", 0.0), m.optString("why")))
+                markets.add(
+                    MarketOption(
+                        m.optString("name"),
+                        m.optDouble("prob", 0.0),
+                        m.optString("why"),
+                        m.optString("group").ifBlank { "Lainnya" },
+                    )
+                )
             }
         }
         return MatchPrediction(
@@ -100,6 +111,7 @@ class Store(context: Context) {
             confidenceWhy = o.optString("confidence_why"),
             outcome = runCatching { Outcome.valueOf(o.optString("outcome")) }
                 .getOrDefault(Outcome.PENDING),
+            mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
         )
     }
 }

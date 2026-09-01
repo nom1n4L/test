@@ -90,6 +90,7 @@ class Analyst(private val apiKey: String) {
         images: List<ByteArray>,
         note: String,
         model: String = DEFAULT_MODEL,
+        mode: Mode = Mode.MATCH,
     ): MatchPrediction = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
         if (images.isEmpty()) throw AnalystException("Belum ada gambar.")
@@ -107,7 +108,7 @@ class Analyst(private val apiKey: String) {
                 )
             )
         }
-        parts.put(JSONObject().put("text", userPrompt(note)))
+        parts.put(JSONObject().put("text", userPrompt(note, mode)))
 
         val body = JSONObject()
             .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
@@ -143,7 +144,7 @@ class Analyst(private val apiKey: String) {
             }
             post(model, constrained.toString())
         }
-        parse(reply)
+        parse(reply).copy(mode = mode)
     }
 
     /** Raised when the model ran out of room before finishing its JSON. */
@@ -285,7 +286,9 @@ class Analyst(private val apiKey: String) {
                 val name = m.optString("name")
                 val prob = m.optDouble("prob", -1.0)
                 if (name.isBlank() || prob < 0 || prob > 1) continue
-                markets.add(MarketOption(name, prob, m.optString("why")))
+                markets.add(
+                    MarketOption(name, prob, m.optString("why"), m.optString("group").ifBlank { "Lainnya" })
+                )
             }
         }
 
@@ -312,18 +315,26 @@ class Analyst(private val apiKey: String) {
         )
     }
 
-    private fun userPrompt(note: String): String = buildString {
+    private fun userPrompt(note: String, mode: Mode): String = buildString {
         append("Baca statistik di gambar-gambar di atas, lalu isi JSON sesuai skema.\n\n")
         if (note.isNotBlank()) append("Catatan dari pengguna: $note\n\n")
+        append(if (mode == Mode.CORNER) CORNER_MARKETS else MATCH_MARKETS)
+        append("\n\n")
         append(
             """
 Aturan pengisian:
 - prob_home + prob_draw + prob_away harus berjumlah 1,0.
 - Semua "prob" adalah peluang antara 0 dan 1, bukan persen. 0,72 berarti 72%.
-- Isi "markets" dengan 4-8 market yang datanya memang terlihat di gambar.
-- "pick" harus salah satu dari nama di "markets" — yang paling seimbang antara
-  peluang tinggi dan dukungan data yang jelas. Jangan pilih yang peluangnya di
-  atas 0,92, karena odds-nya terlalu kecil untuk dipasang.
+- Isi "markets" selengkap mungkin dari daftar di atas — tapi HANYA yang datanya
+  benar-benar ada di gambar. Market yang datanya tidak ada, jangan dimasukkan
+  sama sekali; jangan menebak hanya supaya daftarnya panjang.
+- Setiap market wajib punya "group" persis seperti judul di daftar di atas.
+- Peluang di satu pasangan harus konsisten: Over 2.5 dan Under 2.5 dijumlah 1,0,
+  BTTS Ya dan Tidak dijumlah 1,0, 1X2 dijumlah 1,0.
+- "pick" hanya SATU, diambil dari "markets" — yang paling seimbang antara peluang
+  tinggi dan dukungan data yang jelas. Jangan pilih yang peluangnya di atas 0,92,
+  karena odds-nya terlalu kecil untuk dipasang. Tetap satu saja walaupun
+  market-nya banyak.
 - "stats_seen" diisi statistik yang benar-benar kamu baca dari gambar.
 - "stats_missing" diisi statistik penting yang kamu cari tapi tidak ada di gambar.
 - Semua teks dalam bahasa Indonesia.
@@ -403,9 +414,13 @@ Aturan pengisian:
                                 .put("type", "OBJECT")
                                 .put(
                                     "properties",
-                                    JSONObject().put("name", str()).put("prob", num()).put("why", str())
+                                    JSONObject().put("name", str()).put("prob", num())
+                                        .put("why", str()).put("group", str())
                                 )
-                                .put("required", JSONArray().put("name").put("prob").put("why"))
+                                .put(
+                                    "required",
+                                    JSONArray().put("name").put("prob").put("why").put("group")
+                                )
                         )
                     )
                     .put("pick", str())
@@ -423,6 +438,77 @@ Aturan pengisian:
         private fun str() = JSONObject().put("type", "STRING")
         private fun num() = JSONObject().put("type", "NUMBER")
         private fun strArray() = JSONObject().put("type", "ARRAY").put("items", str())
+
+        /**
+         * The match-day catalogue.
+         *
+         * Listing the markets explicitly, with the exact group headings, is what
+         * lets the screen organise forty rows without guessing where each belongs.
+         * The instruction to omit rather than invent matters more here than it did
+         * with eight markets: a long list is an invitation to fill it in.
+         */
+        internal val MATCH_MARKETS = """
+Isi market-market berikut, pakai "group" persis seperti judulnya:
+
+[Hasil Akhir]
+- "Tuan rumah menang", "Seri", "Tandang menang"
+
+[Double Chance]
+- "1X (tuan rumah atau seri)", "12 (tidak seri)", "X2 (seri atau tandang)"
+
+[Total Gol]
+- "Over 0.5", "Under 0.5", "Over 1.5", "Under 1.5", "Over 2.5", "Under 2.5",
+  "Over 3.5", "Under 3.5", "Over 4.5", "Under 4.5"
+- "Kedua tim cetak gol (BTTS) - Ya", "Kedua tim cetak gol (BTTS) - Tidak"
+- "Minimal satu tim cetak 2+ gol - Ya", "Minimal satu tim cetak 2+ gol - Tidak"
+
+[Total Babak 1]
+- "Babak 1 Over 0.5", "Babak 1 Under 0.5", "Babak 1 Over 1.5",
+  "Babak 1 Under 1.5", "Babak 1 Over 2.5", "Babak 1 Under 2.5"
+
+[Total per Tim]
+- "Tuan rumah Over 0.5", "Tuan rumah Over 1.5", "Tuan rumah Over 2.5"
+- "Tandang Over 0.5", "Tandang Over 1.5", "Tandang Over 2.5"
+
+[Kombinasi Hasil + Total]
+- "1X & Over 2.5", "1X & Under 2.5", "X2 & Over 2.5", "X2 & Under 2.5"
+- "Tuan rumah menang & Over 1.5", "Tandang menang & Over 1.5"
+- "12 & Over 2.5"
+
+[Handicap Asia]
+- "Tuan rumah -0.25", "Tandang +0.25", "Tuan rumah -0.5", "Tandang +0.5"
+- "Tuan rumah -0.75", "Tandang +0.75", "Tuan rumah -1", "Tandang +1"
+
+[Handicap Eropa]
+- "Tuan rumah -1", "Tandang +1", "Tuan rumah -2", "Tandang +2"
+        """.trimIndent()
+
+        /** The corner catalogue, used when the user asks for a corner analysis. */
+        internal val CORNER_MARKETS = """
+Analisis ini KHUSUS SEPAK POJOK (corner). Abaikan gol; fokus ke statistik corner.
+Isi market-market berikut, pakai "group" persis seperti judulnya:
+
+[Corner]
+- "Total corner Over 7.5", "Total corner Under 7.5"
+- "Total corner Over 8.5", "Total corner Under 8.5"
+- "Total corner Over 9.5", "Total corner Under 9.5"
+- "Total corner Over 10.5", "Total corner Under 10.5"
+- "Total corner Over 11.5", "Total corner Under 11.5"
+- "Tuan rumah corner terbanyak", "Corner sama banyak", "Tandang corner terbanyak"
+
+[Corner Babak 1]
+- "Corner babak 1 Over 3.5", "Corner babak 1 Under 3.5"
+- "Corner babak 1 Over 4.5", "Corner babak 1 Under 4.5"
+- "Corner babak 1 Over 5.5", "Corner babak 1 Under 5.5"
+
+[Corner per Tim]
+- "Corner tuan rumah Over 3.5", "Corner tuan rumah Over 4.5", "Corner tuan rumah Over 5.5"
+- "Corner tandang Over 3.5", "Corner tandang Over 4.5", "Corner tandang Over 5.5"
+
+Untuk analisis corner, isi prob_home/prob_draw/prob_away dengan peluang siapa yang
+mendapat corner lebih banyak, dan xg_home/xg_away dengan perkiraan jumlah corner
+tiap tim.
+        """.trimIndent()
 
         private val SYSTEM_PROMPT = """
 Kamu menganalisis statistik sepak bola dari tangkapan layar untuk aplikasi Skorsnap.
