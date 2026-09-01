@@ -177,6 +177,22 @@ class CoreTest {
         println("Urutan model: $ranked")
     }
 
+    /**
+     * The retry only helps if capping thinking actually leaves room for the answer.
+     * A future edit that raised the budget past the ceiling would make the fallback
+     * silently pointless.
+     */
+    @Test
+    fun cappedThinkingLeavesRoomForTheAnswer() {
+        val room = Analyst.MAX_OUTPUT_TOKENS - Analyst.THINKING_BUDGET
+        assert(room >= 8000) {
+            "sisa jatah untuk jawaban cuma $room token — terlalu sempit untuk JSON-nya"
+        }
+        println()
+        println("Jatah output ${Analyst.MAX_OUTPUT_TOKENS}, berpikir dibatasi " +
+            "${Analyst.THINKING_BUDGET}, sisa $room untuk jawaban.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

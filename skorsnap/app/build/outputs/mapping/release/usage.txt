@@ -19219,6 +19219,10 @@ com.skorsnap.app.data.Analyst:
     public static final int $stable
     public static final java.lang.String DEFAULT_MODEL
     private static final java.lang.String HOST
+    private static final int JPEG_QUALITY
+    private static final int MAX_IMAGE_BYTES
+    public static final int MAX_OUTPUT_TOKENS
+    public static final int THINKING_BUDGET
     public static synthetic java.lang.Object analyse$default(com.skorsnap.app.data.Analyst,java.util.List,java.lang.String,java.lang.String,kotlin.coroutines.Continuation,int,java.lang.Object)
 com.skorsnap.app.data.MarketOption:
     public static final int $stable
@@ -40385,6 +40389,7 @@ com.skorsnap.app.data.Analyst:
     public static java.lang.String mimeTypeOf()
     public static com.skorsnap.app.data.MatchPrediction parse$app_release()
     public static java.lang.String post()
+    public static byte[] shrinkIfHuge()
     public static java.lang.Object testModel()
     public static java.lang.String userPrompt()
 com.skorsnap.app.data.MarketOption:
