@@ -25,8 +25,13 @@ Balasannya dikunci dengan `responseSchema`, jadi model tidak bisa mengirim bentu
 yang tidak dikenali parser. Suhunya disetel 0,15: membaca angka dari tabel bukan
 tugas kreatif, dan screenshot yang sama sebaiknya memberi jawaban yang sama.
 
-Ada tiga model bisa dipilih di Pengaturan. Kalau bacaannya meleset, naikkan ke
-Gemini 2.5 Pro; kalau kena batas kuota, turunkan ke Flash.
+Daftar model **diambil langsung dari Google**, tidak ditebak. Nama model berubah
+dari waktu ke waktu dan ketersediaannya berbeda tiap kunci, jadi nama yang
+di-hardcode akan gagal dengan 404 yang tidak memberi tahu apa pun. Tekan **Cek
+model yang tersedia** di Pengaturan — gratis, tidak memakai kuota.
+
+Kalau bacaannya meleset, naikkan ke model Pro; kalau kena batas kuota, turunkan
+ke Flash.
 
 ## Aturan yang tidak bisa dilanggar
 

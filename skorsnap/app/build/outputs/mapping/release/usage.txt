@@ -19208,6 +19208,13 @@ com.skorsnap.app.R$style
 com.skorsnap.app.R
 com.skorsnap.app.data.Analyst$AnalystException:
     public static final int $stable
+com.skorsnap.app.data.Analyst$Model:
+    public static final int $stable
+    public final java.lang.String component1()
+    public final java.lang.String component2()
+    public final java.lang.String component3()
+    public final com.skorsnap.app.data.Analyst$Model copy(java.lang.String,java.lang.String,java.lang.String)
+    public static synthetic com.skorsnap.app.data.Analyst$Model copy$default(com.skorsnap.app.data.Analyst$Model,java.lang.String,java.lang.String,java.lang.String,int,java.lang.Object)
 com.skorsnap.app.data.Analyst:
     public static final int $stable
     public static final java.lang.String DEFAULT_MODEL
@@ -24070,7 +24077,6 @@ kotlin.text.StringsKt__StringsKt:
     public static final java.lang.String commonSuffixWith(java.lang.CharSequence,java.lang.CharSequence,boolean)
     public static synthetic java.lang.String commonSuffixWith$default(java.lang.CharSequence,java.lang.CharSequence,boolean,int,java.lang.Object)
     private static final boolean contains(java.lang.CharSequence,kotlin.text.Regex)
-    public static synthetic boolean contains$default(java.lang.CharSequence,java.lang.CharSequence,boolean,int,java.lang.Object)
     public static final boolean contentEqualsIgnoreCaseImpl(java.lang.CharSequence,java.lang.CharSequence)
     public static final boolean endsWith(java.lang.CharSequence,char,boolean)
     public static final boolean endsWith(java.lang.CharSequence,java.lang.CharSequence,boolean)
@@ -24109,7 +24115,6 @@ kotlin.text.StringsKt__StringsKt:
     private static final kotlin.sequences.Sequence rangesDelimitedBy$StringsKt__StringsKt(java.lang.CharSequence,char[],int,boolean,int)
     static synthetic kotlin.sequences.Sequence rangesDelimitedBy$StringsKt__StringsKt$default(java.lang.CharSequence,char[],int,boolean,int,int,java.lang.Object)
     public static final java.lang.CharSequence removePrefix(java.lang.CharSequence,java.lang.CharSequence)
-    public static final java.lang.String removePrefix(java.lang.String,java.lang.CharSequence)
     public static final java.lang.CharSequence removeRange(java.lang.CharSequence,int,int)
     public static final java.lang.CharSequence removeRange(java.lang.CharSequence,kotlin.ranges.IntRange)
     private static final java.lang.String removeRange(java.lang.String,int,int)
@@ -24157,10 +24162,8 @@ kotlin.text.StringsKt__StringsKt:
     public static synthetic kotlin.sequences.Sequence splitToSequence$default(java.lang.CharSequence,char[],boolean,int,int,java.lang.Object)
     public static final boolean startsWith(java.lang.CharSequence,char,boolean)
     public static final boolean startsWith(java.lang.CharSequence,java.lang.CharSequence,int,boolean)
-    public static final boolean startsWith(java.lang.CharSequence,java.lang.CharSequence,boolean)
     public static synthetic boolean startsWith$default(java.lang.CharSequence,char,boolean,int,java.lang.Object)
     public static synthetic boolean startsWith$default(java.lang.CharSequence,java.lang.CharSequence,int,boolean,int,java.lang.Object)
-    public static synthetic boolean startsWith$default(java.lang.CharSequence,java.lang.CharSequence,boolean,int,java.lang.Object)
     public static final java.lang.CharSequence subSequence(java.lang.CharSequence,kotlin.ranges.IntRange)
     private static final java.lang.CharSequence subSequence(java.lang.String,int,int)
     private static final java.lang.String substring(java.lang.CharSequence,int,int)
@@ -40361,12 +40364,21 @@ com.skorsnap.app.data.Analyst$Companion:
     public static org.json.JSONObject getRESPONSE_SCHEMA$app_release()
     public static org.json.JSONObject num()
     public static org.json.JSONObject strArray()
+com.skorsnap.app.data.Analyst$Model:
+    static void <clinit>()
+    public static java.lang.String getDescription()
+    public static java.lang.String getId()
+    public static java.lang.String getLabel()
 com.skorsnap.app.data.Analyst$analyse$2:
+    public int label
+    public final java.lang.Object invoke$4()
+com.skorsnap.app.data.Analyst$listModels$2:
     public int label
     public final java.lang.Object invoke$4()
 com.skorsnap.app.data.Analyst:
     public static final com.skorsnap.app.data.Analyst$Companion Companion
     public static java.lang.Object analyse()
+    public static java.lang.Object listModels()
     public static java.lang.String mimeTypeOf()
     public static com.skorsnap.app.data.MatchPrediction parse$app_release()
     public static java.lang.String post()
@@ -40416,12 +40428,10 @@ com.skorsnap.app.data.Slip:
 com.skorsnap.app.data.Store:
     public static final int $stable
     static void <clinit>()
-    public final java.lang.String getApiKey()
     public static boolean getHasKey()
-    public final java.lang.String getModel()
     public static java.util.List load()
     public static void setApiKey()
-    public static void setModel()
+    public final void setModel(java.lang.String)
     public static org.json.JSONObject toJson()
 com.skorsnap.app.ui.AppKt$App$1$1:
     public final java.lang.Object invoke$4()
@@ -40443,6 +40453,8 @@ com.skorsnap.app.ui.AppKt$TopBar$1:
     public final void invoke$2()
 com.skorsnap.app.ui.AppViewModel$analyse$1:
     public final java.lang.Object invoke$4()
+com.skorsnap.app.ui.AppViewModel$loadModels$1:
+    public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$stage$1$read$1:
     public int label
     public final java.lang.Object invoke$4()
@@ -40457,10 +40469,13 @@ com.skorsnap.app.ui.AppViewModel:
     public static kotlinx.coroutines.flow.StateFlow getBusy()
     public static kotlinx.coroutines.flow.StateFlow getMatches()
     public static kotlinx.coroutines.flow.StateFlow getMessage()
+    public static kotlinx.coroutines.flow.StateFlow getModels()
+    public static kotlinx.coroutines.flow.StateFlow getModelsBusy()
     public static kotlinx.coroutines.flow.StateFlow getScreen()
     public static kotlinx.coroutines.flow.StateFlow getSelected()
     public static kotlinx.coroutines.flow.StateFlow getStaged()
     public static com.skorsnap.app.data.Store getStore()
+    public static void loadModels()
     public static com.skorsnap.app.data.MatchPrediction matchOf()
     public static void remove()
     public static void removeStaged()
@@ -40571,6 +40586,8 @@ com.skorsnap.app.ui.ScreensKt$MatchRow$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2$2:
+    public final void invoke$40()
 com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1$1:
@@ -40603,6 +40620,7 @@ com.skorsnap.app.ui.ScreensKt$StatsReadCard$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt:
     public static final boolean StatsReadCard$lambda$27(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$49(androidx.compose.runtime.MutableState)
 kotlin.DeprecationLevel:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
     public static final enum kotlin.DeprecationLevel ERROR
@@ -40832,7 +40850,6 @@ kotlin.internal.jdk8.JDK8PlatformImplementations$ReflectSdkVersion:
     public static final kotlin.internal.jdk8.JDK8PlatformImplementations$ReflectSdkVersion INSTANCE
 kotlin.internal.jdk8.JDK8PlatformImplementations
 kotlin.io.ByteStreamsKt
-kotlin.io.TextStreamsKt
 kotlin.jvm.functions.Function10
 kotlin.jvm.functions.Function11
 kotlin.jvm.functions.Function13
@@ -41000,6 +41017,8 @@ kotlin.text.StringsKt__StringsKt$splitToSequence$1:
     public static java.lang.String invoke$6()
 kotlin.text.StringsKt__StringsKt:
     public static boolean contains$default(java.lang.CharSequence)
+    public static synthetic boolean contains$default(java.lang.String,java.lang.String)
+    public static synthetic int indexOf$StringsKt__StringsKt$default(java.lang.CharSequence,java.lang.String,int,int,boolean)
 kotlin.text.StringsKt___StringsKt
 kotlin.time.Duration$Companion
 kotlin.time.Duration

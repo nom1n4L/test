@@ -48,6 +48,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Parlay
@@ -707,7 +708,9 @@ private fun MarginTable(slip: Slip) {
 @Composable
 fun SettingsScreen(vm: AppViewModel) {
     var key by remember { mutableStateOf(vm.store.apiKey) }
-    var model by remember { mutableStateOf(vm.store.model) }
+    val available by vm.models.collectAsStateWithLifecycle()
+    val modelsBusy by vm.modelsBusy.collectAsStateWithLifecycle()
+    var model by remember(available) { mutableStateOf(vm.store.model) }
 
     Column(
         Modifier.fillMaxSize().imePadding().padding(12.dp),
@@ -730,15 +733,43 @@ fun SettingsScreen(vm: AppViewModel) {
                     key = it.trim()
                     vm.setApiKey(key)
                 },
-                label = { Text("AIza...") },
+                label = { Text("AQ.Ab8... atau AIza...") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = MaterialTheme.typography.bodySmall,
             )
         }
 
-        Card(title = "Model") {
-            Analyst.MODELS.forEach { (label, id, price) ->
+        Card(
+            title = "Model",
+            subtitle = "Nama model sering berubah dan berbeda tiap kunci — jadi daftarnya " +
+                "diambil langsung dari Google, bukan ditebak.",
+        ) {
+            Button(
+                onClick = { vm.loadModels() },
+                enabled = !modelsBusy && key.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = Sky),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (modelsBusy) "Memeriksa…" else "Cek model yang tersedia (gratis)")
+            }
+            Spacer(Modifier.height(10.dp))
+
+            val options: List<Triple<String, String, String>> = if (available.isNotEmpty()) {
+                available.map { Triple(it.label, it.id, it.description) }
+            } else {
+                Analyst.MODELS
+            }
+            if (available.isEmpty()) {
+                Text(
+                    "Daftar bawaan di bawah ini cuma tebakan. Kalau muncul error " +
+                        "\"model tidak ada\", tekan tombol di atas.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Amber,
+                )
+                Spacer(Modifier.height(6.dp))
+            }
+            options.forEach { (label, id, note) ->
                 Row(
                     Modifier.fillMaxWidth().clickable {
                         model = id
@@ -757,7 +788,7 @@ fun SettingsScreen(vm: AppViewModel) {
                     Column(Modifier.weight(1f)) {
                         Text(label, style = MaterialTheme.typography.bodySmall)
                         Text(
-                            price,
+                            if (note.isBlank()) id else note,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

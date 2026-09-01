@@ -29,6 +29,67 @@ class Analyst(private val apiKey: String) {
 
     class AnalystException(message: String) : Exception(message)
 
+    /** A model this key can actually use, as reported by Google itself. */
+    data class Model(val id: String, val label: String, val description: String)
+
+    /**
+     * Asks the API which models this key may call, instead of shipping a guessed
+     * list. Model names change and availability differs per key and per tier — a
+     * hardcoded name that has been renamed or is not on the free tier fails with a
+     * 404 that tells the user nothing they can act on.
+     *
+     * Free: listing models costs no quota.
+     */
+    suspend fun listModels(): List<Model> = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
+        var conn: HttpURLConnection? = null
+        try {
+            conn = (URL("$HOST/v1beta/models?pageSize=200").openConnection() as HttpURLConnection)
+                .apply {
+                    requestMethod = "GET"
+                    connectTimeout = 25_000
+                    readTimeout = 25_000
+                    setRequestProperty("x-goog-api-key", apiKey)
+                }
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) throw AnalystException(errorMessage(code, text))
+
+            val arr = JSONObject(text).optJSONArray("models") ?: JSONArray()
+            val out = ArrayList<Model>(arr.length())
+            for (i in 0 until arr.length()) {
+                val m = arr.optJSONObject(i) ?: continue
+                val methods = m.optJSONArray("supportedGenerationMethods")
+                val supported = (0 until (methods?.length() ?: 0))
+                    .any { methods!!.optString(it) == "generateContent" }
+                if (!supported) continue
+
+                val name = m.optString("name").removePrefix("models/")
+                // Only the vision-capable general models are useful here; the
+                // embedding, image-generation and audio variants are not.
+                if (!name.startsWith("gemini-")) continue
+                if (listOf("embedding", "-tts", "-image", "native-audio", "live-").any { it in name }) continue
+
+                out.add(
+                    Model(
+                        id = name,
+                        label = m.optString("displayName").ifBlank { name },
+                        description = m.optString("description").take(90),
+                    )
+                )
+            }
+            // Newest first tends to be best at reading dense tables.
+            out.sortedByDescending { it.id }
+        } catch (e: AnalystException) {
+            throw e
+        } catch (e: Exception) {
+            throw AnalystException(e.message ?: e.javaClass.simpleName)
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
     suspend fun analyse(
         images: List<ByteArray>,
         note: String,
@@ -134,7 +195,8 @@ class Analyst(private val apiKey: String) {
                 "Permintaan ditolak: ${detail.take(160)}"
             }
             403 -> "Kunci tidak punya akses. Cek lagi kuncinya di aistudio.google.com."
-            404 -> "Model itu tidak tersedia untuk kuncimu. Coba pilih model lain di Pengaturan."
+            404 -> "Model itu tidak ada untuk kuncimu. Buka Pengaturan lalu tekan " +
+                "\"Cek model yang tersedia\" — daftarnya diambil langsung dari Google."
             429 -> "Kuota gratis Gemini habis untuk sekarang. Tunggu beberapa menit, atau pilih model Flash yang jatahnya lebih besar."
             in 500..599 -> "Server Gemini sedang bermasalah. Coba lagi sebentar lagi."
             else -> "Gagal (HTTP $code): ${detail.take(160)}"

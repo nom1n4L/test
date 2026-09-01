@@ -50,7 +50,6 @@ Marking string:not_selected:2131296330 reachable: referenced from /home/user/tes
 Marking string:template_percent:2131296340 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:in_progress:2131296270 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:state_empty:2131296334 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking id:pooling_container_listener_holder_tag:2131034174 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:androidx_startup:2131296256 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:hide_in_inspector_tag:2131034161 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:default_error_message:2131296267 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
@@ -67,6 +66,7 @@ Marking id:tag_state_description:2131034186 reachable: referenced from /home/use
 Marking id:tag_accessibility_clickable_spans:2131034179 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:accessibility_action_clickable_span:2131034112 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_accessibility_actions:2131034178 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking id:pooling_container_listener_holder_tag:2131034174 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:is_pooling_container_tag:2131034166 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:report_drawn:2131034175 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 @attr/alpha : reachable=false

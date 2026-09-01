@@ -47,6 +47,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _selected = MutableStateFlow<Set<String>>(emptySet())
     val selected: StateFlow<Set<String>> = _selected.asStateFlow()
 
+    /** Models this key can actually call, fetched from Google rather than guessed. */
+    private val _models = MutableStateFlow<List<Analyst.Model>>(emptyList())
+    val models: StateFlow<List<Analyst.Model>> = _models.asStateFlow()
+
+    private val _modelsBusy = MutableStateFlow(false)
+    val modelsBusy: StateFlow<Boolean> = _modelsBusy.asStateFlow()
+
+    fun loadModels() {
+        if (_modelsBusy.value) return
+        viewModelScope.launch {
+            _modelsBusy.value = true
+            try {
+                val found = Analyst(store.apiKey).listModels()
+                _models.value = found
+                _message.value = if (found.isEmpty()) {
+                    "Tidak ada model yang bisa dipakai kunci ini."
+                } else {
+                    "${found.size} model tersedia. Memuat daftar ini tidak memakai kuota."
+                }
+                // A remembered choice that is no longer offered would fail again on
+                // the next analysis, so move to something that works.
+                if (found.isNotEmpty() && found.none { it.id == store.model }) {
+                    val preferred = found.firstOrNull { "flash" in it.id } ?: found.first()
+                    store.model = preferred.id
+                    _message.value = "Model sebelumnya tidak tersedia. Diganti ke ${preferred.id}."
+                }
+            } catch (e: Exception) {
+                _message.value = "Gagal: ${e.message}"
+            }
+            _modelsBusy.value = false
+        }
+    }
+
     fun go(screen: Screen) {
         _screen.value = screen
     }
