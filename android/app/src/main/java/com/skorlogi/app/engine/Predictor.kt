@@ -89,6 +89,28 @@ data class Prediction(
         }
 }
 
+data class TeamProfile(
+    val team: String,
+    val league: String,
+    val rank: Int,
+    val teamsInLeague: Int,
+    val elo: Double,
+    val attackFactor: Double,
+    val defenceFactor: Double,
+    val matchesPlayed: Int,
+    val form: TeamForm?,
+    val homePlayed: Int,
+    val homeScored: Double,
+    val homeConceded: Double,
+    val awayPlayed: Int,
+    val awayScored: Double,
+    val awayConceded: Double,
+    val recent: List<Match>,
+) {
+    /** Enough history to say anything meaningful about this side. */
+    val trustworthy: Boolean get() = matchesPlayed >= 12
+}
+
 /**
  * Everything fitted for one league, ready to answer questions about any fixture in it.
  * Fitting is done once per league and reused across all of that league's fixtures.
@@ -110,8 +132,62 @@ class LeagueModel(
 
     fun eloOf(team: String): Double = elo[team] ?: 1500.0
 
+    /** Goals a completely average side in this division scores in a match. */
+    val averageGoals: Double = kotlin.math.exp(ftRatings.intercept)
+
+    /** How much the home ground is worth here, in goals. */
+    val homeAdvantageGoals: Double =
+        kotlin.math.exp(ftRatings.intercept + ftRatings.homeAdv) - averageGoals
+
+    /**
+     * Attack and defence as multiples of the division average, which is what a
+     * person can actually read: 1.30 means "scores 30% more than a typical side
+     * here", and a defence of 0.80 means "concedes 20% fewer".
+     */
+    fun attackFactor(team: String): Double {
+        val i = ftRatings.indexOf(team)
+        return if (i < 0) 1.0 else kotlin.math.exp(ftRatings.attack[i])
+    }
+
+    fun defenceFactor(team: String): Double {
+        val i = ftRatings.indexOf(team)
+        return if (i < 0) 1.0 else kotlin.math.exp(-ftRatings.defence[i])
+    }
+
+    fun matchesPlayed(team: String): Int = ftRatings.matches(team)
+
+    /**
+     * The teams currently in this division.
+     *
+     * The fit deliberately keeps sides that have dropped out — their matches are
+     * still evidence about the teams they played — but a league table containing
+     * three relegated clubs is simply wrong, so anything shown to the user counts
+     * only teams that have played recently. Falls back to the full set out of
+     * season, when nobody has played recently.
+     */
+    val currentTeams: List<String> by lazy {
+        val cutoff = (matches.maxOfOrNull { it.dateEpochDay } ?: 0L) - 75
+        val recent = matches.filter { it.dateEpochDay >= cutoff }
+            .flatMap { listOf(it.home, it.away) }
+            .distinct()
+            .filter { ftRatings.has(it) }
+        if (recent.size >= 6) recent.sorted() else teams
+    }
+
+    /** 1 is the strongest side in the division by Elo, among current members. */
+    fun rankOf(team: String): Int {
+        val order = currentTeams.sortedByDescending { eloOf(it) }
+        val i = order.indexOf(team)
+        return if (i < 0) 0 else i + 1
+    }
+
+    /** Every finished match involving a team, newest first. */
+    fun matchesOf(team: String): List<Match> =
+        matches.filter { it.home == team || it.away == team }
+            .sortedByDescending { it.dateEpochDay }
+
     fun strengthTable(): List<Triple<String, Double, Double>> =
-        ftRatings.teams.map { t ->
+        currentTeams.map { t ->
             Triple(t, eloOf(t), ftRatings.attack[ftRatings.indexOf(t)])
         }.sortedByDescending { it.second }
 
@@ -217,6 +293,49 @@ class LeagueModel(
             pHome = ft.pHome,
             pDraw = ft.pDraw,
             pAway = ft.pAway,
+        )
+    }
+
+    /**
+     * Everything the team page shows, gathered in one pass.
+     *
+     * Home and away are split apart because they are genuinely different: most
+     * sides score more and concede less at home, and an average that hides the
+     * split is an average of two different teams.
+     */
+    fun profile(team: String): TeamProfile? {
+        if (!knows(team)) return null
+        val played = matchesOf(team)
+        if (played.isEmpty()) return null
+
+        val atHome = played.filter { it.home == team }
+        val away = played.filter { it.away == team }
+
+        fun scored(list: List<Match>, asHome: Boolean) =
+            if (list.isEmpty()) 0.0
+            else list.sumOf { if (asHome) it.homeGoals else it.awayGoals }.toDouble() / list.size
+
+        fun conceded(list: List<Match>, asHome: Boolean) =
+            if (list.isEmpty()) 0.0
+            else list.sumOf { if (asHome) it.awayGoals else it.homeGoals }.toDouble() / list.size
+
+        return TeamProfile(
+            team = team,
+            league = league,
+            rank = rankOf(team),
+            teamsInLeague = currentTeams.size,
+            elo = eloOf(team),
+            attackFactor = attackFactor(team),
+            defenceFactor = defenceFactor(team),
+            matchesPlayed = matchesPlayed(team),
+            form = formOf(team),
+            homePlayed = atHome.size,
+            homeScored = scored(atHome, true),
+            homeConceded = conceded(atHome, true),
+            awayPlayed = away.size,
+            awayScored = scored(away, false),
+            awayConceded = conceded(away, false),
+            recent = played.take(12),
         )
     }
 

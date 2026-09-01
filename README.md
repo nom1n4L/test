@@ -4,7 +4,7 @@ Aplikasi Android untuk memprediksi pertandingan sepak bola. Semua data diunduh
 otomatis dan seluruh perhitungan berjalan di dalam HP — tanpa akun, tanpa kunci
 API, tanpa server, tanpa iklan.
 
-**[⬇ Unduh Skorlogi-1.2.apk](Skorlogi-1.2.apk)** · 1,2 MB · Android 7.0 ke atas
+**[⬇ Unduh Skorlogi-1.3.apk](Skorlogi-1.3.apk)** · 1,2 MB · Android 7.0 ke atas
 
 ---
 
@@ -27,6 +27,14 @@ Untuk Liga 1 Indonesia, tetap perlu kunci API-Football gratis lewat Pengaturan.
 
 ## Isinya apa
 
+- **Penjelasan "Kenapa Begitu"** — tiap prediksi dijelaskan dengan kalimat biasa:
+  siapa lebih kuat menyerang, seberapa rapat pertahanannya, faktor kandang bernilai
+  berapa gol. Semua kalimatnya dihasilkan dari angka yang dipakai model, bukan
+  ringkasan terpisah, dan ada test yang memastikan teksnya tidak pernah
+  bertentangan dengan angkanya.
+- **Pencarian** — cari tim, liga, atau pertandingan.
+- **Halaman tim** — peringkat, Elo, faktor serangan/pertahanan, pemisahan
+  kandang vs tandang, laga terakhir, dan jadwal berikutnya beserta peluangnya.
 - **Pilihan Terbaik harian** — satu layar berisi prediksi yang lolos saringan,
   diurutkan dari yang paling bisa dipercaya.
 - **Pelacak hasil** — catat prediksi yang kamu ikuti; hasilnya diisi otomatis, dan
@@ -188,6 +196,7 @@ supaya build tetap jalan tanpa jaringan.
 | `CalibrationFitTest` | Memasang koefisien Platt yang dipakai `Calibration.kt` |
 | `CornerSweepTest` | Menelusuri kenapa prediksi corner tidak bisa dipercaya |
 | `OpenFootballTest` | Alur penuh lewat sumber cadangan tanpa kunci |
+| `AnalysisTest` | Teks penjelasan tidak boleh bertentangan dengan angka model |
 
 ## Soal parlay
 

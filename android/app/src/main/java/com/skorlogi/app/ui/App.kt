@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Refresh
@@ -51,6 +52,12 @@ fun App(vm: AppViewModel) {
     val picks by vm.picks.collectAsStateWithLifecycle()
     val tracked by vm.tracked.collectAsStateWithLifecycle()
     val trackerStats by vm.trackerStats.collectAsStateWithLifecycle()
+    val insights by vm.insights.collectAsStateWithLifecycle()
+    val query by vm.query.collectAsStateWithLifecycle()
+    val results by vm.results.collectAsStateWithLifecycle()
+    val profile by vm.profile.collectAsStateWithLifecycle()
+    val teamFixtures by vm.teamFixtures.collectAsStateWithLifecycle()
+    val profileLoading by vm.profileLoading.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
@@ -96,7 +103,21 @@ fun App(vm: AppViewModel) {
                     onRemove = vm::unfollow,
                     onClearSettled = vm::clearSettled,
                 )
-                is Screen.Match -> MatchScreen(s.fixture, prediction, predicting)
+                is Screen.Match -> MatchScreen(s.fixture, prediction, insights, predicting)
+                is Screen.Search -> SearchScreen(
+                    query = query,
+                    results = results,
+                    onQuery = vm::search,
+                    onTeam = vm::openTeam,
+                    onFixture = vm::open,
+                )
+                is Screen.Team -> TeamScreen(
+                    teamName = s.team,
+                    profile = profile,
+                    fixtures = teamFixtures,
+                    loading = profileLoading,
+                    onFixture = vm::open,
+                )
                 is Screen.Leagues -> LeaguesScreen(
                     initial = vm.repo.enabledLeagues(),
                     initialOpen = vm.repo.enabledOpenLeagues(),
@@ -127,7 +148,7 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                 Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (screen is Screen.Match || screen is Screen.Leagues) {
+                if (screen is Screen.Match || screen is Screen.Leagues || screen is Screen.Team) {
                     IconButton(onClick = vm::back) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Kembali", tint = MaterialTheme.colorScheme.onBackground)
                     }
@@ -136,10 +157,12 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
                 }
                 Column(Modifier.weight(1f)) {
                     Text(
-                        when (screen) {
+                        when (val s = screen) {
                             is Screen.Picks -> "Skorlogi"
                             is Screen.Fixtures -> "Jadwal"
                             is Screen.Tracker -> "Pelacak"
+                            is Screen.Search -> "Cari"
+                            is Screen.Team -> s.team
                             is Screen.Match -> "Detail Prediksi"
                             is Screen.Leagues -> "Liga"
                             is Screen.Settings -> "Pengaturan"
@@ -168,7 +191,7 @@ private fun TopBar(screen: Screen, state: UiState, vm: AppViewModel) {
 
 @Composable
 private fun BottomBar(screen: Screen, vm: AppViewModel) {
-    if (screen is Screen.Match) return
+    if (screen is Screen.Match || screen is Screen.Team) return
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
         modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
@@ -176,6 +199,7 @@ private fun BottomBar(screen: Screen, vm: AppViewModel) {
         val items = listOf(
             Triple("Pilihan", Icons.Filled.Star, Screen.Picks),
             Triple("Jadwal", Icons.Filled.DateRange, Screen.Fixtures),
+            Triple("Cari", Icons.Filled.Search, Screen.Search),
             Triple("Pelacak", Icons.Filled.CheckCircle, Screen.Tracker),
             Triple("Pengaturan", Icons.Filled.Settings, Screen.Settings),
         )

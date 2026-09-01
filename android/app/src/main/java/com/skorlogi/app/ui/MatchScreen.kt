@@ -1,6 +1,7 @@
 package com.skorlogi.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,13 +35,19 @@ import com.skorlogi.app.data.Dates
 import com.skorlogi.app.data.Fixture
 import com.skorlogi.app.data.Leagues
 import com.skorlogi.app.engine.Confidence
+import com.skorlogi.app.engine.Insight
 import com.skorlogi.app.engine.MarketGroup
 import com.skorlogi.app.engine.Prediction
 import com.skorlogi.app.engine.TeamForm
 import kotlin.math.roundToInt
 
 @Composable
-fun MatchScreen(fixture: Fixture, prediction: Prediction?, predicting: Boolean) {
+fun MatchScreen(
+    fixture: Fixture,
+    prediction: Prediction?,
+    insights: List<Insight>,
+    predicting: Boolean,
+) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
@@ -76,6 +83,10 @@ fun MatchScreen(fixture: Fixture, prediction: Prediction?, predicting: Boolean) 
         }
 
         item { Headline(prediction) }
+
+        if (insights.isNotEmpty()) {
+            item { AnalysisSection(insights) }
+        }
 
         if (prediction.values.isNotEmpty()) {
             item { ValueSection(prediction) }
@@ -433,6 +444,51 @@ private fun MarketSection(group: MarketGroup) {
                             highlight = line === best,
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The written read of the match, placed directly under the headline number so the
+ * reasoning is seen before the wall of markets rather than after it.
+ */
+@Composable
+private fun AnalysisSection(insights: List<Insight>) {
+    SectionCard(
+        title = "Kenapa Begitu",
+        subtitle = "Dibaca langsung dari angka yang dipakai model, bukan ringkasan terpisah.",
+    ) {
+        insights.forEachIndexed { index, insight ->
+            if (index > 0) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.height(10.dp))
+            }
+            Row(verticalAlignment = Alignment.Top) {
+                Box(
+                    Modifier
+                        .padding(top = 5.dp, end = 9.dp)
+                        .width(3.dp)
+                        .height(if (insight.weight > 0.5) 30.dp else 16.dp)
+                        .background(
+                            if (insight.weight > 0.5) Green else MaterialTheme.colorScheme.outline,
+                            RoundedCornerShape(2.dp),
+                        )
+                )
+                Column {
+                    Text(
+                        insight.heading,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (insight.weight > 0.5) Green else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        insight.body,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                 }
             }
         }

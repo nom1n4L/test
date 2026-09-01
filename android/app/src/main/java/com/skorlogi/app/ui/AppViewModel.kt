@@ -3,19 +3,24 @@ package com.skorlogi.app.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.skorlogi.app.data.ApiFootball
+import com.skorlogi.app.data.ApiLeague
 import com.skorlogi.app.data.Dates
 import com.skorlogi.app.data.Fixture
+import com.skorlogi.app.data.Leagues
 import com.skorlogi.app.data.Repository
 import com.skorlogi.app.data.SyncProgress
 import com.skorlogi.app.data.SyncResult
-import com.skorlogi.app.engine.Pick
-import com.skorlogi.app.engine.Picks
-import com.skorlogi.app.engine.Prediction
-import com.skorlogi.app.data.ApiFootball
-import com.skorlogi.app.data.ApiLeague
 import com.skorlogi.app.data.TrackedPick
 import com.skorlogi.app.data.Tracker
 import com.skorlogi.app.data.TrackerStats
+import com.skorlogi.app.engine.Analysis
+import com.skorlogi.app.engine.Insight
+import com.skorlogi.app.engine.Pick
+import com.skorlogi.app.engine.Picks
+import com.skorlogi.app.engine.Prediction
+import com.skorlogi.app.engine.TeamProfile
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -26,15 +31,24 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.withContext
 
 sealed interface Screen {
     data object Fixtures : Screen
     data object Picks : Screen
     data object Tracker : Screen
+    data object Search : Screen
+    data class Team(val team: String, val league: String) : Screen
     data class Match(val fixture: Fixture) : Screen
     data object Leagues : Screen
     data object Settings : Screen
+}
+
+data class SearchResults(
+    val teams: List<Pair<String, String>> = emptyList(),
+    val fixtures: List<Fixture> = emptyList(),
+) {
+    val isEmpty: Boolean get() = teams.isEmpty() && fixtures.isEmpty()
 }
 
 data class UiState(
@@ -67,6 +81,89 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _predicting = MutableStateFlow(false)
     val predicting: StateFlow<Boolean> = _predicting.asStateFlow()
 
+    private val _insights = MutableStateFlow<List<Insight>>(emptyList())
+    val insights: StateFlow<List<Insight>> = _insights.asStateFlow()
+
+    // --- Search --------------------------------------------------------------
+
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
+    private val _results = MutableStateFlow(SearchResults())
+    val results: StateFlow<SearchResults> = _results.asStateFlow()
+
+    private var searchJob: Job? = null
+
+    private val _profile = MutableStateFlow<TeamProfile?>(null)
+    val profile: StateFlow<TeamProfile?> = _profile.asStateFlow()
+
+    private val _teamFixtures = MutableStateFlow<List<Pair<Fixture, DoubleArray?>>>(emptyList())
+    val teamFixtures: StateFlow<List<Pair<Fixture, DoubleArray?>>> = _teamFixtures.asStateFlow()
+
+    private val _profileLoading = MutableStateFlow(false)
+    val profileLoading: StateFlow<Boolean> = _profileLoading.asStateFlow()
+
+    /**
+     * Searches teams and upcoming matches by name.
+     *
+     * Team names are read off the stored matches rather than any fitted model, so
+     * this answers instantly and works before a single league has been fitted.
+     */
+    fun search(text: String) {
+        _query.value = text
+        searchJob?.cancel()
+        val q = text.trim()
+        if (q.length < 2) {
+            _results.value = SearchResults()
+            return
+        }
+        searchJob = viewModelScope.launch {
+            val found = withContext(Dispatchers.Default) {
+                val teams = LinkedHashMap<String, String>()
+                for (m in repo.matches) {
+                    if (m.home.contains(q, true)) teams.putIfAbsent(m.home, m.league)
+                    if (m.away.contains(q, true)) teams.putIfAbsent(m.away, m.league)
+                }
+                for (f in repo.fixtures) {
+                    if (f.home.contains(q, true)) teams.putIfAbsent(f.home, f.league)
+                    if (f.away.contains(q, true)) teams.putIfAbsent(f.away, f.league)
+                }
+                val fixtures = repo.fixtures.filter {
+                    it.home.contains(q, true) || it.away.contains(q, true) ||
+                        Leagues.label(it.league).contains(q, true)
+                }
+                SearchResults(
+                    teams = teams.entries.take(30).map { it.key to it.value },
+                    fixtures = fixtures.take(40),
+                )
+            }
+            _results.value = found
+        }
+    }
+
+    fun openTeam(team: String, league: String) {
+        pushCurrent()
+        _screen.value = Screen.Team(team, league)
+        _profile.value = null
+        _teamFixtures.value = emptyList()
+        _profileLoading.value = true
+        viewModelScope.launch {
+            val model = repo.modelFor(league)
+            _profile.value = model?.profile(team)
+            _teamFixtures.value = withContext(Dispatchers.Default) {
+                repo.fixtures
+                    .filter { it.league == league && (it.home == team || it.away == team) }
+                    .sortedBy { it.dateEpochDay }
+                    .take(10)
+                    .map { f ->
+                        val p = predictions[f.key] ?: model?.predict(f)?.also { predictions[f.key] = it }
+                        f to p?.let { doubleArrayOf(it.pHome, it.pDraw, it.pAway) }
+                    }
+            }
+            _profileLoading.value = false
+        }
+    }
+
     /** Fixture key to home/draw/away, filled in progressively so the list can show
      *  a preview bar without blocking on every league being fitted first. */
     private val _quick = MutableStateFlow<Map<String, DoubleArray>>(emptyMap())
@@ -95,6 +192,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             // First run: nothing cached, so fetch straight away.
             if (!repo.hasData) sync() else warmUp()
         }
+    }
+
+    /** Remembers the current screen unless it is already the one we came from. */
+    private fun pushCurrent() {
+        val current = _screen.value
+        if (backStack.lastOrNull() != current) backStack.addLast(current)
+        if (backStack.size > 8) backStack.removeFirst()
     }
 
     private fun refreshTracker() {
@@ -201,29 +305,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun open(fixture: Fixture) {
+        pushCurrent()
         _screen.value = Screen.Match(fixture)
-        val cached = predictions[fixture.key]
-        if (predictions.containsKey(fixture.key)) {
-            _prediction.value = cached
-            return
-        }
         _prediction.value = null
+        _insights.value = emptyList()
         _predicting.value = true
         viewModelScope.launch {
             val model = repo.modelFor(fixture.league)
-            val p = model?.predict(fixture)
+            val p = predictions[fixture.key] ?: model?.predict(fixture)
             predictions[fixture.key] = p
             _prediction.value = p
+            _insights.value = if (p != null && model != null) {
+                withContext(Dispatchers.Default) { Analysis.generate(p, model) }
+            } else {
+                emptyList()
+            }
             _predicting.value = false
         }
     }
 
+    /** Where back should return to, so a match opened from search goes back there. */
+    private val backStack = ArrayDeque<Screen>()
+
     fun go(screen: Screen) {
+        backStack.clear()
         _screen.value = screen
     }
 
     fun back() {
-        _screen.value = Screen.Picks
+        _screen.value = backStack.removeLastOrNull() ?: Screen.Picks
     }
 
     fun setLeagueFilter(code: String?) {
