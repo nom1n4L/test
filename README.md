@@ -4,7 +4,7 @@ Aplikasi Android untuk memprediksi pertandingan sepak bola. Semua data diunduh
 otomatis dan seluruh perhitungan berjalan di dalam HP — tanpa akun, tanpa kunci
 API, tanpa server, tanpa iklan.
 
-**[⬇ Unduh Skorlogi-1.6.apk](Skorlogi-1.6.apk)** · 3,6 MB · Android 7.0 ke atas
+**[⬇ Unduh Skorlogi-1.7.apk](Skorlogi-1.7.apk)** · 3,6 MB · Android 7.0 ke atas
 
 ---
 

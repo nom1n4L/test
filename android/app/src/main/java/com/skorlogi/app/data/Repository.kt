@@ -413,22 +413,31 @@ class Repository(private val context: Context) {
      * short: the four that the value check can actually work with, and no more.
      */
     suspend fun refreshOdds(
-        markets: List<String> = listOf("h2h", "totals", "btts"),
+        markets: List<String> = DEFAULT_ODDS_MARKETS,
         onProgress: (String) -> Unit = {},
-    ): Int = withContext(Dispatchers.IO) {
+    ): OddsRefresh = withContext(Dispatchers.IO) {
         val sports = oddsSports()
         if (oddsKey.isBlank()) throw OddsApi.OddsException("Kunci the-odds-api belum diisi.")
         if (sports.isEmpty()) throw OddsApi.OddsException("Belum ada liga yang dipilih untuk odds.")
 
         val all = ArrayList<OddsEvent>()
+        val skipped = ArrayList<String>()
         for (sport in sports) {
             onProgress(sport)
-            all.addAll(OddsApi.odds(oddsKey, sport, markets))
+            try {
+                all.addAll(OddsApi.odds(oddsKey, sport, markets))
+            } catch (e: OddsApi.OddsException) {
+                // A competition between seasons, or one this key cannot see, used to
+                // abort the whole run and leave the user with nothing. Skip it and
+                // keep the rest.
+                skipped.add(sport)
+                if (e.message?.contains("Kuota") == true) break
+            }
         }
         oddsEvents = all
         oddsFetchedOn = Dates.today()
         writeCache("odds_cache", serialiseOdds(all))
-        all.size
+        OddsRefresh(all.size, sports.size - skipped.size, skipped.size)
     }
 
     fun loadOddsFromCache() {
@@ -698,5 +707,15 @@ class Repository(private val context: Context) {
 
         /** How long to take a blocked archive's word for it before trying again. */
         const val ARCHIVE_RETRY_DAYS = 7
+
+        /**
+         * Only the two markets every bookmaker quotes for every competition.
+         *
+         * Asking for `btts` as well returned HTTP 422 for competitions that do not
+         * carry it, and because one failure aborted the run the user got nothing
+         * at all. Each market also multiplies the credit cost, and the free key
+         * has 500 a month.
+         */
+        val DEFAULT_ODDS_MARKETS = listOf("h2h", "totals")
     }
 }

@@ -57,6 +57,34 @@ sealed interface Screen {
     data object Settings : Screen
 }
 
+/**
+ * A recommendation together with what it costs to back it.
+ *
+ * The probability alone never answered the question the user actually has, which
+ * is whether to place the bet: a 70% call is worth taking at 1.60 and a losing
+ * proposition at 1.35. Pairing the two is what makes the screen decidable.
+ */
+data class PickOffer(
+    val pick: Pick,
+    val myPrice: Double?,
+    val bestPrice: Double?,
+    val bestBook: String?,
+) {
+    /** Expected return per unit staked at the user's own bookmaker. */
+    val myReturn: Double? get() = myPrice?.let { pick.prob * it }
+
+    val bestReturn: Double? get() = bestPrice?.let { pick.prob * it }
+
+    /** The price that has to be beaten for the bet to be worth taking at all. */
+    val breakEvenOdds: Double get() = if (pick.prob > 1e-9) 1.0 / pick.prob else 0.0
+
+    val worthIt: Boolean get() = (myReturn ?: 0.0) > 1.0
+
+    /** A better price for the identical bet, somewhere else. */
+    val betterElsewhere: Boolean
+        get() = myPrice != null && bestPrice != null && bestPrice > myPrice + 1e-9
+}
+
 data class SearchResults(
     val teams: List<Pair<String, String>> = emptyList(),
     val fixtures: List<Fixture> = emptyList(),
@@ -124,6 +152,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .flatMap { e -> Value.edges(e).map { e to it } }
             .sortedByDescending { it.second.edge }
         _oddsQuota.value = OddsApi.lastQuota
+        publishOffers()
     }
 
     fun refreshOdds() {
@@ -132,13 +161,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _oddsBusy.value = true
             _oddsMessage.value = null
             try {
-                val count = repo.refreshOdds { sport ->
+                val result = repo.refreshOdds { sport ->
                     _oddsMessage.value = "Mengambil odds $sport…"
                 }
                 publishOdds()
                 val quota = OddsApi.lastQuota
-                _oddsMessage.value = "Selesai — $count pertandingan berharga." +
-                    (quota?.let { " Sisa kuota bulan ini: ${it.remaining}." } ?: "")
+                _oddsMessage.value = buildString {
+                    append("Selesai — ${result.events} pertandingan berharga ")
+                    append("dari ${result.competitions} kompetisi.")
+                    if (result.skipped > 0) {
+                        append(" ${result.skipped} kompetisi dilewati karena tidak ada pasarnya.")
+                    }
+                    quota?.let { append(" Sisa kuota: ${it.remaining}.") }
+                }
             } catch (e: Exception) {
                 _oddsMessage.value = "Gagal: ${e.message}"
                 _oddsQuota.value = OddsApi.lastQuota
@@ -176,6 +211,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setMyBookmaker(key: String) {
         repo.myBookmaker = key
         publishOdds()
+        publishOffers()
     }
 
     fun myBookmaker(): String = repo.myBookmaker
@@ -403,6 +439,35 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _picks = MutableStateFlow<List<Pick>>(emptyList())
     val picks: StateFlow<List<Pick>> = _picks.asStateFlow()
 
+    private val _offers = MutableStateFlow<List<PickOffer>>(emptyList())
+    val offers: StateFlow<List<PickOffer>> = _offers.asStateFlow()
+
+    /**
+     * Joins each recommendation to what it is actually priced at — at the user's
+     * own bookmaker first, since that is where the bet gets placed, and at the best
+     * book found so they can see what the same bet pays elsewhere.
+     */
+    private fun publishOffers() {
+        val mine = repo.myBookmaker
+        _offers.value = _picks.value.map { pick ->
+            val event = repo.oddsFor(pick.fixture)
+            val selection = event?.let { e ->
+                e.selections.firstOrNull { sel ->
+                    Value.priceFor(e, pick.kind, pick.fixture.home, pick.fixture.away)
+                        ?.let { best -> sel.prices.any { it.price == best.price } && sel.best == best }
+                        ?: false
+                }
+            }
+            val best = event?.let { Value.priceFor(it, pick.kind, pick.fixture.home, pick.fixture.away) }
+            PickOffer(
+                pick = pick,
+                myPrice = selection?.priceFrom(mine) ?: best?.takeIf { it.bookmakerKey == mine }?.price,
+                bestPrice = best?.price,
+                bestBook = best?.bookmaker,
+            )
+        }
+    }
+
     private val _tracked = MutableStateFlow<List<TrackedPick>>(emptyList())
     val tracked: StateFlow<List<TrackedPick>> = _tracked.asStateFlow()
 
@@ -530,6 +595,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }.forEach { it.await() }
             }
             _picks.value = Picks.best(predictions.values.filterNotNull())
+            publishOffers()
             refreshTracker()
         }
     }

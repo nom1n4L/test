@@ -16,11 +16,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -183,7 +182,7 @@ fun SettingsScreen(
             )
         }
 
-        SectionCard(title = "Skorlogi 1.6") {
+        SectionCard(title = "Skorlogi 1.7") {
             Text(
                 "Semua perhitungan berjalan di dalam HP. Tidak ada akun, tidak ada iklan, " +
                     "tidak ada data yang dikirim ke mana pun selain mengunduh arsip pertandingan.",
@@ -496,6 +495,27 @@ private fun OddsSection(vm: AppViewModel) {
             modifier = Modifier.fillMaxWidth(),
             textStyle = MaterialTheme.typography.bodySmall,
         )
+
+        if (chosen.isNotEmpty()) {
+            // Two markets per competition per refresh, against 500 a month.
+            val cost = chosen.size * 2
+            val refreshes = if (cost > 0) 500 / cost else 0
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                color = (if (refreshes < 10) Amber else Green).copy(alpha = 0.12f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    "${chosen.size} kompetisi dipilih → sekali ambil odds memakai $cost kredit, " +
+                        "jadi jatah 500/bulan cukup untuk sekitar $refreshes kali." +
+                        if (refreshes < 10) " Kurangi pilihannya kalau mau lebih sering." else "",
+                    modifier = Modifier.padding(10.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (refreshes < 10) Amber else Green,
+                )
+            }
+        }
 
         if (catalog.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))

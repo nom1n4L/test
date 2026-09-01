@@ -52,6 +52,7 @@ fun App(vm: AppViewModel) {
     val predicting by vm.predicting.collectAsStateWithLifecycle()
     val quick by vm.quick.collectAsStateWithLifecycle()
     val picks by vm.picks.collectAsStateWithLifecycle()
+    val offers by vm.offers.collectAsStateWithLifecycle()
     val tracked by vm.tracked.collectAsStateWithLifecycle()
     val trackerStats by vm.trackerStats.collectAsStateWithLifecycle()
     val insights by vm.insights.collectAsStateWithLifecycle()
@@ -97,14 +98,17 @@ fun App(vm: AppViewModel) {
                     onOpenSettings = { vm.go(Screen.Settings) },
                 )
                 is Screen.Picks -> PicksScreen(
-                    picks = picks,
+                    offers = offers,
+                    myBookmaker = vm.myBookmaker(),
                     working = state.syncing || (picks.isEmpty() && quick.isEmpty() && state.fixtures.isNotEmpty()),
                     blocked = state.blocked,
                     isFollowed = vm::isFollowed,
                     onFollow = { vm.follow(it) },
+                    onAddToParlay = { vm.toggleParlayLeg(it); vm.go(Screen.Parlay) },
                     onOpen = vm::open,
                     onUseFallback = vm::useFallbackSource,
                     onOpenSettings = { vm.go(Screen.Settings) },
+                    onOpenParlay = { vm.go(Screen.Parlay) },
                 )
                 is Screen.Tracker -> TrackerScreen(
                     tracked = tracked,

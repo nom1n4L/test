@@ -1,5 +1,6 @@
 package com.skorlogi.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,11 +16,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -31,16 +37,27 @@ import com.skorlogi.app.data.Leagues
 import com.skorlogi.app.engine.Confidence
 import com.skorlogi.app.engine.Pick
 
+/**
+ * The screen that answers the only question the user actually has: what should I
+ * back today, and is the price worth it.
+ *
+ * Earlier versions opened with several paragraphs explaining what the list would
+ * not do. That reasoning is still right and still here, but it was standing in
+ * front of the answer instead of behind it, so it now lives under a tap.
+ */
 @Composable
 fun PicksScreen(
-    picks: List<Pick>,
+    offers: List<PickOffer>,
+    myBookmaker: String,
     working: Boolean,
     blocked: Boolean,
     isFollowed: (Pick) -> Boolean,
     onFollow: (Pick) -> Unit,
+    onAddToParlay: (Pick) -> Unit,
     onOpen: (Fixture) -> Unit,
     onUseFallback: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenParlay: () -> Unit,
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -51,9 +68,9 @@ fun PicksScreen(
             item { BlockedNotice(onUseFallback, onOpenSettings) }
         }
 
-        item { Explainer() }
+        item { Header(offers, myBookmaker, onOpenParlay) }
 
-        if (picks.isEmpty() && !blocked) {
+        if (offers.isEmpty() && !blocked) {
             item {
                 Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                     if (working) {
@@ -68,57 +85,100 @@ fun PicksScreen(
                         }
                     } else {
                         Text(
-                            "Belum ada satu pun pertandingan yang lolos saringan.\n\n" +
-                                "Itu hasil yang wajar: saringannya menuntut peluang minimal 68% " +
-                                "dari market yang terbukti jujur, dan riwayat kedua tim harus cukup. " +
-                                "Hari yang sepi memang bisa kosong.",
+                            "Tidak ada laga yang lolos saringan hari ini.\n\n" +
+                                "Saringannya menuntut peluang 68–92% dari market yang " +
+                                "terbukti jujur. Hari sepi memang bisa kosong.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 16.dp),
+                            modifier = Modifier.padding(horizontal = 20.dp),
                         )
                     }
                 }
             }
         }
 
-        items(picks, key = { "${it.fixture.key}|${it.kind.name}" }) { pick ->
-            PickCard(pick, isFollowed(pick), onFollow, onOpen)
-        }
-
-        if (picks.isNotEmpty()) {
-            item { Footnote(picks) }
+        items(offers, key = { "${it.pick.fixture.key}|${it.pick.kind.name}" }) { offer ->
+            OfferCard(
+                offer = offer,
+                myBookmaker = myBookmaker,
+                followed = isFollowed(offer.pick),
+                onFollow = onFollow,
+                onAddToParlay = onAddToParlay,
+                onOpen = onOpen,
+            )
         }
     }
 }
 
 @Composable
-private fun Explainer() {
-    SectionCard(
-        title = "Pilihan Terbaik Hari Ini",
-        subtitle = "Diurutkan dari yang paling bisa dipercaya, bukan dari yang paling besar bayarannya.",
+private fun Header(offers: List<PickOffer>, myBookmaker: String, onOpenParlay: () -> Unit) {
+    var showWhy by remember { mutableStateOf(false) }
+    val priced = offers.count { it.myPrice != null }
+    val worth = offers.count { it.worthIt }
+
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(
-            "Daftar ini sengaja pelit. Dari semua market yang bisa dihitung aplikasi ini, " +
-                "hanya empat yang lolos uji kejujuran — Double Chance, Hasil Akhir, Total Gol, " +
-                "dan Babak 1 — karena saat diuji ulang, angka yang mereka sebut memang " +
-                "kira-kira sebesar itu kejadiannya.\n\n" +
-                "Corner dan kartu tidak pernah muncul di sini. Saat diuji, prediksi corner " +
-                "yang mengaku 70%+ ternyata cuma benar sekitar setengahnya — jadi menariknya " +
-                "menipu, dan sudah saya keluarkan dari daftar.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Column(Modifier.padding(14.dp)) {
+            Text("Rekomendasi Hari Ini", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(3.dp))
+            Text(
+                when {
+                    offers.isEmpty() -> "Belum ada."
+                    priced == 0 ->
+                        "${offers.size} pilihan. Harga $myBookmaker belum diambil — " +
+                            "buka tab Odds untuk melihat mana yang layak dipasang."
+                    else ->
+                        "${offers.size} pilihan, $priced ada harganya di $myBookmaker, " +
+                            "$worth di antaranya harganya layak."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = onOpenParlay) {
+                    Text("Susun parlay", style = MaterialTheme.typography.labelSmall)
+                }
+                TextButton(onClick = { showWhy = !showWhy }) {
+                    Text(
+                        if (showWhy) "Tutup penjelasan" else "Kenapa cuma segini?",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
+            AnimatedVisibility(showWhy) {
+                Text(
+                    "Dari semua market yang bisa dihitung, hanya empat yang lolos uji " +
+                        "kejujuran — Double Chance, Hasil Akhir, Total Gol, dan Babak 1 — " +
+                        "karena saat diuji ulang, angka yang mereka sebut memang " +
+                        "kira-kira sebesar itu kejadiannya.\n\n" +
+                        "Corner dan kartu tidak pernah muncul: prediksi corner yang " +
+                        "mengaku 70%+ ternyata cuma benar sekitar setengahnya.\n\n" +
+                        "Peluang di atas 92% juga dibuang, karena odds-nya di bawah 1,10 " +
+                        "dan tidak ada bandar yang menawarkannya.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun PickCard(
-    pick: Pick,
+private fun OfferCard(
+    offer: PickOffer,
+    myBookmaker: String,
     followed: Boolean,
     onFollow: (Pick) -> Unit,
+    onAddToParlay: (Pick) -> Unit,
     onOpen: (Fixture) -> Unit,
 ) {
+    val pick = offer.pick
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(14.dp),
@@ -127,7 +187,7 @@ private fun PickCard(
         Column(Modifier.padding(13.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    Leagues.byCode(pick.fixture.league)?.label ?: pick.fixture.league,
+                    Leagues.byCode(pick.fixture.league)?.name ?: pick.fixture.league,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -139,12 +199,14 @@ private fun PickCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(5.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 "${pick.fixture.home} vs ${pick.fixture.away}",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.clickable { onOpen(pick.fixture) },
             )
+
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -154,60 +216,116 @@ private fun PickCard(
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
-                        "${pick.market} · odds adil %.2f".format(pick.fairOdds),
+                        pick.market,
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(
-                    "${pick.percent}%",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = probColor(pick.prob),
-                )
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        "${pick.percent}%",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = probColor(pick.prob),
+                    )
+                    Text(
+                        if (pick.confidence == Confidence.HIGH) "data tebal" else "data cukup",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            Spacer(Modifier.height(8.dp))
-            ProbRow(label = "Peluang menurut model", prob = pick.prob)
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Chip(
-                    if (pick.confidence == Confidence.HIGH) "Data tebal" else "Data cukup",
-                    color = if (pick.confidence == Confidence.HIGH) Green else Amber,
-                    filled = true,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    pick.reliability,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            TextButton(onClick = { onFollow(pick) }, enabled = !followed) {
-                Text(if (followed) "Sudah dicatat ✓" else "Catat di pelacak")
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            Spacer(Modifier.height(10.dp))
+            PriceVerdict(offer, myBookmaker)
+
+            Spacer(Modifier.height(2.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(onClick = { onAddToParlay(pick) }) {
+                    Text("+ Parlay", style = MaterialTheme.typography.labelSmall)
+                }
+                TextButton(onClick = { onFollow(pick) }, enabled = !followed) {
+                    Text(
+                        if (followed) "Sudah dicatat ✓" else "Catat",
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
         }
     }
 }
 
+/**
+ * The line that turns a probability into a decision. A pick is only worth backing
+ * when the price on offer pays more than the probability says it should, so the
+ * break-even price is shown next to the real one rather than left as an exercise.
+ */
 @Composable
-private fun Footnote(picks: List<Pick>) {
-    val expected = picks.sumOf { it.prob }
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
+private fun PriceVerdict(offer: PickOffer, myBookmaker: String) {
+    val my = offer.myPrice
+    if (my == null) {
         Text(
-            "Kalau kamu ikuti semua ${picks.size} pilihan di atas, secara statistik " +
-                "yang diperkirakan benar sekitar ${Math.round(expected)} dari ${picks.size}. " +
-                "Artinya sekitar ${picks.size - Math.round(expected)} memang diperkirakan meleset — " +
-                "itu bagian dari perhitungannya, bukan tanda modelnya rusak.\n\n" +
-                "Kalau semuanya digabung jadi satu parlay, peluang semuanya benar sekaligus " +
-                "jauh lebih kecil daripada angka mana pun di atas.",
-            modifier = Modifier.padding(13.dp),
+            "Harga di $myBookmaker belum ada. Minimal harus %.2f supaya taruhan ini " +
+                "layak — ambil odds di tab Odds untuk membandingkan."
+                .format(offer.breakEvenOdds),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        return
+    }
+
+    val ret = offer.myReturn ?: 0.0
+    val good = offer.worthIt
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Harga $myBookmaker",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "%.2f".format(my),
+                style = MaterialTheme.typography.titleMedium,
+                color = if (good) Green else Rose,
+            )
+        }
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Impas di",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text("%.2f".format(offer.breakEvenOdds), style = MaterialTheme.typography.titleMedium)
+        }
+        Surface(
+            color = (if (good) Green else Rose).copy(alpha = 0.16f),
+            shape = RoundedCornerShape(7.dp),
+        ) {
+            Text(
+                if (good) "LAYAK  %+.0f%%".format((ret - 1) * 100) else "KURANG %+.0f%%".format((ret - 1) * 100),
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (good) Green else Rose,
+            )
+        }
+    }
+
+    if (offer.betterElsewhere) {
+        Spacer(Modifier.height(8.dp))
+        Surface(
+            color = Sky.copy(alpha = 0.12f),
+            shape = RoundedCornerShape(9.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                "%s membayar %.2f untuk taruhan yang sama — %.0f%% lebih tinggi."
+                    .format(offer.bestBook, offer.bestPrice, ((offer.bestPrice!! / my) - 1) * 100),
+                modifier = Modifier.padding(10.dp),
+                style = MaterialTheme.typography.labelSmall,
+                color = Sky,
+            )
+        }
     }
 }

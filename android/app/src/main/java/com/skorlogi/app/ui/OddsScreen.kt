@@ -93,9 +93,9 @@ private fun Explainer(quota: OddsQuota?, busy: Boolean, message: String?, onRefr
         Text(
             "Model aplikasi ini kalah dari harga bandar di semua market yang diuji, jadi " +
                 "mencari peluang dengan menebak cuma memunculkan kesalahan sendiri. " +
-                "Halaman ini bekerja lain: ia membandingkan harga antar bandar.\\n\\n" +
+                "Halaman ini bekerja lain: ia membandingkan harga antar bandar.\n\n" +
                 "1. Taruhan yang sama, harga berbeda. Ambil yang tertinggi — itu untung " +
-                "pasti, tanpa perlu benar sekali pun.\\n\\n" +
+                "pasti, tanpa perlu benar sekali pun.\n\n" +
                 "2. Pinnacle dipakai sebagai patokan. Marginnya paling tipis dan harganya " +
                 "bergerak mengikuti uang, bukan opini, jadi harganya adalah perkiraan " +
                 "publik terbaik atas apa yang benar-benar akan terjadi. Kalau bandar lain " +

@@ -43,3 +43,6 @@ data class Fixture(
     val hasOdds: Boolean get() = oddsHome > 1.0 && oddsDraw > 1.0 && oddsAway > 1.0
     val key: String get() = "$league|$dateEpochDay|$home|$away"
 }
+
+/** Outcome of one odds refresh: how much came back, and what was skipped. */
+data class OddsRefresh(val events: Int, val competitions: Int, val skipped: Int)
