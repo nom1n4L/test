@@ -56,6 +56,7 @@ class Store(context: Context) {
         put("pick_prob", m.pickProb)
         put("confidence", m.confidence)
         put("confidence_why", m.confidenceWhy)
+        put("outcome", m.outcome.name)
         put(
             "markets",
             JSONArray().apply {
@@ -97,6 +98,8 @@ class Store(context: Context) {
             pickProb = o.optDouble("pick_prob", 0.0),
             confidence = o.optString("confidence", "sedang"),
             confidenceWhy = o.optString("confidence_why"),
+            outcome = runCatching { Outcome.valueOf(o.optString("outcome")) }
+                .getOrDefault(Outcome.PENDING),
         )
     }
 }

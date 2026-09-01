@@ -75,6 +75,7 @@ fun App(vm: AppViewModel) {
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onToggle = vm::toggle,
                     onSlip = { vm.go(Screen.Slip) },
+                    onReport = { vm.go(Screen.Report) },
                     onSettings = { vm.go(Screen.Settings) },
                 )
                 is Screen.Add -> AddScreen(
@@ -99,13 +100,21 @@ fun App(vm: AppViewModel) {
                             )
                         }
                     } else {
-                        DetailScreen(match) { vm.remove(s.id) }
+                        DetailScreen(
+                            match = match,
+                            onMark = { vm.markOutcome(s.id, it) },
+                            onDelete = { vm.remove(s.id) },
+                        )
                     }
                 }
                 is Screen.Slip -> SlipScreen(
                     slip = vm.slip(),
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onClear = { matches.forEach { m -> if (m.id in selected) vm.toggle(m.id) } },
+                )
+                is Screen.Report -> ReportScreen(
+                    report = vm.report(),
+                    onOpen = { vm.go(Screen.Detail(it)) },
                 )
                 is Screen.Settings -> SettingsScreen(vm)
             }
@@ -138,6 +147,7 @@ private fun TopBar(screen: Screen, vm: AppViewModel) {
                         is Screen.Add -> "Tambah Pertandingan"
                         is Screen.Detail -> "Analisa"
                         is Screen.Slip -> "Parlay"
+                        is Screen.Report -> "Rapor"
                         is Screen.Settings -> "Pengaturan"
                     },
                     modifier = Modifier.weight(1f),

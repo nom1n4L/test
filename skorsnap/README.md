@@ -72,6 +72,28 @@ apa pilihanmu**, hanya pada berapa banyak leg-nya:
 Diuji di `CoreTest`: tiga leg "aman" (peluang gabungan 72,1%) dan tiga leg
 berisiko (17,2%) menghasilkan imbal hasil harapan yang **persis sama**, 83,9%.
 
+## Rapor akurasi
+
+Tiap pertandingan bisa ditandai **Tembus** atau **Meleset** setelah selesai main.
+Dari situ aplikasi menghitung satu angka yang tidak bisa didapat dari ingatan:
+**akurasi nyata dibandingkan akurasi yang dijanjikan model**.
+
+Hit rate sendirian mengundang orang menarik garis lurus dari satu rentetan bagus.
+Disandingkan dengan angka yang diklaim model, ia menjawab satu-satunya pertanyaan
+yang penting: apakah persentasenya bisa dipercaya apa adanya.
+
+Rapornya juga menyebut selang kepercayaan, karena sampel kecil membuat angka
+terlihat jauh lebih pasti daripada sebenarnya:
+
+| Jumlah hasil | Ketelitian |
+|---|---|
+| 12 | ±22 poin |
+| 120 | ±7 poin |
+
+Sebelas dari dua belas terlihat meyakinkan, tapi akurasi sejatinya masih ada di
+antara 65% dan 99% — belum memisahkan bagus dari beruntung. Di sekitar 50 hasil
+angkanya baru mulai berarti.
+
 ## Yang tidak bisa dijanjikan
 
 Prediksi yang keluar adalah **peluang**, bukan kepastian. Peluang 80% tetap
@@ -85,7 +107,7 @@ menang.
 
 | Test | Gunanya |
 |---|---|
-| `CoreTest` | Peluang parlay, rumus imbal hasil, pembacaan balasan JSON, dan kelengkapan skema |
+| `CoreTest` | Peluang parlay, rumus imbal hasil, pembacaan balasan JSON, kelengkapan skema, dan statistik rapor |
 
 Yang diuji sengaja hanya dua: menggabungkan peluang, dan mengubah balasan model
 jadi angka. Membaca gambar adalah tugas model dan tidak bisa di-unit-test;

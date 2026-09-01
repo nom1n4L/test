@@ -52,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MatchPrediction
+import com.skorsnap.app.data.Outcome
+import com.skorsnap.app.data.Report
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Slip
 
@@ -96,6 +98,7 @@ fun HomeScreen(
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSlip: () -> Unit,
+    onReport: () -> Unit,
     onSettings: () -> Unit,
 ) {
     LazyColumn(
@@ -169,8 +172,16 @@ fun HomeScreen(
 
         item {
             Spacer(Modifier.height(6.dp))
+            val settled = matches.count { it.settled }
+            TextButton(onClick = onReport) {
+                Text(
+                    if (settled == 0) "Rapor akurasi" else "Rapor akurasi ($settled hasil)",
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
             Text(
-                "Centang pertandingan untuk menyusunnya jadi parlay.",
+                "Centang pertandingan untuk menyusunnya jadi parlay. Tandai hasilnya " +
+                    "di halaman tiap pertandingan setelah selesai main.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -214,12 +225,24 @@ private fun MatchRow(
                     style = MaterialTheme.typography.titleMedium,
                     color = probColor(match.pickProb),
                 )
-                if (match.thin) {
-                    Text(
-                        "data tipis",
+                when (match.outcome) {
+                    Outcome.WON -> Text(
+                        "tembus ✓",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Amber,
+                        color = Green,
                     )
+                    Outcome.LOST -> Text(
+                        "meleset ✗",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Rose,
+                    )
+                    Outcome.PENDING -> if (match.thin) {
+                        Text(
+                            "data tipis",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Amber,
+                        )
+                    }
                 }
             }
         }
@@ -347,7 +370,11 @@ fun AddScreen(
 // --- Detail ------------------------------------------------------------------
 
 @Composable
-fun DetailScreen(match: MatchPrediction, onDelete: () -> Unit) {
+fun DetailScreen(
+    match: MatchPrediction,
+    onMark: (Outcome) -> Unit,
+    onDelete: () -> Unit,
+) {
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
@@ -462,6 +489,8 @@ fun DetailScreen(match: MatchPrediction, onDelete: () -> Unit) {
             }
         }
 
+        item { OutcomeCard(match, onMark) }
+
         item { StatsReadCard(match) }
 
         item {
@@ -469,6 +498,68 @@ fun DetailScreen(match: MatchPrediction, onDelete: () -> Unit) {
                 Text("Hapus pertandingan ini", color = Rose, style = MaterialTheme.typography.labelSmall)
             }
         }
+    }
+}
+
+/**
+ * Records the result once the match has been played.
+ *
+ * Without this the app can only ever repeat what it predicted. Memory keeps the
+ * winners and drops the rest, so the only way to know whether a stated 78% means
+ * anything is to write down what happened while it is still known.
+ */
+@Composable
+private fun OutcomeCard(match: MatchPrediction, onMark: (Outcome) -> Unit) {
+    Card(
+        title = "Sudah Main?",
+        subtitle = "Tandai hasilnya supaya akurasi aslimu bisa dihitung.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutcomeButton(
+                text = "Tembus",
+                active = match.outcome == Outcome.WON,
+                colour = Green,
+                modifier = Modifier.weight(1f),
+            ) { onMark(Outcome.WON) }
+            OutcomeButton(
+                text = "Meleset",
+                active = match.outcome == Outcome.LOST,
+                colour = Rose,
+                modifier = Modifier.weight(1f),
+            ) { onMark(Outcome.LOST) }
+        }
+        if (match.settled) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Tercatat. Tekan lagi tombol yang sama kalau salah tandai.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun OutcomeButton(
+    text: String,
+    active: Boolean,
+    colour: androidx.compose.ui.graphics.Color,
+    modifier: Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        color = if (active) colour.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(10.dp),
+        modifier = modifier.clickable(onClick = onClick),
+    ) {
+        Text(
+            if (active) "$text ✓" else text,
+            modifier = Modifier.padding(vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+            color = if (active) colour else MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -854,6 +945,139 @@ fun SettingsScreen(vm: AppViewModel) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+// --- Report ------------------------------------------------------------------
+
+/**
+ * How the picks have actually done, against what they promised.
+ *
+ * The point of the screen is the second number. A hit rate on its own invites the
+ * reader to extrapolate a good run forwards; set beside the rate the app claimed,
+ * it answers the only question that matters — whether the percentages can be
+ * taken at face value.
+ */
+@Composable
+fun ReportScreen(report: Report, onOpen: (String) -> Unit) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (report.total == 0) {
+            item {
+                Box(Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Belum ada hasil yang ditandai.\n\n" +
+                            "Setelah pertandingan selesai, buka halamannya lalu tekan " +
+                            "Tembus atau Meleset. Angka di sini akan terisi sendiri.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 24.dp),
+                    )
+                }
+            }
+            return@LazyColumn
+        }
+
+        item {
+            Card(title = "Rapor Akurasi", subtitle = "${report.total} hasil tercatat.") {
+                Row {
+                    Stat("Tembus", "${report.won}/${report.total}", Modifier.weight(1f))
+                    Stat(
+                        "Akurasi nyata",
+                        "${Math.round(report.actual * 100)}%",
+                        Modifier.weight(1f),
+                    )
+                    Stat(
+                        "Yang dijanjikan",
+                        "${Math.round(report.promised * 100)}%",
+                        Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(14.dp))
+                Bar("Akurasi nyata", report.actual)
+                Bar("Dijanjikan model", report.promised)
+            }
+        }
+
+        item {
+            val good = kotlin.math.abs(report.gap) < 0.05 && report.meaningful
+            Surface(
+                color = (if (good) Green else Amber).copy(alpha = 0.12f),
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    report.verdict,
+                    modifier = Modifier.padding(13.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (good) Green else Amber,
+                )
+            }
+        }
+
+        item {
+            Card(
+                title = "Seberapa Yakin Angka Ini",
+                subtitle = "Sampel kecil membuat angka terlihat lebih pasti dari sebenarnya.",
+            ) {
+                Text(
+                    "Dari ${report.total} hasil, akurasi sejatimu ada di antara " +
+                        "${Math.round(report.low * 100)}% dan ${Math.round(report.high * 100)}% " +
+                        "— ketelitiannya ±${report.precision} poin persen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    if (report.meaningful) {
+                        "Jumlah ini sudah cukup untuk dipercaya."
+                    } else {
+                        "Kumpulkan sampai sekitar 50 hasil sebelum menyimpulkan apa pun, " +
+                            "dan jaga ukuran taruhan tetap sama sampai saat itu. Kalau " +
+                            "modelnya memang bagus, uangnya tetap ada nanti."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        item {
+            Text(
+                "Riwayat",
+                style = MaterialTheme.typography.labelSmall,
+                color = Sky,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+        items(report.settled.reversed(), key = { it.id }) { match ->
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { onOpen(match.id) },
+            ) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(match.title, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "${match.pick} · ${match.pickPercent}%",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        if (match.outcome == Outcome.WON) "tembus ✓" else "meleset ✗",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (match.outcome == Outcome.WON) Green else Rose,
+                    )
+                }
+            }
         }
     }
 }

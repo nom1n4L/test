@@ -6,7 +6,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MatchPrediction
+import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
+import com.skorsnap.app.data.Report
 import com.skorsnap.app.data.Slip
 import com.skorsnap.app.data.Store
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +23,7 @@ sealed interface Screen {
     data object Add : Screen
     data class Detail(val id: String) : Screen
     data object Slip : Screen
+    data object Report : Screen
     data object Settings : Screen
 }
 
@@ -155,6 +158,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun matchOf(id: String): MatchPrediction? = _matches.value.firstOrNull { it.id == id }
+
+    /**
+     * Records how a pick turned out. Tapping the same verdict twice clears it, so a
+     * mis-tap does not quietly poison the record the whole screen exists to keep
+     * honest.
+     */
+    fun markOutcome(id: String, outcome: Outcome) {
+        val updated = _matches.value.map { m ->
+            if (m.id != id) m
+            else m.copy(outcome = if (m.outcome == outcome) Outcome.PENDING else outcome)
+        }
+        _matches.value = updated
+        store.save(updated)
+    }
+
+    fun report(): Report = Report(_matches.value.filter { it.settled })
 
     fun remove(id: String) {
         val updated = _matches.value.filterNot { it.id == id }

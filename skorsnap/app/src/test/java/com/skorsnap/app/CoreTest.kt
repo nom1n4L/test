@@ -3,7 +3,9 @@ package com.skorsnap.app
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MarketOption
 import com.skorsnap.app.data.MatchPrediction
+import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
+import com.skorsnap.app.data.Report
 import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.pow
@@ -191,6 +193,66 @@ class CoreTest {
         println()
         println("Jatah output ${Analyst.MAX_OUTPUT_TOKENS}, berpikir dibatasi " +
             "${Analyst.THINKING_BUDGET}, sisa $room untuk jawaban.")
+    }
+
+    private fun settled(prob: Double, won: Boolean) =
+        match(prob).copy(outcome = if (won) Outcome.WON else Outcome.LOST)
+
+    /**
+     * The run that prompted this screen: eleven from twelve. It has to read as a
+     * good run rather than as proof, because acting on it as proof is the
+     * expensive mistake.
+     */
+    @Test
+    fun elevenFromTwelveIsNotYetEvidence() {
+        val r = Report(List(11) { settled(0.78, true) } + settled(0.78, false))
+        assert(r.total == 12 && r.won == 11)
+        assert(Math.round(r.actual * 100) == 92L) { "akurasi salah: ${r.actual}" }
+        assert(Math.round(r.promised * 100) == 78L) { "janji salah: ${r.promised}" }
+        assert(!r.meaningful) { "12 hasil seharusnya belum dianggap cukup" }
+        assert(r.precision >= 15) { "ketelitian dilaporkan terlalu optimis: ±${r.precision}" }
+        println()
+        println("11 dari 12: nyata %d%%, dijanjikan %d%%, sejatinya antara %d%% dan %d%% (±%d poin)"
+            .format(
+                Math.round(r.actual * 100), Math.round(r.promised * 100),
+                Math.round(r.low * 100), Math.round(r.high * 100), r.precision,
+            ))
+        println("Vonis: ${r.verdict}")
+    }
+
+    @Test
+    fun precisionTightensAsResultsAccumulate() {
+        val small = Report(List(12) { settled(0.78, it < 9) })
+        val large = Report(List(120) { settled(0.78, it < 94) })
+        assert(large.precision < small.precision) { "sampel besar harusnya lebih teliti" }
+        assert(large.meaningful && !small.meaningful)
+        println()
+        println("12 hasil  → ±%d poin (%s)".format(small.precision, if (small.meaningful) "cukup" else "belum cukup"))
+        println("120 hasil → ±%d poin (%s)".format(large.precision, if (large.meaningful) "cukup" else "belum cukup"))
+    }
+
+    /** The number the screen exists for: claimed against delivered. */
+    @Test
+    fun reportsTheGapBetweenPromisedAndDelivered() {
+        val honest = Report(List(60) { settled(0.75, it < 45) })
+        assert(kotlin.math.abs(honest.gap) < 0.02) { "selisih salah hitung: ${honest.gap}" }
+        assert(honest.verdict.contains("bisa dipercaya")) { "vonis salah: ${honest.verdict}" }
+
+        val overconfident = Report(List(60) { settled(0.85, it < 33) })
+        assert(overconfident.gap < -0.2) { "kelewat pede tidak terdeteksi: ${overconfident.gap}" }
+        assert(overconfident.verdict.contains("terlalu percaya diri")) {
+            "vonis salah: ${overconfident.verdict}"
+        }
+        println()
+        println("Janji 75%, tembus 75% → ${honest.verdict.take(70)}…")
+        println("Janji 85%, tembus 55% → ${overconfident.verdict.take(70)}…")
+    }
+
+    @Test
+    fun pendingMatchesStayOutOfTheRecord() {
+        val mixed = listOf(settled(0.8, true), match(0.8), settled(0.8, false))
+        val r = Report(mixed.filter { it.settled })
+        assert(r.total == 2) { "laga yang belum ditandai ikut terhitung" }
     }
 
     @Test
