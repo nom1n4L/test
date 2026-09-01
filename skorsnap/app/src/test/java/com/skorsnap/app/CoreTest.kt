@@ -112,6 +112,36 @@ class CoreTest {
         println("Balasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.")
     }
 
+    /**
+     * The schema is what stops a malformed reply reaching the user as a blank
+     * match, so a typo in it would quietly remove that protection.
+     */
+    @Test
+    fun responseSchemaCoversEveryFieldTheParserNeeds() {
+        val schema = Analyst.RESPONSE_SCHEMA
+        val props = schema.getJSONObject("properties")
+        val needed = listOf(
+            "home", "away", "league", "readable", "problem", "stats_seen", "stats_missing",
+            "prob_home", "prob_draw", "prob_away", "xg_home", "xg_away",
+            "markets", "pick", "pick_prob", "confidence", "confidence_why",
+        )
+        for (field in needed) {
+            assert(props.has(field)) { "skema tidak punya field '$field' yang dibaca parser" }
+        }
+
+        val required = schema.getJSONArray("required")
+        val requiredNames = (0 until required.length()).map { required.getString(it) }
+        // Without these the analysis is not usable, so the model must supply them.
+        for (field in listOf("readable", "stats_seen", "stats_missing", "markets", "pick", "pick_prob")) {
+            assert(field in requiredNames) { "'$field' harusnya wajib diisi" }
+        }
+
+        val market = props.getJSONObject("markets").getJSONObject("items")
+        assert(market.getJSONObject("properties").has("prob")) { "market tanpa field peluang" }
+        println()
+        println("Skema mencakup ${props.length()} field, ${requiredNames.size} di antaranya wajib.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

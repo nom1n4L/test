@@ -105,9 +105,9 @@ fun HomeScreen(
             item {
                 Card(title = "Pasang kunci dulu", subtitle = "Sekali saja.") {
                     Text(
-                        "Aplikasi ini membaca screenshot statistikmu lewat Claude, jadi perlu " +
-                            "kunci API dari console.anthropic.com. Tiap analisis menagih akunmu " +
-                            "sesuai jumlah token — satu pertandingan biasanya di bawah seribu rupiah.",
+                        "Aplikasi ini membaca screenshot statistikmu lewat Gemini, jadi perlu " +
+                            "kunci API dari aistudio.google.com. Gratis — cukup akun Google, " +
+                            "tanpa kartu kredit.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -713,10 +713,13 @@ fun SettingsScreen(vm: AppViewModel) {
         Modifier.fillMaxSize().imePadding().padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Card(title = "Kunci Claude API", subtitle = "Dibutuhkan untuk membaca gambar.") {
+        Card(title = "Kunci Gemini", subtitle = "Dibutuhkan untuk membaca gambar.") {
             Text(
-                "Buat di console.anthropic.com, lalu tempel di sini. Tiap analisis menagih " +
-                    "akunmu sesuai jumlah token yang dipakai.",
+                "Buka aistudio.google.com, masuk dengan akun Google, tekan \"Get API key\", " +
+                    "lalu tempel kuncinya di sini.\n\n" +
+                    "Gratis, tanpa kartu kredit. Ada batas pemakaian per menit dan per hari; " +
+                    "kalau kena batas, aplikasi akan bilang dan kamu tinggal tunggu sebentar " +
+                    "atau pilih model Flash yang jatahnya lebih besar.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -727,7 +730,7 @@ fun SettingsScreen(vm: AppViewModel) {
                     key = it.trim()
                     vm.setApiKey(key)
                 },
-                label = { Text("sk-ant-...") },
+                label = { Text("AIza...") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = MaterialTheme.typography.bodySmall,

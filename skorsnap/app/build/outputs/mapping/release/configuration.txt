@@ -329,23 +329,6 @@
 }
 
 # End of content from /root/.gradle/caches/8.14.3/transforms/663a1c430cb6ffc022eba0213b1e431f/transformed/rules/lib/META-INF/com.android.tools/r8-from-1.6.0/coroutines.pro
-# The proguard configuration file for the following section is /root/.gradle/caches/8.14.3/transforms/1c7f3e222d96f5299d6ed2c0bdeb1bff/transformed/rules/lib/META-INF/proguard/okhttp3.pro
-# JSR 305 annotations are for embedding nullability information.
--dontwarn javax.annotation.**
-
-# A resource is loaded with a relative path so the package of this class must be preserved.
--keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
-
-# Animal Sniffer compileOnly dependency to ensure APIs are compatible with older versions of Java.
--dontwarn org.codehaus.mojo.animal_sniffer.*
-
-# OkHttp platform used only on JVM and when Conscrypt and other security providers are available.
--dontwarn okhttp3.internal.platform.**
--dontwarn org.conscrypt.**
--dontwarn org.bouncycastle.**
--dontwarn org.openjsse.**
-
-# End of content from /root/.gradle/caches/8.14.3/transforms/1c7f3e222d96f5299d6ed2c0bdeb1bff/transformed/rules/lib/META-INF/proguard/okhttp3.pro
 # The proguard configuration file for the following section is /root/.gradle/caches/8.14.3/transforms/bc556a362f7eebab9656c76ae64a9d66/transformed/versionedparcelable-1.1.1/proguard.txt
 -keep class * implements androidx.versionedparcelable.VersionedParcelable
 -keep public class android.support.**Parcelizer { *; }
@@ -389,67 +372,6 @@
 }
 
 # End of content from /root/.gradle/caches/8.14.3/transforms/9b4604c4f82f69ac36233fcd502dd429/transformed/rules/lib/META-INF/proguard/androidx-annotations.pro
-# The proguard configuration file for the following section is /root/.gradle/caches/8.14.3/transforms/69bbf5f44ed6d04acdcffb6f2b59276b/transformed/rules/lib/META-INF/proguard/anthropic-java-core.pro
-# Jackson uses reflection and depends heavily on runtime attributes.
--keepattributes Exceptions,InnerClasses,Signature,Deprecated,*Annotation*
-
-# Jackson uses Kotlin reflection utilities, which themselves use reflection to access things.
--keep class kotlin.reflect.** { *; }
--keep class kotlin.Metadata { *; }
-
-# Jackson uses reflection to access enum members (e.g. via `java.lang.Class.getEnumConstants()`).
--keepclassmembers class com.fasterxml.jackson.** extends java.lang.Enum {
-    <fields>;
-    public static **[] values();
-    public static ** valueOf(java.lang.String);
-}
-
-# Jackson uses reflection to access annotation members.
--keepclassmembers @interface com.fasterxml.jackson.annotation.** {
-    *;
-}
-
-# Jackson uses reified type information to serialize and deserialize our classes (via `TypeReference`).
--keep class com.fasterxml.jackson.core.type.TypeReference { *; }
--keep class * extends com.fasterxml.jackson.core.type.TypeReference { *; }
-
-# Jackson uses reflection to access our class serializers and deserializers.
--keep @com.fasterxml.jackson.databind.annotation.JsonSerialize class com.anthropic.** { *; }
--keep @com.fasterxml.jackson.databind.annotation.JsonDeserialize class com.anthropic.** { *; }
-
-# Jackson uses reflection to serialize and deserialize our classes based on their constructors and annotated members.
--keepclassmembers class com.anthropic.** {
-    <init>(...);
-    @com.fasterxml.jackson.annotation.* *;
-}
-# End of content from /root/.gradle/caches/8.14.3/transforms/69bbf5f44ed6d04acdcffb6f2b59276b/transformed/rules/lib/META-INF/proguard/anthropic-java-core.pro
-# The proguard configuration file for the following section is /root/.gradle/caches/8.14.3/transforms/29799a8ca39e635b4ae8a95f491c1aaa/transformed/rules/lib/META-INF/com.android.tools/r8-from-1.6.0/kotlin-reflect.pro
-# When editing this file, update the following files as well:
-# - META-INF/com.android.tools/proguard/kotlin-reflect.pro
-# - META-INF/com.android.tools/r8-upto-1.6.0/kotlin-reflect.pro
-# - META-INF/proguard/kotlin-reflect.pro
-# Keep Metadata annotations so they can be parsed at runtime.
--keep class kotlin.Metadata { *; }
-
-# Keep generic signatures and annotations at runtime.
-# R8 requires InnerClasses and EnclosingMethod if you keepattributes Signature.
--keepattributes InnerClasses,Signature,RuntimeVisible*Annotations,EnclosingMethod
-
-# Don't note on API calls from different JVM versions as they're gated properly at runtime.
--dontnote kotlin.internal.PlatformImplementationsKt
-
-# Don't note on internal APIs, as there is some class relocating that shrinkers may unnecessarily find suspicious.
--dontwarn kotlin.reflect.jvm.internal.**
-
-# Statically guarded by try-catch block and not used on Android, see CacheByClass
--dontwarn java.lang.ClassValue
-
-# Do not even execute try-catch block for ClassValue
--assumenosideeffects class kotlin.reflect.jvm.internal.CacheByClassKt {
-    boolean useClassValue return false;
-}
-
-# End of content from /root/.gradle/caches/8.14.3/transforms/29799a8ca39e635b4ae8a95f491c1aaa/transformed/rules/lib/META-INF/com.android.tools/r8-from-1.6.0/kotlin-reflect.pro
 # The proguard configuration file for the following section is <unknown>
 
 # End of content from <unknown>

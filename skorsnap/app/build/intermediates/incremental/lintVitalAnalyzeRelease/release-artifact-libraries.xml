@@ -376,22 +376,6 @@
       jars="/root/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlinx/kotlinx-coroutines-android/1.9.0/6cf3b8df5a2ce8c6b0dffe55657a827c405ee2fe/kotlinx-coroutines-android-1.9.0.jar"
       resolved="org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"/>
   <library
-      name="com.anthropic:anthropic-java:2.34.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.anthropic/anthropic-java/2.34.0/a6e3c893852a337de9dc65101074bb0c48a2a0f9/anthropic-java-2.34.0.jar"
-      resolved="com.anthropic:anthropic-java:2.34.0"/>
-  <library
-      name="com.anthropic:anthropic-java-client-okhttp:2.34.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.anthropic/anthropic-java-client-okhttp/2.34.0/96f277e49d04a8a6896c978c0545b2c6d5989eb0/anthropic-java-client-okhttp-2.34.0.jar"
-      resolved="com.anthropic:anthropic-java-client-okhttp:2.34.0"/>
-  <library
-      name="com.anthropic:anthropic-java-core:2.34.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.anthropic/anthropic-java-core/2.34.0/59e266315b50f72e17f5808cbfb680ef366b6955/anthropic-java-core-2.34.0.jar"
-      resolved="com.anthropic:anthropic-java-core:2.34.0"/>
-  <library
-      name="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk8/1.9.10/c7510d64a83411a649c76f2778304ddf71d7437b/kotlin-stdlib-jdk8-1.9.10.jar"
-      resolved="org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.10"/>
-  <library
       name="androidx.versionedparcelable:versionedparcelable:1.1.1@aar"
       jars="/root/.gradle/caches/8.14.3/transforms/bc556a362f7eebab9656c76ae64a9d66/transformed/versionedparcelable-1.1.1/jars/classes.jar"
       resolved="androidx.versionedparcelable:versionedparcelable:1.1.1"
@@ -456,10 +440,6 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib-jdk7/1.9.10/bc5bfc2690338defd5195b05c57562f2194eeb10/kotlin-stdlib-jdk7-1.9.10.jar"
-      resolved="org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"/>
-  <library
       name="org.jetbrains.kotlin:kotlin-stdlib:2.0.21@jar"
       jars="/root/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-stdlib/2.0.21/618b539767b4899b4660a83006e052b63f1db551/kotlin-stdlib-2.0.21.jar"
       resolved="org.jetbrains.kotlin:kotlin-stdlib:2.0.21"/>
@@ -467,30 +447,6 @@
       name="org.jetbrains:annotations:23.0.0@jar"
       jars="/root/.gradle/caches/modules-2/files-2.1/org.jetbrains/annotations/23.0.0/8cc20c07506ec18e0834947b84a864bfc094484e/annotations-23.0.0.jar"
       resolved="org.jetbrains:annotations:23.0.0"/>
-  <library
-      name="com.fasterxml.jackson.core:jackson-core:2.18.2@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-core/2.18.2/fb64ccac5c27dca8819418eb4e443a9f496d9ee7/jackson-core-2.18.2.jar"
-      resolved="com.fasterxml.jackson.core:jackson-core:2.18.2"/>
-  <library
-      name="com.fasterxml.jackson.core:jackson-databind:2.18.2@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-databind/2.18.2/deef8697b92141fb6caf7aa86966cff4eec9b04f/jackson-databind-2.18.2.jar"
-      resolved="com.fasterxml.jackson.core:jackson-databind:2.18.2"/>
-  <library
-      name="com.fasterxml.jackson.core:jackson-annotations:2.18.2@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.core/jackson-annotations/2.18.2/985d77751ebc7fce5db115a986bc9aa82f973f4a/jackson-annotations-2.18.2.jar"
-      resolved="com.fasterxml.jackson.core:jackson-annotations:2.18.2"/>
-  <library
-      name="com.google.errorprone:error_prone_annotations:2.33.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.google.errorprone/error_prone_annotations/2.33.0/8da89b78563865aa950961ae898f8ea0fb4e1d64/error_prone_annotations-2.33.0.jar"
-      resolved="com.google.errorprone:error_prone_annotations:2.33.0"/>
-  <library
-      name="com.standardwebhooks:standardwebhooks:1.1.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.standardwebhooks/standardwebhooks/1.1.0/547b694d186c8403c28e86d81859b20140a9832f/standardwebhooks-1.1.0.jar"
-      resolved="com.standardwebhooks:standardwebhooks:1.1.0"/>
-  <library
-      name="io.swagger.core.v3:swagger-annotations:2.2.31@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/io.swagger.core.v3/swagger-annotations/2.2.31/6f9ffc1fbfce9d1d37420eef795821353a77b6af/swagger-annotations-2.2.31.jar"
-      resolved="io.swagger.core.v3:swagger-annotations:2.2.31"/>
   <library
       name="androidx.emoji2:emoji2:1.3.0@aar"
       jars="/root/.gradle/caches/8.14.3/transforms/e4853a648207157a6812c4f1cdd20a6c/transformed/emoji2-1.3.0/jars/classes.jar:/root/.gradle/caches/8.14.3/transforms/e4853a648207157a6812c4f1cdd20a6c/transformed/emoji2-1.3.0/jars/libs/repackaged.jar"
@@ -560,14 +516,6 @@
       symbolFile="R.txt"
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
-  <library
-      name="com.squareup.okhttp3:okhttp:4.12.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.squareup.okhttp3/okhttp/4.12.0/2f4525d4a200e97e1b87449c2cd9bd2e25b7e8cd/okhttp-4.12.0.jar"
-      resolved="com.squareup.okhttp3:okhttp:4.12.0"/>
-  <library
-      name="com.squareup.okio:okio-jvm:3.6.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.squareup.okio/okio-jvm/3.6.0/5600569133b7bdefe1daf9ec7f4abeb6d13e1786/okio-jvm-3.6.0.jar"
-      resolved="com.squareup.okio:okio-jvm:3.6.0"/>
   <library
       name="androidx.interpolator:interpolator:1.0.0@aar"
       jars="/root/.gradle/caches/8.14.3/transforms/58e1d03d8b335bb24321a1d69ac76ad7/transformed/interpolator-1.0.0/jars/classes.jar"
@@ -642,55 +590,7 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
-      name="com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jsr310/2.18.2/7b6ff96adf421f4c6edbd694e797dd8fe434510a/jackson-datatype-jsr310-2.18.2.jar"
-      resolved="com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.18.2"/>
-  <library
-      name="com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.2@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.datatype/jackson-datatype-jdk8/2.18.2/9ed6d538ebcc66864e114a7040953dce6ab6ea53/jackson-datatype-jdk8-2.18.2.jar"
-      resolved="com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.2"/>
-  <library
-      name="com.github.victools:jsonschema-generator:4.38.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.github.victools/jsonschema-generator/4.38.0/2b24dbc099c58c50aa8d9d2fa755d75d5e97f0e5/jsonschema-generator-4.38.0.jar"
-      resolved="com.github.victools:jsonschema-generator:4.38.0"/>
-  <library
-      name="com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.fasterxml.jackson.module/jackson-module-kotlin/2.18.2/64d2a72bacd16a9bb46db5662396dd0b606992d4/jackson-module-kotlin-2.18.2.jar"
-      resolved="com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2"/>
-  <library
-      name="org.jetbrains.kotlin:kotlin-reflect:1.8.10@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/org.jetbrains.kotlin/kotlin-reflect/1.8.10/1e90b778ea4669b6bcbfaca57313665ddd804779/kotlin-reflect-1.8.10.jar"
-      resolved="org.jetbrains.kotlin:kotlin-reflect:1.8.10"/>
-  <library
       name="com.google.guava:listenablefuture:1.0@jar"
       jars="/root/.gradle/caches/modules-2/files-2.1/com.google.guava/listenablefuture/1.0/c949a840a6acbc5268d088e47b04177bf90b3cad/listenablefuture-1.0.jar"
       resolved="com.google.guava:listenablefuture:1.0"/>
-  <library
-      name="org.apache.httpcomponents.client5:httpclient5:5.3.1@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.client5/httpclient5/5.3.1/56b53c8f4bcdaada801d311cf2ff8a24d6d96883/httpclient5-5.3.1.jar"
-      resolved="org.apache.httpcomponents.client5:httpclient5:5.3.1"/>
-  <library
-      name="org.apache.httpcomponents.core5:httpcore5-h2:5.2.4@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.core5/httpcore5-h2/5.2.4/2872764df7b4857549e2880dd32a6f9009166289/httpcore5-h2-5.2.4.jar"
-      resolved="org.apache.httpcomponents.core5:httpcore5-h2:5.2.4"/>
-  <library
-      name="org.apache.httpcomponents.core5:httpcore5:5.2.4@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/org.apache.httpcomponents.core5/httpcore5/5.2.4/34d8332b975f9e9a8298efe4c883ec43d45b7059/httpcore5-5.2.4.jar"
-      resolved="org.apache.httpcomponents.core5:httpcore5:5.2.4"/>
-  <library
-      name="com.github.victools:jsonschema-module-jackson:4.38.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.github.victools/jsonschema-module-jackson/4.38.0/c924f0d657ddf66b624f584e76edc0bfc50d2988/jsonschema-module-jackson-4.38.0.jar"
-      resolved="com.github.victools:jsonschema-module-jackson:4.38.0"/>
-  <library
-      name="com.github.victools:jsonschema-module-swagger-2:4.38.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.github.victools/jsonschema-module-swagger-2/4.38.0/d6323edd3effc917ff8689f19f7f3d0dac889368/jsonschema-module-swagger-2-4.38.0.jar"
-      resolved="com.github.victools:jsonschema-module-swagger-2:4.38.0"/>
-  <library
-      name="org.slf4j:slf4j-api:2.0.16@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/org.slf4j/slf4j-api/2.0.16/172931663a09a1fa515567af5fbef00897d3c04/slf4j-api-2.0.16.jar"
-      resolved="org.slf4j:slf4j-api:2.0.16"/>
-  <library
-      name="com.fasterxml:classmate:1.7.0@jar"
-      jars="/root/.gradle/caches/modules-2/files-2.1/com.fasterxml/classmate/1.7.0/e98374da1f2143ac8e6e0a95036994bb19137a3/classmate-1.7.0.jar"
-      resolved="com.fasterxml:classmate:1.7.0"/>
 </libraries>

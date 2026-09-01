@@ -1,19 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.skorsnap.app.CoreTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-09-01T05:13:11.663Z" hostname="vm" time="0.114">
+<testsuite name="com.skorsnap.app.CoreTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-09-01T05:38:41.383Z" hostname="vm" time="0.11">
   <properties/>
-  <testcase name="duplicateLegsAreCollapsed" classname="com.skorsnap.app.CoreTest" time="0.049"/>
+  <testcase name="duplicateLegsAreCollapsed" classname="com.skorsnap.app.CoreTest" time="0.045"/>
   <testcase name="survivesAStraySentenceBeforeTheJson" classname="com.skorsnap.app.CoreTest" time="0.023"/>
-  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.032"/>
+  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.027"/>
   <testcase name="refusesGarbageInsteadOfInventing" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="responseSchemaCoversEveryFieldTheParserNeeds" classname="com.skorsnap.app.CoreTest" time="0.005"/>
   <testcase name="sixLegsIsTheCaseTheUserAsksFor" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="ignoresImpossibleProbabilities" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="expectedReturnDependsOnlyOnLegCount" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="expectedReturnDependsOnlyOnLegCount" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <system-out><![CDATA[Kalimat tambahan di luar JSON tidak merusak hasil.
 4 leg @80% → 41% (1 dari 2)
 
 Terbaca: Preston vs Bristol City, pilih Over 1.5 82%, impas di 1.22
 Balasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.
+
+Skema mencakup 17 field, 12 di antaranya wajib.
 
 6 leg @75%: tembus semua 18% (1 dari 6)
    diperkirakan tembus 4.5 dari 6

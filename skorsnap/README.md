@@ -7,12 +7,26 @@ Centang beberapa pertandingan, dapat parlay lengkap dengan peluang gabungannya.
 
 ## Cara pakai
 
-1. **Pengaturan** → tempel kunci Claude API dari `console.anthropic.com`
+1. **Pengaturan** → tempel kunci Gemini dari `aistudio.google.com` (gratis, cukup
+   akun Google, tanpa kartu kredit)
 2. **+ Tambah Pertandingan** → pilih screenshot dari galeri (boleh beberapa
    gambar untuk satu pertandingan)
 3. Tekan **Analisa** → keluar prediksi, market terbaik, dan odds impasnya
 4. Ulangi untuk pertandingan lain
 5. **Centang** yang mau digabung → **Lihat parlay**
+
+## Kenapa Gemini
+
+Tier gratisnya nyata dan cukup untuk pemakaian pribadi. Karena API-nya dipanggil
+langsung lewat HTTP tanpa library klien, aplikasinya juga tinggal **1,1 MB** —
+sebelumnya 3,4 MB waktu masih membundel SDK.
+
+Balasannya dikunci dengan `responseSchema`, jadi model tidak bisa mengirim bentuk
+yang tidak dikenali parser. Suhunya disetel 0,15: membaca angka dari tabel bukan
+tugas kreatif, dan screenshot yang sama sebaiknya memberi jawaban yang sama.
+
+Ada tiga model bisa dipilih di Pengaturan. Kalau bacaannya meleset, naikkan ke
+Gemini 2.5 Pro; kalau kena batas kuota, turunkan ke Flash.
 
 ## Aturan yang tidak bisa dilanggar
 
@@ -66,7 +80,7 @@ menang.
 
 | Test | Gunanya |
 |---|---|
-| `CoreTest` | Peluang parlay, rumus imbal hasil, dan pembacaan balasan JSON |
+| `CoreTest` | Peluang parlay, rumus imbal hasil, pembacaan balasan JSON, dan kelengkapan skema |
 
 Yang diuji sengaja hanya dua: menggabungkan peluang, dan mengubah balasan model
 jadi angka. Membaca gambar adalah tugas model dan tidak bisa di-unit-test;

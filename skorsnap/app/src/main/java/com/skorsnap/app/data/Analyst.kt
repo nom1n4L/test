@@ -1,28 +1,29 @@
 package com.skorsnap.app.data
 
-import com.anthropic.client.okhttp.AnthropicOkHttpClient
-import com.anthropic.models.messages.Base64ImageSource
-import com.anthropic.models.messages.ContentBlockParam
-import com.anthropic.models.messages.ImageBlockParam
-import com.anthropic.models.messages.MessageCreateParams
-import com.anthropic.models.messages.OutputConfig
-import com.anthropic.models.messages.TextBlockParam
-import com.anthropic.models.messages.ThinkingConfigAdaptive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Base64
 
 /**
- * Reads a match's statistics out of screenshots and turns them into probabilities.
+ * Reads a match's statistics out of screenshots and turns them into probabilities,
+ * using Google's Gemini API.
  *
  * The whole app rests on one rule, which is also the only thing that makes reading
  * screenshots better than guessing: nothing may be used that is not visible in the
  * pictures. A language model asked about football will produce confident-sounding
  * numbers from its own stale memory, and those numbers would be indistinguishable
- * on screen from ones actually derived from the user's data. So the prompt forbids
- * it, asks for the stats it did read to be listed back, and asks for the ones it
- * expected and could not find — which is what lets the app show its work.
+ * on screen from ones actually derived from the user's data. So the instructions
+ * forbid it, ask for the stats it did read to be listed back, and ask for the ones
+ * it expected and could not find — which is what lets the app show its work.
+ *
+ * Talks to the REST endpoint directly rather than through a client library. The
+ * request is one POST with a JSON body, the app was 3.4 MB with an SDK bundled and
+ * is 1.3 MB without one, and `responseSchema` means the reply cannot come back in
+ * a shape the parser does not expect.
  */
 class Analyst(private val apiKey: String) {
 
@@ -33,69 +34,124 @@ class Analyst(private val apiKey: String) {
         note: String,
         model: String = DEFAULT_MODEL,
     ): MatchPrediction = withContext(Dispatchers.IO) {
-        if (apiKey.isBlank()) throw AnalystException("Kunci Claude API belum diisi.")
+        if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
         if (images.isEmpty()) throw AnalystException("Belum ada gambar.")
 
-        val blocks = ArrayList<ContentBlockParam>(images.size + 1)
+        val parts = JSONArray()
         for (bytes in images) {
-            blocks.add(
-                ContentBlockParam.ofImage(
-                    ImageBlockParam.builder()
-                        .source(
-                            Base64ImageSource.builder()
-                                .mediaType(mediaTypeOf(bytes))
-                                .data(Base64.getEncoder().encodeToString(bytes))
-                                .build()
-                        )
-                        .build()
+            parts.put(
+                JSONObject().put(
+                    "inline_data",
+                    JSONObject()
+                        .put("mime_type", mimeTypeOf(bytes))
+                        .put("data", Base64.getEncoder().encodeToString(bytes))
                 )
             )
         }
-        blocks.add(
-            ContentBlockParam.ofText(
-                TextBlockParam.builder().text(userPrompt(note)).build()
-            )
-        )
+        parts.put(JSONObject().put("text", userPrompt(note)))
 
-        val text = try {
-            val client = AnthropicOkHttpClient.builder().apiKey(apiKey).build()
-            val response = client.messages().create(
-                MessageCreateParams.builder()
-                    .model(model)
-                    .maxTokens(8000L)
-                    .system(SYSTEM_PROMPT)
-                    .thinking(ThinkingConfigAdaptive.builder().build())
-                    .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.HIGH).build())
-                    .addUserMessageOfBlockParams(blocks)
-                    .build()
+        val body = JSONObject()
+            .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+            .put(
+                "systemInstruction",
+                JSONObject().put("parts", JSONArray().put(JSONObject().put("text", SYSTEM_PROMPT)))
             )
-            response.content()
-                .mapNotNull { block -> block.text().map { it.text() }.orElse(null) }
+            .put(
+                "generationConfig",
+                JSONObject()
+                    // Reading numbers off a table is not a creative task; near-zero
+                    // temperature keeps the same screenshot giving the same answer.
+                    .put("temperature", 0.15)
+                    .put("maxOutputTokens", 8192)
+                    .put("responseMimeType", "application/json")
+                    .put("responseSchema", RESPONSE_SCHEMA)
+            )
+
+        parse(post(model, body.toString()))
+    }
+
+    private fun post(model: String, body: String): String {
+        var conn: HttpURLConnection? = null
+        try {
+            val url = "$HOST/v1beta/models/$model:generateContent"
+            conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 30_000
+                // Reading several dense screenshots takes the model a while.
+                readTimeout = 180_000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("x-goog-api-key", apiKey)
+            }
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+
+            if (code !in 200..299) throw AnalystException(errorMessage(code, text))
+
+            val json = JSONObject(text)
+            val candidate = json.optJSONArray("candidates")?.optJSONObject(0)
+                ?: throw AnalystException(
+                    json.optJSONObject("promptFeedback")?.optString("blockReason")
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { "Permintaan ditolak Gemini ($it)." }
+                        ?: "Gemini tidak mengembalikan jawaban."
+                )
+
+            // A reply cut off mid-JSON parses as garbage; say so plainly instead.
+            val finish = candidate.optString("finishReason")
+            if (finish == "MAX_TOKENS") {
+                throw AnalystException("Jawaban terpotong. Coba kurangi jumlah gambarnya.")
+            }
+
+            val partsOut = candidate.optJSONObject("content")?.optJSONArray("parts")
+                ?: throw AnalystException("Balasan Gemini kosong (alasan: ${finish.ifBlank { "tidak diketahui" }}).")
+
+            return (0 until partsOut.length())
+                .mapNotNull { partsOut.optJSONObject(it)?.optString("text")?.takeIf(String::isNotBlank) }
                 .joinToString("\n")
                 .trim()
         } catch (e: AnalystException) {
             throw e
         } catch (e: Exception) {
             throw AnalystException(e.message ?: e.javaClass.simpleName)
+        } finally {
+            conn?.disconnect()
         }
+    }
 
-        parse(text)
+    /** Turns Google's status codes into something a user can act on. */
+    private fun errorMessage(code: Int, body: String): String {
+        val detail = runCatching {
+            JSONObject(body).optJSONObject("error")?.optString("message")
+        }.getOrNull().orEmpty()
+        return when (code) {
+            400 -> if (detail.contains("API key", true)) {
+                "Kunci ditolak. Pastikan disalin utuh dari aistudio.google.com."
+            } else {
+                "Permintaan ditolak: ${detail.take(160)}"
+            }
+            403 -> "Kunci tidak punya akses. Cek lagi kuncinya di aistudio.google.com."
+            404 -> "Model itu tidak tersedia untuk kuncimu. Coba pilih model lain di Pengaturan."
+            429 -> "Kuota gratis Gemini habis untuk sekarang. Tunggu beberapa menit, atau pilih model Flash yang jatahnya lebih besar."
+            in 500..599 -> "Server Gemini sedang bermasalah. Coba lagi sebentar lagi."
+            else -> "Gagal (HTTP $code): ${detail.take(160)}"
+        }
     }
 
     /** Sniffs the format from the file's own header rather than trusting a name. */
-    private fun mediaTypeOf(bytes: ByteArray): Base64ImageSource.MediaType = when {
-        bytes.size > 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() ->
-            Base64ImageSource.MediaType.IMAGE_JPEG
-        bytes.size > 8 && bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() ->
-            Base64ImageSource.MediaType.IMAGE_PNG
-        bytes.size > 12 && bytes[8] == 'W'.code.toByte() && bytes[9] == 'E'.code.toByte() ->
-            Base64ImageSource.MediaType.IMAGE_WEBP
-        else -> Base64ImageSource.MediaType.IMAGE_JPEG
+    private fun mimeTypeOf(bytes: ByteArray): String = when {
+        bytes.size > 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
+        bytes.size > 8 && bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() -> "image/png"
+        bytes.size > 12 && bytes[8] == 'W'.code.toByte() && bytes[9] == 'E'.code.toByte() -> "image/webp"
+        else -> "image/jpeg"
     }
 
     /**
-     * Pulls the JSON object out of the reply. The model is asked for JSON and
-     * nothing else, but a stray sentence before it should not cost the user their
+     * Pulls the JSON object out of the reply. The schema should guarantee clean
+     * JSON, but a stray sentence around it should not cost the user their
      * analysis, so the object is located rather than assumed to start at index 0.
      */
     internal fun parse(text: String): MatchPrediction {
@@ -150,54 +206,85 @@ class Analyst(private val apiKey: String) {
     }
 
     private fun userPrompt(note: String): String = buildString {
-        append("Baca statistik di gambar-gambar di atas, lalu balas HANYA dengan satu objek JSON. ")
-        append("Tanpa kalimat pembuka, tanpa blok kode, tanpa penjelasan di luar JSON.\n\n")
+        append("Baca statistik di gambar-gambar di atas, lalu isi JSON sesuai skema.\n\n")
         if (note.isNotBlank()) append("Catatan dari pengguna: $note\n\n")
         append(
             """
-Bentuk JSON-nya persis seperti ini:
-
-{
-  "home": "nama tim tuan rumah",
-  "away": "nama tim tandang",
-  "league": "nama liga kalau terlihat",
-  "readable": true,
-  "problem": "diisi hanya kalau gambar tidak terbaca atau statistiknya terlalu sedikit",
-  "stats_seen": ["daftar statistik yang benar-benar kamu baca dari gambar"],
-  "stats_missing": ["statistik penting yang kamu cari tapi tidak ada di gambar"],
-  "prob_home": 0.00,
-  "prob_draw": 0.00,
-  "prob_away": 0.00,
-  "xg_home": 0.0,
-  "xg_away": 0.0,
-  "markets": [
-    {"name": "nama market, mis. Over 1.5", "prob": 0.00, "why": "alasan singkat dari angka di gambar"}
-  ],
-  "pick": "market yang paling layak dipilih",
-  "pick_prob": 0.00,
-  "confidence": "tinggi | sedang | rendah",
-  "confidence_why": "kenapa segitu"
-}
-
-Aturan:
+Aturan pengisian:
 - prob_home + prob_draw + prob_away harus berjumlah 1,0.
-- Semua "prob" adalah peluang, bukan persen. 0,72 berarti 72%.
-- Isi "markets" dengan 4-8 market yang datanya memang ada di gambar.
-- "pick" dipilih dari "markets", yaitu yang paling seimbang antara peluang tinggi
-  dan dukungan data yang jelas. Jangan pilih yang peluangnya di atas 0,92 —
-  odds-nya terlalu kecil untuk dipasang.
+- Semua "prob" adalah peluang antara 0 dan 1, bukan persen. 0,72 berarti 72%.
+- Isi "markets" dengan 4-8 market yang datanya memang terlihat di gambar.
+- "pick" harus salah satu dari nama di "markets" — yang paling seimbang antara
+  peluang tinggi dan dukungan data yang jelas. Jangan pilih yang peluangnya di
+  atas 0,92, karena odds-nya terlalu kecil untuk dipasang.
+- "stats_seen" diisi statistik yang benar-benar kamu baca dari gambar.
+- "stats_missing" diisi statistik penting yang kamu cari tapi tidak ada di gambar.
 - Semua teks dalam bahasa Indonesia.
             """.trimIndent()
         )
     }
 
     companion object {
-        const val DEFAULT_MODEL = "claude-opus-5"
+        private const val HOST = "https://generativelanguage.googleapis.com"
 
+        const val DEFAULT_MODEL = "gemini-2.5-flash"
+
+        /** Label, model id, and what to expect. */
         val MODELS = listOf(
-            Triple("Opus 5 — paling teliti baca gambar", "claude-opus-5", "$5 / $25 per 1 juta token"),
-            Triple("Sonnet 5 — lebih murah", "claude-sonnet-5", "$2 / $10 per 1 juta token"),
+            Triple("Gemini 2.5 Flash", "gemini-2.5-flash", "Gratis, cepat — pilihan awal yang baik"),
+            Triple("Gemini 3 Flash", "gemini-3-flash", "Lebih baru, biasanya lebih teliti"),
+            Triple("Gemini 2.5 Pro", "gemini-2.5-pro", "Paling teliti baca angka, jatah gratisnya lebih kecil"),
         )
+
+        /**
+         * Forces the reply into the shape the parser expects, so a malformed answer
+         * cannot reach the user as a blank match.
+         */
+        internal val RESPONSE_SCHEMA: JSONObject = JSONObject()
+            .put("type", "OBJECT")
+            .put(
+                "properties",
+                JSONObject()
+                    .put("home", str())
+                    .put("away", str())
+                    .put("league", str())
+                    .put("readable", JSONObject().put("type", "BOOLEAN"))
+                    .put("problem", str())
+                    .put("stats_seen", strArray())
+                    .put("stats_missing", strArray())
+                    .put("prob_home", num())
+                    .put("prob_draw", num())
+                    .put("prob_away", num())
+                    .put("xg_home", num())
+                    .put("xg_away", num())
+                    .put(
+                        "markets",
+                        JSONObject().put("type", "ARRAY").put(
+                            "items",
+                            JSONObject()
+                                .put("type", "OBJECT")
+                                .put(
+                                    "properties",
+                                    JSONObject().put("name", str()).put("prob", num()).put("why", str())
+                                )
+                                .put("required", JSONArray().put("name").put("prob").put("why"))
+                        )
+                    )
+                    .put("pick", str())
+                    .put("pick_prob", num())
+                    .put("confidence", str())
+                    .put("confidence_why", str())
+            )
+            .put(
+                "required",
+                JSONArray().put("home").put("away").put("readable").put("stats_seen")
+                    .put("stats_missing").put("prob_home").put("prob_draw").put("prob_away")
+                    .put("markets").put("pick").put("pick_prob").put("confidence")
+            )
+
+        private fun str() = JSONObject().put("type", "STRING")
+        private fun num() = JSONObject().put("type", "NUMBER")
+        private fun strArray() = JSONObject().put("type", "ARRAY").put("items", str())
 
         private val SYSTEM_PROMPT = """
 Kamu menganalisis statistik sepak bola dari tangkapan layar untuk aplikasi Skorsnap.
@@ -210,22 +297,24 @@ ATURAN YANG TIDAK BOLEH DILANGGAR:
    gol, rekor, cedera, atau klasemen dari ingatan. Kalau sesuatu tidak ada di
    gambar, tulis di "stats_missing", jangan dikarang.
 
-2. Kalau gambarnya buram, terpotong, atau isinya bukan statistik sepak bola, set
-   "readable": false dan jelaskan di "problem". Jangan memaksakan tebakan.
+2. Baca angkanya dengan teliti. Salah membaca 1,42 menjadi 4,2 akan menghasilkan
+   prediksi yang salah total dan tidak ada yang bisa mendeteksinya. Kalau sebuah
+   angka buram atau terpotong, jangan ditebak — masukkan ke "stats_missing".
 
-3. Jujurlah soal keyakinan. Statistik sepak bola punya batas: bahkan model terbaik
+3. Kalau gambarnya tidak terbaca atau isinya bukan statistik sepak bola, set
+   "readable": false dan jelaskan di "problem".
+
+4. Jujurlah soal keyakinan. Statistik sepak bola punya batas: bahkan model terbaik
    dengan data lengkap hanya benar sekitar 52-55% untuk tebakan menang/seri/kalah.
    Kalau kamu memberi peluang 85% untuk hasil akhir, kemungkinan besar kamu salah.
    Angka setinggi itu hanya wajar untuk market seperti "over 0.5 gol".
 
-4. Jangan pernah menulis bahwa sesuatu pasti menang, aman, atau dijamin. Yang kamu
+5. Jangan pernah menulis bahwa sesuatu pasti menang, aman, atau dijamin. Yang kamu
    berikan adalah peluang, dan peluang 80% tetap meleset 1 dari 5 kali.
 
-5. Untuk "pick", pilih market yang paling didukung angka di gambar — bukan yang
+6. Untuk "pick", pilih market yang paling didukung angka di gambar — bukan yang
    peluangnya paling besar. Market seperti Over/Under, Double Chance, dan Kedua Tim
    Cetak Gol biasanya lebih bisa diandalkan daripada tebakan skor akhir.
-
-Balas hanya dengan JSON sesuai bentuk yang diminta pengguna.
         """.trimIndent()
     }
 }
