@@ -40375,6 +40375,9 @@ com.skorsnap.app.data.Analyst$analyse$2:
 com.skorsnap.app.data.Analyst$listModels$2:
     public int label
     public final java.lang.Object invoke$4()
+com.skorsnap.app.data.Analyst$testModel$2:
+    public int label
+    public final java.lang.Object invoke$4()
 com.skorsnap.app.data.Analyst:
     public static final com.skorsnap.app.data.Analyst$Companion Companion
     public static java.lang.Object analyse()
@@ -40382,6 +40385,7 @@ com.skorsnap.app.data.Analyst:
     public static java.lang.String mimeTypeOf()
     public static com.skorsnap.app.data.MatchPrediction parse$app_release()
     public static java.lang.String post()
+    public static java.lang.Object testModel()
     public static java.lang.String userPrompt()
 com.skorsnap.app.data.MarketOption:
     static void <clinit>()
@@ -40460,6 +40464,8 @@ com.skorsnap.app.ui.AppViewModel$stage$1$read$1:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$stage$1:
     public final java.lang.Object invoke$4()
+com.skorsnap.app.ui.AppViewModel$testModel$1:
+    public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel:
     public static final int $stable
     static void <clinit>()
@@ -40469,6 +40475,7 @@ com.skorsnap.app.ui.AppViewModel:
     public static kotlinx.coroutines.flow.StateFlow getBusy()
     public static kotlinx.coroutines.flow.StateFlow getMatches()
     public static kotlinx.coroutines.flow.StateFlow getMessage()
+    public static kotlinx.coroutines.flow.StateFlow getModelReport()
     public static kotlinx.coroutines.flow.StateFlow getModels()
     public static kotlinx.coroutines.flow.StateFlow getModelsBusy()
     public static kotlinx.coroutines.flow.StateFlow getScreen()
@@ -40483,6 +40490,7 @@ com.skorsnap.app.ui.AppViewModel:
     public final void setModel(java.lang.String)
     public static com.skorsnap.app.data.Slip slip()
     public static void stage()
+    public static void testModel()
 com.skorsnap.app.ui.ComposableSingletons$AppKt$lambda-1$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$AppKt$lambda-2$1:
@@ -40586,8 +40594,12 @@ com.skorsnap.app.ui.ScreensKt$MatchRow$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$1:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2$2:
+com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2$1$2:
     public final void invoke$40()
+com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2$1$4:
+    public final void invoke$40()
+com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2$2:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1$1:

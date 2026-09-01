@@ -48,6 +48,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val selected: StateFlow<Set<String>> = _selected.asStateFlow()
 
     /** Models this key can actually call, fetched from Google rather than guessed. */
+    private val _modelReport = MutableStateFlow<String?>(null)
+    val modelReport: StateFlow<String?> = _modelReport.asStateFlow()
+
     private val _models = MutableStateFlow<List<Analyst.Model>>(emptyList())
     val models: StateFlow<List<Analyst.Model>> = _models.asStateFlow()
 
@@ -61,7 +64,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val found = Analyst(store.apiKey).listModels()
                 _models.value = found
-                _message.value = if (found.isEmpty()) {
+                _modelReport.value = if (found.isEmpty()) {
                     "Tidak ada model yang bisa dipakai kunci ini."
                 } else {
                     "${found.size} model tersedia. Memuat daftar ini tidak memakai kuota."
@@ -71,10 +74,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (found.isNotEmpty() && found.none { it.id == store.model }) {
                     val preferred = found.firstOrNull { "flash" in it.id } ?: found.first()
                     store.model = preferred.id
-                    _message.value = "Model sebelumnya tidak tersedia. Diganti ke ${preferred.id}."
+                    _modelReport.value = "Model sebelumnya tidak tersedia. Diganti ke ${preferred.id}."
                 }
             } catch (e: Exception) {
-                _message.value = "Gagal: ${e.message}"
+                _modelReport.value = "Gagal: ${e.message}"
             }
             _modelsBusy.value = false
         }
@@ -179,5 +182,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setModel(model: String) {
         store.model = model
+    }
+
+    /** Checks the chosen model with one cheap call rather than a whole analysis. */
+    fun testModel() {
+        if (_modelsBusy.value) return
+        viewModelScope.launch {
+            _modelsBusy.value = true
+            _modelReport.value = try {
+                Analyst(store.apiKey).testModel(store.model)
+            } catch (e: Exception) {
+                e.message ?: "Gagal."
+            }
+            _modelsBusy.value = false
+        }
     }
 }

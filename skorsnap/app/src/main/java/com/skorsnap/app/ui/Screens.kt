@@ -715,6 +715,7 @@ fun SettingsScreen(vm: AppViewModel) {
     var key by remember { mutableStateOf(vm.store.apiKey) }
     val available by vm.models.collectAsStateWithLifecycle()
     val modelsBusy by vm.modelsBusy.collectAsStateWithLifecycle()
+    val report by vm.modelReport.collectAsStateWithLifecycle()
     var model by remember(available) { mutableStateOf(vm.store.model) }
 
     Column(
@@ -754,13 +755,47 @@ fun SettingsScreen(vm: AppViewModel) {
             subtitle = "Nama model sering berubah dan berbeda tiap kunci — jadi daftarnya " +
                 "diambil langsung dari Google, bukan ditebak.",
         ) {
-            Button(
-                onClick = { vm.loadModels() },
-                enabled = !modelsBusy && key.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(containerColor = Sky),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (modelsBusy) "Memeriksa…" else "Cek model yang tersedia (gratis)")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = { vm.loadModels() },
+                    enabled = !modelsBusy && key.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Sky),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (modelsBusy) "…" else "Muat daftar", style = MaterialTheme.typography.bodySmall)
+                }
+                Button(
+                    onClick = { vm.testModel() },
+                    enabled = !modelsBusy && key.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Green),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(if (modelsBusy) "…" else "Tes model ini", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Daftarnya gratis. \"Tes model ini\" mengirim satu kalimat ke model yang " +
+                    "sedang dipilih — kalau ada yang salah, pesan asli dari Google akan muncul " +
+                    "apa adanya.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (report != null) {
+                Spacer(Modifier.height(10.dp))
+                val bad = report!!.startsWith("Gagal") || report!!.contains("Kata Google")
+                Surface(
+                    color = (if (bad) Rose else Green).copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        report!!,
+                        modifier = Modifier.padding(11.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (bad) Rose else Green,
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
 

@@ -179,24 +179,51 @@ class Analyst(private val apiKey: String) {
         }
     }
 
-    /** Turns Google's status codes into something a user can act on. */
+    /**
+     * Explains a failure without hiding it.
+     *
+     * An earlier version replaced Google's own message with a guess about what had
+     * gone wrong, and when the guess was incorrect — a model that lists but cannot
+     * be called returns 404 for reasons the guess did not cover — the user was left
+     * with advice that did not help and no way to find out more. The service's
+     * message goes through verbatim; the hint is added beside it, not instead.
+     */
     private fun errorMessage(code: Int, body: String): String {
         val detail = runCatching {
             JSONObject(body).optJSONObject("error")?.optString("message")
-        }.getOrNull().orEmpty()
-        return when (code) {
+        }.getOrNull().orEmpty().trim()
+
+        val hint = when (code) {
             400 -> if (detail.contains("API key", true)) {
-                "Kunci ditolak. Pastikan disalin utuh dari aistudio.google.com."
+                "Kuncinya ditolak — salin ulang dari aistudio.google.com."
             } else {
-                "Permintaan ditolak: ${detail.take(160)}"
+                "Permintaan ditolak."
             }
-            403 -> "Kunci tidak punya akses. Cek lagi kuncinya di aistudio.google.com."
-            404 -> "Model itu tidak ada untuk kuncimu. Buka Pengaturan lalu tekan " +
-                "\"Cek model yang tersedia\" — daftarnya diambil langsung dari Google."
-            429 -> "Kuota gratis Gemini habis untuk sekarang. Tunggu beberapa menit, atau pilih model Flash yang jatahnya lebih besar."
-            in 500..599 -> "Server Gemini sedang bermasalah. Coba lagi sebentar lagi."
-            else -> "Gagal (HTTP $code): ${detail.take(160)}"
+            403 -> "Kunci tidak punya izin untuk ini."
+            404 -> "Model ini tidak bisa dipanggil kuncimu, walaupun muncul di daftar. " +
+                "Pilih model lain dan tekan \"Tes model ini\" di Pengaturan."
+            429 -> "Kuota gratis habis untuk sekarang. Tunggu beberapa menit, atau pakai model Flash."
+            in 500..599 -> "Server Gemini sedang bermasalah. Coba lagi sebentar."
+            else -> "Gagal."
         }
+        return if (detail.isBlank()) "$hint (HTTP $code)" else "$hint\n\nKata Google: $detail"
+    }
+
+    /**
+     * A one-sentence request to the chosen model, so a broken combination shows up
+     * in a second instead of after picking eight screenshots.
+     */
+    suspend fun testModel(model: String): String = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put(
+                "contents",
+                JSONArray().put(
+                    JSONObject().put("parts", JSONArray().put(JSONObject().put("text", "Balas: OK")))
+                )
+            )
+            .put("generationConfig", JSONObject().put("maxOutputTokens", 16))
+        val reply = post(model, body.toString())
+        "Model $model berfungsi. Balasannya: ${reply.take(60)}"
     }
 
     /** Sniffs the format from the file's own header rather than trusting a name. */
