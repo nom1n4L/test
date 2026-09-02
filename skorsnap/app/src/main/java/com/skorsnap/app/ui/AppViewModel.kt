@@ -216,7 +216,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun matchOf(id: String): MatchPrediction? = _matches.value.firstOrNull { it.id == id }
+    /**
+     * Private on purpose. Reading the flow's value is not a Compose state read, so
+     * a screen calling this would render once and then never update — the bug that
+     * made saved verdicts invisible until the screen was reopened. Screens observe
+     * [matches] instead.
+     */
+    private fun matchOf(id: String): MatchPrediction? = _matches.value.firstOrNull { it.id == id }
 
     /**
      * Records how a pick turned out. Tapping the same verdict twice clears it, so a
@@ -285,8 +291,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun toggle(id: String) {
         _selected.value = if (id in _selected.value) _selected.value - id else _selected.value + id
     }
-
-    fun slip(): Slip = Parlay.of(_matches.value.filter { it.id in _selected.value })
 
     fun setApiKey(key: String) {
         store.apiKey = key

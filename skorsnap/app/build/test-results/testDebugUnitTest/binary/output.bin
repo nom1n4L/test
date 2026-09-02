@@ -80,20 +80,22 @@
 .
 .0Skema mencakup 17 field, 12 di antaranya wajib.
 /
-/(6 leg @75%: tembus semua 18% (1 dari 6)
-/"   diperkirakan tembus 4.5 dari 6
-/+   bayaran wajar 5.62, setelah margin 3.95
-/   imbal hasil harapan 70%
+/Y41 fungsi publik diperiksa — tak satu pun menyerahkan data laga tanpa diawasi Compose.
 0
-0NSatu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.
+0(6 leg @75%: tembus semua 18% (1 dari 6)
+0"   diperkirakan tembus 4.5 dari 6
+0+   bayaran wajar 5.62, setelah margin 3.95
+0   imbal hasil harapan 70%
 1
-1>Tes model: 2048 token — cukup untuk berpikir lalu menjawab.
-2-Peluang mustahil dibuang, bukan ditampilkan.
-3KHanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
-4WUrutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
-5CHandicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
-6DAngka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
-8
-8,3 leg aman    : tembus 72.1%, harapan 83.9%
-8,3 leg berisiko: tembus 17.2%, harapan 83.9%
-8'=> peluang beda jauh, harapan identik.
+1NSatu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.
+2
+2>Tes model: 2048 token — cukup untuk berpikir lalu menjawab.
+3-Peluang mustahil dibuang, bukan ditampilkan.
+4KHanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
+5WUrutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
+6CHandicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
+7DAngka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
+9
+9,3 leg aman    : tembus 72.1%, harapan 83.9%
+9,3 leg berisiko: tembus 17.2%, harapan 83.9%
+9'=> peluang beda jauh, harapan identik.

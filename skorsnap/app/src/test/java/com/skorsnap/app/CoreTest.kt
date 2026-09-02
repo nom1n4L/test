@@ -895,6 +895,37 @@ class CoreTest {
         println("Tiga format simpanan lama terbaca semua — catatanmu tidak hilang.")
     }
 
+    /**
+     * The stale-screen bug, twice over: the report showed the previous total, and a
+     * verdict stayed grey until the screen was reopened. Both came from a screen
+     * calling a view-model function that reads the flow's `.value`, which Compose
+     * does not observe.
+     *
+     * Guarded structurally rather than by eye: no public function on the view model
+     * may hand a screen data derived from the match list. Screens observe the flow.
+     */
+    @Test
+    fun theViewModelCannotHandScreensUnobservedData() {
+        val own = com.skorsnap.app.ui.AppViewModel::class.java.methods
+            .filter { java.lang.reflect.Modifier.isPublic(it.modifiers) }
+            .filter { it.declaringClass.name.startsWith("com.skorsnap") }
+        // Without this the check could pass by inspecting nothing at all.
+        assert(own.size > 5) { "refleksi tidak menemukan apa-apa — penjaganya palsu" }
+
+        val leaky = own
+            .filter {
+                val t = it.returnType.name
+                t.endsWith("MatchPrediction") || t.endsWith("Slip") || t.endsWith("Report")
+            }
+            .map { it.name }
+        assert(leaky.isEmpty()) {
+            "fungsi ini bisa dipanggil layar dan bikin tampilan basi lagi: $leaky"
+        }
+        println()
+        println("${own.size} fungsi publik diperiksa — tak satu pun menyerahkan " +
+            "data laga tanpa diawasi Compose.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

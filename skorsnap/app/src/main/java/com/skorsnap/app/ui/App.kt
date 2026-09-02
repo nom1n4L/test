@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.MarketOption
+import com.skorsnap.app.data.Parlay
 
 @Composable
 fun App(vm: AppViewModel) {
@@ -95,7 +96,11 @@ fun App(vm: AppViewModel) {
                     onAnalyse = vm::analyse,
                 )
                 is Screen.Detail -> {
-                    val match = vm.matchOf(s.id)
+                    // Looked up in the observed list, not fetched from the view
+                    // model. vm.matchOf() read the flow's value directly, which
+                    // Compose does not watch, so tapping Tembus saved the verdict
+                    // but the colour only appeared after leaving and re-entering.
+                    val match = matches.firstOrNull { it.id == s.id }
                     if (match == null) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
@@ -117,7 +122,9 @@ fun App(vm: AppViewModel) {
                     }
                 }
                 is Screen.Slip -> SlipScreen(
-                    slip = vm.slip(),
+                    slip = remember(matches, selected) {
+                        Parlay.of(matches.filter { it.id in selected })
+                    },
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onClear = { matches.forEach { m -> if (m.id in selected) vm.toggle(m.id) } },
                 )
