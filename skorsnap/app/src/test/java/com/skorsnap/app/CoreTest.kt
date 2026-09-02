@@ -14,6 +14,7 @@ import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
+import com.skorsnap.app.data.Strategy
 import com.skorsnap.app.data.Report
 import org.junit.Test
 import kotlin.math.abs
@@ -33,13 +34,18 @@ class CoreTest {
             id = id, home = "A", away = "B", league = "L", readable = true, problem = "",
             statsSeen = emptyList(), statsMissing = emptyList(),
             probHome = 0.5, probDraw = 0.25, probAway = 0.25, xgHome = 1.5, xgAway = 1.0,
-            markets = emptyList(), pick = "Over 1.5", pickProb = prob,
+            markets = listOf(MarketOption("Over 1.5", prob, "", "Total Gol")),
+            pick = "Over 1.5", pickProb = prob,
             confidence = "tinggi", confidenceWhy = "",
         )
 
+    /** A slip built the ordinary way: one recommended market per match. */
+    private fun slipOf(vararg probs: Double) =
+        Parlay.build(probs.map { match(it) }, Strategy.RECOMMENDED)
+
     @Test
     fun probabilitiesMultiplyAcrossLegs() {
-        val slip = Parlay.of(listOf(match(0.80), match(0.80), match(0.80), match(0.80)))
+        val slip = slipOf(0.80, 0.80, 0.80, 0.80)
         assert(abs(slip.combined - 0.8.pow(4)) < 1e-9) { "gabungan salah: ${slip.combined}" }
         assert(slip.percent == 41) { "empat leg 80% harusnya 41%, dapat ${slip.percent}%" }
         println("4 leg @80%% → %d%% (1 dari %d)".format(slip.percent, slip.oneInN))
@@ -47,19 +53,19 @@ class CoreTest {
 
     @Test
     fun sixLegsIsTheCaseTheUserAsksFor() {
-        val slip = Parlay.of((1..6).map { match(0.75) })
+        val slip = Parlay.build((1..6).map { match(0.75) }, Strategy.RECOMMENDED)
         println()
         println("6 leg @75%%: tembus semua %d%% (1 dari %d)".format(slip.percent, slip.oneInN))
         println("   diperkirakan tembus %.1f dari 6".format(slip.expectedHits))
-        println("   bayaran wajar %.2f, setelah margin %.2f".format(slip.fairOdds, slip.realisticOdds))
+        println("   bayaran wajar %.2f".format(slip.fairOdds))
         println("   imbal hasil harapan %.0f%%".format(slip.expectedReturn * 100))
         assert(slip.percent in 17..19) { "6 leg 75% harusnya sekitar 18%, dapat ${slip.percent}%" }
     }
 
     @Test
     fun expectedReturnDependsOnlyOnLegCount() {
-        val safe = Parlay.of(listOf(match(0.90), match(0.88), match(0.91)))
-        val risky = Parlay.of(listOf(match(0.55), match(0.60), match(0.52)))
+        val safe = slipOf(0.90, 0.88, 0.91)
+        val risky = slipOf(0.55, 0.60, 0.52)
         assert(abs(safe.expectedReturn - risky.expectedReturn) < 1e-12) {
             "harapan berbeda padahal jumlah leg sama"
         }
@@ -74,7 +80,7 @@ class CoreTest {
     @Test
     fun duplicateLegsAreCollapsed() {
         val same = match(0.8, id = "x")
-        val slip = Parlay.of(listOf(same, same, match(0.7)))
+        val slip = Parlay.build(listOf(same, same, match(0.7)), Strategy.RECOMMENDED)
         assert(slip.size == 2) { "leg kembar tidak dilebur: ${slip.size}" }
     }
 
@@ -582,8 +588,11 @@ class CoreTest {
     @Test
     fun cornerModeGetsItsOwnCatalogue() {
         val filled = Grid.fill(match(0.5).copy(mode = Mode.CORNER, xgHome = 5.4, xgAway = 4.6))
-        val groups = filled.markets.map { it.group }.toSet()
-        assert(groups.all { it.startsWith("Corner") }) { "market gol bocor ke analisis corner: $groups" }
+        // Only what Grid added is under test; the fixture's own market is not.
+        val added = filled.markets.filter { it.derived }.map { it.group }.toSet()
+        assert(added.isNotEmpty() && added.all { it.startsWith("Corner") }) {
+            "market gol bocor ke analisis corner: $added"
+        }
         val o = filled.markets.first { it.name == "Total corner Over 9.5" }.prob
         val u = filled.markets.first { it.name == "Total corner Under 9.5" }.prob
         assert(abs(o + u - 1.0) < 1e-6)
@@ -924,6 +933,115 @@ class CoreTest {
         println()
         println("${own.size} fungsi publik diperiksa — tak satu pun menyerahkan " +
             "data laga tanpa diawasi Compose.")
+    }
+
+    // ------------------------------------------------ buatkan parlay
+
+    private fun choice(id: String, pick: String, vararg m: Pair<String, Double>) = match(0.8, id).copy(
+        home = "Tim$id", away = "Lawan$id",
+        pick = pick,
+        markets = m.map { (n, p) -> MarketOption(n, p, "", "Total Gol") },
+    )
+
+    private fun threeMatches() = (1..3).map {
+        choice("$it", "Over 1.5", "Over 0.5" to 0.95, "Over 1.5" to 0.84, "BTTS" to 0.70)
+    }
+
+    @Test
+    fun eachStrategyTakesADifferentMarket() {
+        val ms = threeMatches()
+        assert(Parlay.build(ms, Strategy.RECOMMENDED).legs.all { it.market == "Over 1.5" })
+        assert(Parlay.build(ms, Strategy.SAFEST).legs.all { it.market == "Over 1.5" }) {
+            "0.95 di luar rentang aman, seharusnya tidak dipilih"
+        }
+        assert(Parlay.build(ms, Strategy.HIGHER_PAYING).legs.all { it.market == "BTTS" })
+        println()
+        println("Rekomendasi & paling aman → Over 1.5; bayaran lebih tinggi → BTTS.")
+    }
+
+    /** The trade the third option makes, stated in numbers rather than implied. */
+    @Test
+    fun higherPayingMeansHigherOddsAndLowerChance() {
+        val ms = threeMatches()
+        val safe = Parlay.build(ms, Strategy.SAFEST)
+        val paying = Parlay.build(ms, Strategy.HIGHER_PAYING)
+        assert(paying.fairOdds > safe.fairOdds) { "bayarannya tidak naik" }
+        assert(paying.combined < safe.combined) { "peluangnya tidak turun" }
+        println("Paling aman  : tembus %d%%, bayaran wajar %.2f".format(safe.percent, safe.fairOdds))
+        println("Bayaran naik : tembus %d%%, bayaran wajar %.2f".format(paying.percent, paying.fairOdds))
+    }
+
+    /**
+     * The label "value" is withheld deliberately: without the bookmaker's price both
+     * slips have exactly the same expected return, so calling the longer one better
+     * value would be false.
+     */
+    @Test
+    fun withoutRealPricesNeitherStrategyIsBetterValue() {
+        val ms = threeMatches()
+        val safe = Parlay.build(ms, Strategy.SAFEST)
+        val paying = Parlay.build(ms, Strategy.HIGHER_PAYING)
+        assert(abs(safe.expectedReturn - paying.expectedReturn) < 1e-12) {
+            "harapan berbeda padahal harga bandar belum dimasukkan"
+        }
+        assert(!safe.priced && !paying.priced)
+        println("Tanpa odds asli, harapan keduanya identik %.1f%% — bayaran naik bukan nilai naik."
+            .format(safe.expectedReturn * 100))
+    }
+
+    @Test
+    fun aMatchWithNothingSafeIsSkippedNotPadded() {
+        val thin = choice("4", "Over 2.5", "Over 2.5" to 0.55, "BTTS" to 0.60)
+        val ms = threeMatches() + thin
+        val slip = Parlay.build(ms, Strategy.SAFEST)
+        assert(slip.size == 3) { "laga tanpa market aman ikut masuk: ${slip.size} leg" }
+        assert(Parlay.skipped(ms, Strategy.SAFEST).map { it.id } == listOf("4"))
+        println("Laga tanpa market di rentang aman dilewati, slip tidak ditambal lemparan koin.")
+    }
+
+    // ------------------------------------------------ odds asli dari bandar
+
+    /**
+     * The number beside a market is the break-even price, not the bookmaker's. The
+     * two were being read as the same thing; they are opposites.
+     */
+    @Test
+    fun theAppsNumberIsTheMinimumPriceNotTheOffer() {
+        val leg = Parlay.build(listOf(choice("1", "Over 1.5", "Over 1.5" to 0.80)), Strategy.RECOMMENDED).legs.first()
+        assert(abs(leg.breakEven - 1.25) < 1e-9) { "harga minimal salah: ${leg.breakEven}" }
+        println()
+        println("Peluang 80% → harga minimal 1,25. Kalau Melbet bayar 1,20, itu rugi.")
+    }
+
+    @Test
+    fun realPricesDecideWhetherASlipIsWorthTaking() {
+        val ms = threeMatches()
+        var slip = Parlay.build(ms, Strategy.SAFEST)
+        // Fair price for 84% is 1.19; a generous book and a stingy one.
+        slip.legs.forEach { slip = slip.withOdds(it.matchId, it.market, 1.30) }
+        assert(slip.priced)
+        assert(slip.worthTaking) { "harga di atas minimal tapi dibilang rugi" }
+        val good = slip.expectedReturn
+
+        var mean = Parlay.build(ms, Strategy.SAFEST)
+        mean.legs.forEach { mean = mean.withOdds(it.matchId, it.market, 1.12) }
+        assert(!mean.worthTaking) { "harga di bawah minimal tapi dibilang untung" }
+
+        println("Tiga leg 84%%: di odds 1,30 harapan %.0f%%, di odds 1,12 harapan %.0f%%."
+            .format(good * 100, mean.expectedReturn * 100))
+        println("Angka aplikasi tidak berubah — harganya yang menentukan.")
+    }
+
+    @Test
+    fun aBadlyPricedLegIsNamed() {
+        val ms = threeMatches()
+        var slip = Parlay.build(ms, Strategy.SAFEST)
+        slip.legs.forEachIndexed { i, leg ->
+            slip = slip.withOdds(leg.matchId, leg.market, if (i == 0) 1.05 else 1.40)
+        }
+        assert(slip.badlyPriced.size == 1) { "leg yang kemurahan tidak ditandai" }
+        assert(slip.legs.first().edge < 0 && slip.legs.last().edge > 0)
+        println("Leg dengan harga di bawah minimal ditunjuk satu per satu.")
     }
 
     @Test

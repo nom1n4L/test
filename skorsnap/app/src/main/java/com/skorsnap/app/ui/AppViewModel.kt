@@ -12,6 +12,7 @@ import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Slip
 import com.skorsnap.app.data.Store
+import com.skorsnap.app.data.Strategy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
+
+    /** How the parlay screen takes one market from each selected match. */
+    private val _strategy = MutableStateFlow(Strategy.RECOMMENDED)
+    val strategy: StateFlow<Strategy> = _strategy.asStateFlow()
+
+    /**
+     * Bookmaker prices the user typed in, keyed by match and market.
+     *
+     * Held here rather than in the screen so switching strategy or opening a leg
+     * does not throw away numbers that were read off another app by hand.
+     */
+    private val _legOdds = MutableStateFlow<Map<String, Double>>(emptyMap())
+    val legOdds: StateFlow<Map<String, Double>> = _legOdds.asStateFlow()
 
     private val _selected = MutableStateFlow<Set<String>>(emptySet())
     val selected: StateFlow<Set<String>> = _selected.asStateFlow()
@@ -286,6 +300,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _matches.value = emptyList()
         _selected.value = emptySet()
         store.save(emptyList())
+    }
+
+    fun setStrategy(value: Strategy) { _strategy.value = value }
+
+    /** Empties the slip. Typed prices are kept — they cost effort to re-enter. */
+    fun clearSelection() { _selected.value = emptySet() }
+
+    /** A price at or below 1.00 is not a price; it clears the entry instead. */
+    fun setLegOdds(key: String, odds: Double) {
+        _legOdds.value =
+            if (odds <= 1.0) _legOdds.value - key else _legOdds.value + (key to odds)
     }
 
     fun toggle(id: String) {

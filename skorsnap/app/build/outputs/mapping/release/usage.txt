@@ -19253,6 +19253,17 @@ com.skorsnap.app.data.Images:
     private static final int OVERLAP
     private static final int SLICE_HEIGHT
     private static final int TALL_THRESHOLD
+com.skorsnap.app.data.Leg:
+    public static final int $stable
+    public final java.lang.String component1()
+    public final java.lang.String component2()
+    public final java.lang.String component3()
+    public final java.lang.String component4()
+    public final java.lang.String component5()
+    public final double component6()
+    public final boolean component7()
+    public final double component8()
+    public final java.lang.String getGroup()
 com.skorsnap.app.data.Lens:
     public final java.lang.String getShort()
 com.skorsnap.app.data.Mark:
@@ -19326,10 +19337,9 @@ com.skorsnap.app.data.Slice:
     public static synthetic com.skorsnap.app.data.Slice copy$default(com.skorsnap.app.data.Slice,java.lang.String,int,int,double,int,java.lang.Object)
 com.skorsnap.app.data.Slip:
     public final java.util.List component1()
-    public final com.skorsnap.app.data.Slip copy(java.util.List)
     public static synthetic com.skorsnap.app.data.Slip copy$default(com.skorsnap.app.data.Slip,java.util.List,int,java.lang.Object)
     public final int getExpectedLossPercent()
-    public final double getExpectedReturn()
+    public final com.skorsnap.app.data.Slip withOdds(java.lang.String,java.lang.String,double)
 com.skorsnap.app.ui.AppViewModel:
     public static final int MAX_FILE_BYTES
     public final void clearAll()
@@ -22064,7 +22074,6 @@ kotlin.collections.MapsKt__MapsKt:
     public static final java.util.Map mapValues(java.util.Map,kotlin.jvm.functions.Function1)
     public static final java.util.Map mapValuesTo(java.util.Map,java.util.Map,kotlin.jvm.functions.Function1)
     public static final java.util.Map minus(java.util.Map,java.lang.Iterable)
-    public static final java.util.Map minus(java.util.Map,java.lang.Object)
     public static final java.util.Map minus(java.util.Map,kotlin.sequences.Sequence)
     public static final java.util.Map minus(java.util.Map,java.lang.Object[])
     private static final void minusAssign(java.util.Map,java.lang.Iterable)
@@ -22076,7 +22085,6 @@ kotlin.collections.MapsKt__MapsKt:
     public static final varargs java.util.Map mutableMapOf(kotlin.Pair[])
     private static final java.util.Map orEmpty(java.util.Map)
     public static final java.util.Map plus(java.util.Map,java.lang.Iterable)
-    public static final java.util.Map plus(java.util.Map,kotlin.Pair)
     public static final java.util.Map plus(java.util.Map,kotlin.sequences.Sequence)
     public static final java.util.Map plus(java.util.Map,kotlin.Pair[])
     private static final void plusAssign(java.util.Map,java.lang.Iterable)
@@ -24094,8 +24102,6 @@ kotlin.text.StringsKt__StringsJVMKt:
     public static final boolean regionMatches(java.lang.CharSequence,int,java.lang.CharSequence,int,int,boolean)
     public static synthetic boolean regionMatches$default(java.lang.CharSequence,int,java.lang.CharSequence,int,int,boolean,int,java.lang.Object)
     public static synthetic boolean regionMatches$default(java.lang.String,int,java.lang.String,int,int,boolean,int,java.lang.Object)
-    public static final java.lang.String replace(java.lang.String,char,char,boolean)
-    public static synthetic java.lang.String replace$default(java.lang.String,char,char,boolean,int,java.lang.Object)
     public static final java.lang.String replaceFirst(java.lang.String,char,char,boolean)
     public static final java.lang.String replaceFirst(java.lang.String,java.lang.String,java.lang.String,boolean)
     public static synthetic java.lang.String replaceFirst$default(java.lang.String,char,char,boolean,int,java.lang.Object)
@@ -40488,6 +40494,19 @@ com.skorsnap.app.data.Images:
     public static java.util.List plan()
     public static android.graphics.Bitmap preview()
     public static byte[] recompressIfLarge()
+com.skorsnap.app.data.Leg:
+    static void <clinit>()
+    public static com.skorsnap.app.data.Leg copy()
+    public static java.lang.String getAway()
+    public static double getBreakEven()
+    public final int getEdgePercent()
+    public static java.lang.String getHome()
+    public static java.lang.String getMarket()
+    public static java.lang.String getMatchId()
+    public static double getOdds()
+    public static int getPercent()
+    public static double getProb()
+    public static boolean getThin()
 com.skorsnap.app.data.Lens:
     public final java.lang.String short
     public static java.lang.String getLabel()
@@ -40556,7 +40575,12 @@ com.skorsnap.app.data.Mode:
     public static java.lang.String getLabel()
 com.skorsnap.app.data.Outcome:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
-com.skorsnap.app.data.Parlay
+com.skorsnap.app.data.Parlay$WhenMappings
+com.skorsnap.app.data.Parlay:
+    public static final com.skorsnap.app.data.Parlay INSTANCE
+    static void <clinit>()
+    public static java.util.List marginTable()
+    public static java.util.List skipped()
 com.skorsnap.app.data.Report:
     public static final int $stable
     static void <clinit>()
@@ -40583,12 +40607,11 @@ com.skorsnap.app.data.Slice:
 com.skorsnap.app.data.Slip:
     public static final int $stable
     static void <clinit>()
+    public static com.skorsnap.app.data.Slip copy()
     public final double getExpectedHits()
-    public final double getFairOdds()
     public static java.util.List getLegs()
     public static int getOneInN()
     public static int getPercent()
-    public static double getRealisticOdds()
     public static int getSize()
 com.skorsnap.app.data.Store:
     public static final int $stable
@@ -40598,6 +40621,11 @@ com.skorsnap.app.data.Store:
     public static void setApiKey()
     public final void setModel(java.lang.String)
     public static org.json.JSONObject toJson()
+com.skorsnap.app.data.Strategy:
+    public static final enum com.skorsnap.app.data.Strategy HIGHER_PAYING
+    public static final enum com.skorsnap.app.data.Strategy SAFEST
+    public static java.lang.String getLabel()
+    public static java.lang.String getNote()
 com.skorsnap.app.ui.AppKt$App$1$1:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppKt$App$3:
@@ -40608,14 +40636,18 @@ com.skorsnap.app.ui.AppKt$App$5$$InternalSyntheticLambda$2$b1f5afa0d97a5a8c0e399
     public final synthetic com.skorsnap.app.data.MatchPrediction f$2
 com.skorsnap.app.ui.AppKt$App$5$1$10$1:
     public final void invoke$79()
+com.skorsnap.app.ui.AppKt$App$5$1$17$1:
+    public static void invoke$80()
+com.skorsnap.app.ui.AppKt$App$5$1$18$1:
+    public static void invoke$81()
 com.skorsnap.app.ui.AppKt$App$5$1$3$1:
     public final void invoke$79()
 com.skorsnap.app.ui.AppKt$App$5$1$7$1:
-    public static void invoke$80()
-com.skorsnap.app.ui.AppKt$App$5$1$9$1:
-    public static void invoke$81()
-com.skorsnap.app.ui.AppKt$App$5:
     public static void invoke$82()
+com.skorsnap.app.ui.AppKt$App$5$1$9$1:
+    public static void invoke$83()
+com.skorsnap.app.ui.AppKt$App$5:
+    public static void invoke$84()
 com.skorsnap.app.ui.AppKt$TopBar$1$1$1$1$1:
     public final void invoke()
 com.skorsnap.app.ui.AppKt$TopBar$1:
@@ -40638,9 +40670,11 @@ com.skorsnap.app.ui.AppViewModel:
     static void <clinit>()
     public static void analyse()
     public final void back()
+    public static void clearSelection()
     public static void dismissMessage()
     public static kotlinx.coroutines.flow.StateFlow getBusy()
     public static kotlinx.coroutines.flow.StateFlow getLastUsage()
+    public static kotlinx.coroutines.flow.StateFlow getLegOdds()
     public static kotlinx.coroutines.flow.StateFlow getMatches()
     public static kotlinx.coroutines.flow.StateFlow getMessage()
     public static kotlinx.coroutines.flow.StateFlow getMode()
@@ -40651,16 +40685,20 @@ com.skorsnap.app.ui.AppViewModel:
     public static kotlinx.coroutines.flow.StateFlow getSelected()
     public static kotlinx.coroutines.flow.StateFlow getStaged()
     public static com.skorsnap.app.data.Store getStore()
+    public static kotlinx.coroutines.flow.StateFlow getStrategy()
     public static void markOutcome()
     public static com.skorsnap.app.data.MatchPrediction matchOf()
     public static void remove()
     public static void removeStaged()
     public static void saveAndCheckKey()
     public static void setBacked()
+    public static void setLegOdds()
     public static void setMode()
     public final void setModel(java.lang.String)
+    public static void setStrategy()
     public static void stage()
     public static void testModel()
+    public static void toggle()
 com.skorsnap.app.ui.ComposableSingletons$AppKt$lambda-1$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$AppKt$lambda-2$1:
@@ -40674,7 +40712,7 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-1$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-10$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-11$1:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-12$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-13$1:
@@ -40684,11 +40722,13 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-14$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-15$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-16$1:
-    public final void invoke$83()
+    public final void invoke$2()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-17$1:
+    public final void invoke$85()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-2$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-3$1:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-4$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-5$1:
@@ -40710,7 +40750,8 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt:
     public static kotlin.jvm.functions.Function2 getLambda-13$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-14$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-15$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-16$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-16$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-17$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-2$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-3$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-4$app_release()
@@ -40741,39 +40782,39 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$1$1$2:
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$1$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$1:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$2$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$2:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$3:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$4$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$4:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$5:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$6:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$7:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$8:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$1$1$1$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$1$1$1:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$1$1$2:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$1$1$3$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$1$1$3:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$1$1$6$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$1$1$6:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$lambda$4$lambda$3$$inlined$items$default$1
 com.skorsnap.app.ui.ScreensKt$HomeScreen$lambda$4$lambda$3$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
@@ -40782,10 +40823,12 @@ com.skorsnap.app.ui.ScreensKt$HomeScreen$lambda$4$lambda$3$$inlined$items$defaul
     public final java.lang.Object invoke$13()
 com.skorsnap.app.ui.ScreensKt$HomeScreen$lambda$4$lambda$3$$inlined$items$default$4:
     public final void invoke$19()
+com.skorsnap.app.ui.ScreensKt$LegRow$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$MarginTable$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$MarketGroup$1$3:
-    public final void invoke$84()
+    public final void invoke$86()
 com.skorsnap.app.ui.ScreensKt$MarketsCard$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$MatchRow$1$WhenMappings
@@ -40796,58 +40839,58 @@ com.skorsnap.app.ui.ScreensKt$OutcomeButton$1:
 com.skorsnap.app.ui.ScreensKt$OutcomeCard$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$OutcomeCard$1$3:
-    public final void invoke$84()
+    public final void invoke$86()
 com.skorsnap.app.ui.ScreensKt$OutcomeCard$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$1$1$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$10:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$11:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$12:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$14$1$1:
     public final void invoke()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$14$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$1:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$2:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$3$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$3:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$4$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$4:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$5$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$5:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$6$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$6:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$7$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$7:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$8:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$9$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$9:
-    public final void invoke$83()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$97$lambda$96$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$97$lambda$96$$inlined$items$default$2:
+    public final void invoke$85()
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$106$lambda$105$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$106$lambda$105$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$97$lambda$96$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$97$lambda$96$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$106$lambda$105$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$106$lambda$105$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$97$lambda$96$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$106$lambda$105$$inlined$items$default$4:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SafeListCard$2:
     public final void invoke$2()
@@ -40865,35 +40908,51 @@ com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SliceCard$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1$1$1$2:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1:
-    public final void invoke$83()
+    public final void invoke$85()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$2$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$2:
-    public final void invoke$83()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$4$1$1:
-    public final void invoke()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$4$2:
+    public final void invoke$85()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$3$1:
+    public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$3:
+    public final void invoke$85()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$4:
+    public final void invoke$85()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$5$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$5:
-    public final void invoke$83()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$6:
-    public final void invoke$83()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$72$lambda$71$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$72$lambda$71$$inlined$items$default$2:
+    public final void invoke$85()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7$1$1:
+    public final void invoke()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7$2$1:
+    public static void invoke$87()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$8:
+    public final void invoke$85()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$9:
+    public final void invoke$85()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$76$lambda$75$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$76$lambda$75$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$72$lambda$71$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$72$lambda$71$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$76$lambda$75$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$76$lambda$75$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$72$lambda$71$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$76$lambda$75$$inlined$items$default$4:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SortChip$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$StatsReadCard$2$1$2:
-    public final void invoke$84()
+    public final void invoke$86()
 com.skorsnap.app.ui.ScreensKt$StatsReadCard$2:
+    public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$ValueCard$1$2:
+    public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$ValueCard$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$Verdict$1:
     public final void invoke$2()
@@ -40903,7 +40962,7 @@ com.skorsnap.app.ui.ScreensKt:
     public static final boolean StatsReadCard$lambda$57(androidx.compose.runtime.MutableState)
     public static final void access$MarketsCard$lambda$30(androidx.compose.runtime.MutableState,boolean)
     public static final boolean access$OutcomeCard$lambda$44(androidx.compose.runtime.MutableState)
-    public static final boolean access$SettingsScreen$lambda$79(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$88(androidx.compose.runtime.MutableState)
 kotlin.DeprecationLevel:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
     public static final enum kotlin.DeprecationLevel ERROR
@@ -41038,11 +41097,15 @@ kotlin.collections.IntIterator
 kotlin.collections.LongIterator
 kotlin.collections.MapWithDefault
 kotlin.collections.MapsKt__MapWithDefaultKt$$InternalSyntheticThrowCCEIfNotNull$19$9558063d6b358ce5cfb95abe4fb82ecf9a7901482b093697c48dd585b4810a65$0
+kotlin.collections.MapsKt__MapsJVMKt:
+    public static final java.util.Map mapOf(kotlin.Pair)
 kotlin.collections.MapsKt__MapsKt:
     public static java.util.Map emptyMap()
     public static varargs java.util.Map mapOf(kotlin.Pair[])
     public static java.util.LinkedHashMap plus(java.util.Map,java.util.Map)
 kotlin.collections.MapsKt___MapsKt
+kotlin.collections.SetsKt__SetsJVMKt:
+    public static final java.util.Set setOf(java.lang.Object)
 kotlin.collections.SetsKt__SetsKt:
     public static java.util.Set emptySet()
 kotlin.collections.SetsKt___SetsKt
@@ -41644,7 +41707,7 @@ kotlinx.coroutines.channels.BufferedChannel$BufferedChannelIterator:
     public static void tryResumeHasNextOnClosedChannel()
 kotlinx.coroutines.channels.BufferedChannel$SendBroadcast
 kotlinx.coroutines.channels.BufferedChannel$bindCancellationFun$2:
-    public static void invoke$86()
+    public static void invoke$89()
 kotlinx.coroutines.channels.BufferedChannel$bindCancellationFunResult$1
 kotlinx.coroutines.channels.BufferedChannel:
     public final kotlin.jvm.functions.Function3 onUndeliveredElementReceiveCancellationConstructor

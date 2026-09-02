@@ -63,6 +63,9 @@ import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.Coach
 import androidx.compose.ui.graphics.Color
 import com.skorsnap.app.data.MarketOption
+import kotlin.math.pow
+import com.skorsnap.app.data.Strategy
+import com.skorsnap.app.data.Leg
 
 @Composable
 fun Card(
@@ -1073,13 +1076,27 @@ private fun Bar(label: String, prob: Double) {
 // --- Slip --------------------------------------------------------------------
 
 @Composable
-fun SlipScreen(slip: Slip, onOpen: (String) -> Unit, onClear: () -> Unit) {
+fun SlipScreen(
+    matches: List<MatchPrediction>,
+    strategy: Strategy,
+    onStrategy: (Strategy) -> Unit,
+    odds: Map<String, Double>,
+    onOdds: (String, Double) -> Unit,
+    onOpen: (String) -> Unit,
+    onClear: () -> Unit,
+) {
+    val slip = remember(matches, strategy, odds) {
+        val built = Parlay.build(matches, strategy)
+        built.copy(legs = built.legs.map { it.copy(odds = odds["${it.matchId}|${it.market}"] ?: 0.0) })
+    }
+    val skipped = remember(matches, strategy) { Parlay.skipped(matches, strategy) }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        if (slip.size == 0) {
+        if (matches.isEmpty()) {
             item {
                 Box(Modifier.fillMaxWidth().height(260.dp), contentAlignment = Alignment.Center) {
                     Text(
@@ -1095,6 +1112,59 @@ fun SlipScreen(slip: Slip, onOpen: (String) -> Unit, onClear: () -> Unit) {
         }
 
         item {
+            Card(
+                title = "Buatkan Parlay",
+                subtitle = "Pilih cara mengambil satu market dari tiap laga.",
+            ) {
+                Strategy.entries.forEach { option ->
+                    val on = strategy == option
+                    Surface(
+                        color = if (on) Sky.copy(alpha = 0.18f)
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                            .clickable { onStrategy(option) },
+                    ) {
+                        Column(Modifier.padding(10.dp)) {
+                            Text(
+                                option.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                                color = if (on) Sky else MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                option.note,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (skipped.isNotEmpty()) {
+            item {
+                Surface(
+                    color = Amber.copy(alpha = 0.12f),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "${skipped.size} laga tidak dipakai karena tidak punya market di " +
+                            "rentang aman: ${skipped.joinToString { it.title }}. Menambal slip " +
+                            "dengan lemparan koin cuma bikin parlaynya tidak bisa menang.",
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Amber,
+                    )
+                }
+            }
+        }
+
+        if (slip.size == 0) return@LazyColumn
+
+        item {
             Card(title = "Parlay ${slip.size} Leg") {
                 Row {
                     Stat("Tembus semua", "${slip.percent}%", Modifier.weight(1f))
@@ -1103,7 +1173,11 @@ fun SlipScreen(slip: Slip, onOpen: (String) -> Unit, onClear: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Row {
                     Stat("Bayaran wajar", "%.2f".format(slip.fairOdds), Modifier.weight(1f))
-                    Stat("Setelah margin", "%.2f".format(slip.realisticOdds), Modifier.weight(1f))
+                    Stat(
+                        if (slip.priced) "Bayaran Melbet" else "Perkiraan bandar",
+                        "%.2f".format(if (slip.priced) slip.bookOdds else slip.fairOdds / Parlay.MARGIN.pow(slip.size)),
+                        Modifier.weight(1f),
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -1116,6 +1190,8 @@ fun SlipScreen(slip: Slip, onOpen: (String) -> Unit, onClear: () -> Unit) {
             }
         }
 
+        item { ValueCard(slip) }
+
         if (slip.weakLegs.isNotEmpty()) {
             item {
                 Surface(
@@ -1125,7 +1201,7 @@ fun SlipScreen(slip: Slip, onOpen: (String) -> Unit, onClear: () -> Unit) {
                 ) {
                     Text(
                         "${slip.weakLegs.size} leg datanya tipis: " +
-                            slip.weakLegs.joinToString { it.title } +
+                            slip.weakLegs.joinToString { "${it.home} vs ${it.away}" } +
                             ". Screenshot yang lebih lengkap akan memperbaikinya.",
                         modifier = Modifier.padding(12.dp),
                         style = MaterialTheme.typography.bodySmall,
@@ -1135,28 +1211,9 @@ fun SlipScreen(slip: Slip, onOpen: (String) -> Unit, onClear: () -> Unit) {
             }
         }
 
-        items(slip.legs, key = { it.id }) { leg ->
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().clickable { onOpen(leg.id) },
-            ) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(leg.title, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            leg.pick,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        "${leg.pickPercent}%",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = probColor(leg.pickProb),
-                    )
-                }
+        items(slip.legs, key = { "${it.matchId}|${it.market}" }) { leg ->
+            LegRow(leg, onOpen = { onOpen(leg.matchId) }) {
+                onOdds("${leg.matchId}|${leg.market}", it)
             }
         }
 
@@ -1166,6 +1223,158 @@ fun SlipScreen(slip: Slip, onOpen: (String) -> Unit, onClear: () -> Unit) {
             TextButton(onClick = onClear) {
                 Text("Kosongkan pilihan", style = MaterialTheme.typography.labelSmall)
             }
+        }
+    }
+}
+
+/**
+ * One leg, with a box for the price the bookmaker is actually offering.
+ *
+ * Typed by hand rather than read from a screenshot: three or four numbers is a few
+ * seconds of typing, while sending a bookmaker screenshot to the model costs
+ * thousands of tokens per slip and can misread a digit. The number matters too much
+ * to guess at.
+ */
+@Composable
+private fun LegRow(leg: Leg, onOpen: () -> Unit, onOdds: (Double) -> Unit) {
+    var text by remember(leg.matchId, leg.market) {
+        mutableStateOf(if (leg.priced) "%.2f".format(leg.odds) else "")
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onOpen),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "${leg.home} vs ${leg.away}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        leg.market,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Sky,
+                    )
+                }
+                Text(
+                    "${leg.percent}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = probColor(leg.prob),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Minimal %.2f".format(leg.breakEven),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (leg.priced) {
+                        Text(
+                            if (leg.edge > 0) {
+                                "Melbet bayar lebih tinggi — untung %+d%%".format(leg.edgePercent)
+                            } else {
+                                "Melbet bayar di bawah minimal — rugi %d%%".format(leg.edgePercent)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (leg.edge > 0) Green else Rose,
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { raw ->
+                        text = raw.replace(',', '.').filter { it.isDigit() || it == '.' }
+                        onOdds(text.toDoubleOrNull() ?: 0.0)
+                    },
+                    label = { Text("Odds", style = MaterialTheme.typography.labelSmall) },
+                    singleLine = true,
+                    modifier = Modifier.width(110.dp),
+                    textStyle = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Why the number beside a market is not the bookmaker's price, and what to do
+ * about it.
+ *
+ * The two were being read as the same thing and they are opposites: one is the
+ * least the bet may pay to be worth taking, the other is what is on offer. Setting
+ * them side by side is the entire value decision, so the screen states it outright
+ * rather than leaving it to be inferred.
+ */
+@Composable
+private fun ValueCard(slip: Slip) {
+    Card(
+        title = "Nilai Sebenarnya",
+        subtitle = "Angka di aplikasi bukan harga bandar — itu harga minimalnya.",
+    ) {
+        Text(
+            "Angka 1,18 di sebelah market artinya: taruhan ini baru layak kalau bandar " +
+                "membayar di atas 1,18. Melbet menampilkan harga yang mereka tawarkan. " +
+                "Dua angka yang berbeda, jadi memang tidak akan pernah sama — dan justru " +
+                "membandingkan keduanya itulah cara menemukan taruhan yang menguntungkan.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(12.dp))
+        if (!slip.priced) {
+            Text(
+                "Isi kolom Odds di tiap leg dengan harga dari Melbet, nanti dihitungkan " +
+                    "apakah parlay ini menguntungkan atau tidak. Diketik saja — kirim " +
+                    "screenshot odds ke model itu boros token dan bisa salah baca angka.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Amber,
+            )
+            return@Card
+        }
+
+        Row {
+            Stat("Bayaran Melbet", "%.2f".format(slip.bookOdds), Modifier.weight(1f))
+            Stat("Harga wajar", "%.2f".format(slip.fairOdds), Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(12.dp))
+        Surface(
+            color = (if (slip.worthTaking) Green else Rose).copy(alpha = 0.12f),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                if (slip.worthTaking) {
+                    "Menguntungkan menurut angka aplikasi: tiap Rp 100.000 dipasang " +
+                        "diperkirakan kembali Rp %,.0f. Ini bergantung sepenuhnya pada " +
+                        "peluang di atas benar — dan itu yang sedang diuji rapormu."
+                            .format(slip.expectedReturn * 100000)
+                } else {
+                    "Merugikan menurut angka aplikasi: tiap Rp 100.000 dipasang " +
+                        "diperkirakan kembali Rp %,.0f. Cari harga yang lebih tinggi, " +
+                        "kurangi leg, atau lewatkan."
+                            .format(slip.expectedReturn * 100000)
+                },
+                modifier = Modifier.padding(12.dp),
+                style = MaterialTheme.typography.bodySmall,
+                color = if (slip.worthTaking) Green else Rose,
+            )
+        }
+        if (slip.badlyPriced.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Leg yang harganya di bawah minimal: " +
+                    slip.badlyPriced.joinToString { it.market } +
+                    ". Membuangnya menaikkan imbal hasil walau bayarannya jadi lebih kecil.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Rose,
+            )
         }
     }
 }

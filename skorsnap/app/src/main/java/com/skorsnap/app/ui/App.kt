@@ -45,6 +45,8 @@ fun App(vm: AppViewModel) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val selected by vm.selected.collectAsStateWithLifecycle()
+    val strategy by vm.strategy.collectAsStateWithLifecycle()
+    val legOdds by vm.legOdds.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
@@ -122,11 +124,13 @@ fun App(vm: AppViewModel) {
                     }
                 }
                 is Screen.Slip -> SlipScreen(
-                    slip = remember(matches, selected) {
-                        Parlay.of(matches.filter { it.id in selected })
-                    },
+                    matches = matches.filter { it.id in selected },
+                    strategy = strategy,
+                    onStrategy = vm::setStrategy,
+                    odds = legOdds,
+                    onOdds = vm::setLegOdds,
                     onOpen = { vm.go(Screen.Detail(it)) },
-                    onClear = { matches.forEach { m -> if (m.id in selected) vm.toggle(m.id) } },
+                    onClear = { vm.clearSelection() },
                 )
                 // Built from the observed match list rather than a plain call into
                 // the view model. vm.report() read the flow's value directly, which
