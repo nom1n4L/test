@@ -120,6 +120,91 @@ data class Slip(val legs: List<Leg>) {
     )
 }
 
+/**
+ * A slip the user actually placed, kept so the parlays can be judged as parlays.
+ *
+ * The per-market record already knows whether each leg landed, but it cannot say
+ * that four slips out of five died on a single leg, nor what the stakes returned.
+ * A parlay is the thing that is actually bet, so it is the thing that has to be
+ * measured.
+ */
+data class SavedSlip(
+    val id: String,
+    val placedAt: Long,
+    val strategy: String,
+    val legs: List<Leg>,
+    val stake: Double = 0.0,
+    val outcome: Outcome = Outcome.PENDING,
+) {
+    val size: Int get() = legs.size
+    val combined: Double get() = legs.fold(1.0) { acc, l -> acc * l.prob }
+    val percent: Int get() = (combined * 100).roundToInt()
+    val bookOdds: Double get() = legs.fold(1.0) { acc, l -> acc * l.odds }
+    val priced: Boolean get() = legs.isNotEmpty() && legs.all { it.priced }
+    val settled: Boolean get() = outcome != Outcome.PENDING
+    val title: String get() = legs.joinToString(" + ") { it.market }
+    val returned: Double
+        get() = if (outcome == Outcome.WON && priced) stake * bookOdds else 0.0
+}
+
+/**
+ * How the placed slips have actually done.
+ *
+ * Two numbers matter and they answer different questions: the hit rate says
+ * whether the probabilities are honest, the money says whether the prices were.
+ * A slip can be perfectly calibrated and still lose money at bad prices.
+ */
+data class SlipReport(val all: List<SavedSlip>) {
+
+    val settled: List<SavedSlip> = all.filter { it.settled }
+    val total: Int get() = settled.size
+    val won: Int get() = settled.count { it.outcome == Outcome.WON }
+    val actual: Double get() = if (total == 0) 0.0 else won.toDouble() / total
+    val promised: Double get() = if (total == 0) 0.0 else settled.sumOf { it.combined } / total
+
+    val staked: Double get() = settled.filter { it.stake > 0 }.sumOf { it.stake }
+    val returned: Double get() = settled.filter { it.stake > 0 }.sumOf { it.returned }
+    val profit: Double get() = returned - staked
+    val hasMoney: Boolean get() = staked > 0
+
+    /** Where the losses actually come from: how many legs is too many. */
+    fun byLegCount(): List<Slice> =
+        settled.groupBy { it.size }
+            .toList()
+            .sortedBy { it.first }
+            .map { (n, list) ->
+                Slice(
+                    name = "$n leg",
+                    total = list.size,
+                    won = list.count { it.outcome == Outcome.WON },
+                    promised = list.sumOf { it.combined } / list.size,
+                )
+            }
+
+    /**
+     * The single most useful thing a parlay record can tell you, phrased so it
+     * cannot be read as a promise.
+     */
+    val verdict: String
+        get() = when {
+            total == 0 -> "Belum ada parlay yang ditandai hasilnya."
+            total < 10 ->
+                "Baru $total parlay selesai ($won tembus). Terlalu sedikit untuk " +
+                    "menyimpulkan apa pun — parlay jarang tembus, jadi butuh lebih " +
+                    "banyak data daripada taruhan tunggal."
+            hasMoney && profit < 0 ->
+                "Dari $total parlay: $won tembus. Uangnya minus " +
+                    "Rp ${money(-profit)} dari Rp ${money(staked)} dipasang."
+            hasMoney ->
+                "Dari $total parlay: $won tembus, untung Rp ${money(profit)} " +
+                    "dari Rp ${money(staked)} dipasang."
+            else -> "Dari $total parlay: $won tembus (${(actual * 100).roundToInt()}%), " +
+                "dijanjikan ${(promised * 100).roundToInt()}%."
+        }
+
+    private fun money(v: Double) = String.format("%,.0f", v).replace(',', '.')
+}
+
 object Parlay {
 
     /**
@@ -135,10 +220,15 @@ object Parlay {
      * bad option: padding a slip with a coin-flip to reach six legs is how a parlay
      * that looked reasonable becomes one that cannot win.
      */
-    fun build(matches: List<MatchPrediction>, strategy: Strategy): Slip = Slip(
+    fun build(
+        matches: List<MatchPrediction>,
+        strategy: Strategy,
+        chosen: Map<String, String> = emptyMap(),
+    ): Slip = Slip(
         matches.distinctBy { it.id }.mapNotNull { m ->
             val safe = m.safePicks()
-            val option = when (strategy) {
+            val override = chosen[m.id]?.let { name -> m.markets.firstOrNull { it.name == name } }
+            val option = override ?: when (strategy) {
                 Strategy.RECOMMENDED -> m.markets.firstOrNull { it.name == m.pick }
                 Strategy.SAFEST -> safe.firstOrNull()
                 Strategy.HIGHER_PAYING -> safe.lastOrNull()
@@ -156,10 +246,35 @@ object Parlay {
     )
 
     /** Matches that contribute nothing under this strategy, and why. */
-    fun skipped(matches: List<MatchPrediction>, strategy: Strategy): List<MatchPrediction> {
-        val kept = build(matches, strategy).legs.map { it.matchId }.toSet()
+    fun skipped(
+        matches: List<MatchPrediction>,
+        strategy: Strategy,
+        chosen: Map<String, String> = emptyMap(),
+    ): List<MatchPrediction> {
+        val kept = build(matches, strategy, chosen).legs.map { it.matchId }.toSet()
         return matches.distinctBy { it.id }.filterNot { it.id in kept }
     }
+
+    /**
+     * The best-priced market in a match, among those with a price entered.
+     *
+     * This is the answer to "so swap it for something better": better means the
+     * bookmaker pays furthest above the break-even price, and that can only be known
+     * for markets whose price the user has actually looked up.
+     */
+    fun bestPriced(match: MatchPrediction, odds: Map<String, Double>): Leg? =
+        match.markets
+            .mapNotNull { option ->
+                val price = odds["${match.id}|${option.name}"] ?: return@mapNotNull null
+                if (price <= 1.0) return@mapNotNull null
+                Leg(
+                    matchId = match.id, home = match.home, away = match.away,
+                    market = option.name, group = option.group,
+                    prob = option.prob, thin = match.thin, odds = price,
+                )
+            }
+            .filter { it.edge > 0 }
+            .maxByOrNull { it.edge }
 
     /** Expected loss by leg count, for the table the parlay screen leads with. */
     fun marginTable(maxLegs: Int = 8): List<Pair<Int, Int>> =

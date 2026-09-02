@@ -32,6 +32,68 @@ class Store(context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    /** Placed slips, kept apart from the analyses they were built from. */
+    fun loadSlips(): List<SavedSlip> {
+        val raw = prefs.getString("slips", null) ?: return emptyList()
+        val arr = runCatching { JSONArray(raw) }.getOrNull() ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            arr.optJSONObject(i)?.let { o ->
+                val legs = o.optJSONArray("legs") ?: JSONArray()
+                SavedSlip(
+                    id = o.optString("id"),
+                    placedAt = o.optLong("placed_at"),
+                    strategy = o.optString("strategy"),
+                    stake = o.optDouble("stake", 0.0),
+                    outcome = runCatching { Outcome.valueOf(o.optString("outcome")) }
+                        .getOrDefault(Outcome.PENDING),
+                    legs = (0 until legs.length()).mapNotNull { j ->
+                        legs.optJSONObject(j)?.let { l ->
+                            Leg(
+                                matchId = l.optString("match_id"),
+                                home = l.optString("home"),
+                                away = l.optString("away"),
+                                market = l.optString("market"),
+                                group = l.optString("group"),
+                                prob = l.optDouble("prob", 0.0),
+                                thin = l.optBoolean("thin", false),
+                                odds = l.optDouble("odds", 0.0),
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+
+    fun saveSlips(slips: List<SavedSlip>) {
+        val arr = JSONArray()
+        slips.forEach { slip ->
+            arr.put(
+                JSONObject()
+                    .put("id", slip.id)
+                    .put("placed_at", slip.placedAt)
+                    .put("strategy", slip.strategy)
+                    .put("stake", slip.stake)
+                    .put("outcome", slip.outcome.name)
+                    .put(
+                        "legs",
+                        JSONArray().apply {
+                            slip.legs.forEach {
+                                put(
+                                    JSONObject()
+                                        .put("match_id", it.matchId).put("home", it.home)
+                                        .put("away", it.away).put("market", it.market)
+                                        .put("group", it.group).put("prob", it.prob)
+                                        .put("thin", it.thin).put("odds", it.odds)
+                                )
+                            }
+                        }
+                    )
+            )
+        }
+        prefs.edit().putString("slips", arr.toString()).apply()
+    }
+
     fun save(matches: List<MatchPrediction>) {
         val arr = JSONArray()
         matches.forEach { arr.put(toJson(it)) }

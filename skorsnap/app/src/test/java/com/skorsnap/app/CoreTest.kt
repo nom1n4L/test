@@ -13,7 +13,10 @@ import com.skorsnap.app.data.Images
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
+import com.skorsnap.app.data.Leg
 import com.skorsnap.app.data.Parlay
+import com.skorsnap.app.data.SavedSlip
+import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.Strategy
 import com.skorsnap.app.data.Report
 import org.junit.Test
@@ -1042,6 +1045,119 @@ class CoreTest {
         assert(slip.badlyPriced.size == 1) { "leg yang kemurahan tidak ditandai" }
         assert(slip.legs.first().edge < 0 && slip.legs.last().edge > 0)
         println("Leg dengan harga di bawah minimal ditunjuk satu per satu.")
+    }
+
+    // ------------------------------------------------ ganti leg & rapor parlay
+
+    private fun priced(vararg pairs: Pair<String, Double>) =
+        pairs.associate { (name, o) -> "1|$name" to o }
+
+    /**
+     * "Rugi" without a way out is half a feature. The swap picks by the only thing
+     * that decides value: how far the price sits above break-even.
+     */
+    @Test
+    fun theSwapPicksTheBestPricedMarketNotTheLikeliest() {
+        val m = choice("1", "Over 1.5", "Over 1.5" to 0.84, "BTTS" to 0.70, "DC" to 0.90)
+        // Over 1.5 needs 1.19 and gets 1.20; BTTS needs 1.43 and gets 1.70.
+        val best = Parlay.bestPriced(m, priced("Over 1.5" to 1.20, "BTTS" to 1.70))
+        assert(best?.market == "BTTS") { "yang dipilih: ${best?.market}" }
+        println()
+        println("Over 1.5 84% (+1%) vs BTTS 70% (+19%) → dipilih BTTS, bukan yang peluangnya tertinggi.")
+    }
+
+    @Test
+    fun theSwapRefusesWhenNoPriceBeatsBreakEven() {
+        val m = choice("1", "Over 1.5", "Over 1.5" to 0.84, "BTTS" to 0.70)
+        assert(Parlay.bestPriced(m, priced("Over 1.5" to 1.10, "BTTS" to 1.30)) == null) {
+            "menukar ke market yang sama-sama rugi"
+        }
+        println("Kalau semua harga di bawah minimal, tidak ada yang ditukar — bukan asal ganti.")
+    }
+
+    @Test
+    fun aMarketWithNoPriceIsNeverChosenBlind() {
+        val m = choice("1", "Over 1.5", "Over 1.5" to 0.84, "BTTS" to 0.70)
+        val best = Parlay.bestPriced(m, priced("Over 1.5" to 1.40))
+        assert(best?.market == "Over 1.5") { "market tanpa odds ikut dipertimbangkan" }
+        println("Market yang belum diisi odds-nya tidak pernah dipilih — tak ada yang bisa dibandingkan.")
+    }
+
+    @Test
+    fun aHandPickedLegOverridesTheStrategy() {
+        val ms = threeMatches()
+        val slip = Parlay.build(ms, Strategy.SAFEST, mapOf("2" to "BTTS"))
+        assert(slip.legs.first { it.matchId == "2" }.market == "BTTS")
+        assert(slip.legs.first { it.matchId == "1" }.market == "Over 1.5") {
+            "laga lain ikut berubah"
+        }
+        println("Ganti satu leg tidak mengubah leg lainnya.")
+    }
+
+    private fun savedSlip(id: String, legs: Int, prob: Double, won: Boolean?, stake: Double = 0.0) =
+        SavedSlip(
+            id = id, placedAt = 0L, strategy = "uji", stake = stake,
+            outcome = when (won) { true -> Outcome.WON; false -> Outcome.LOST; null -> Outcome.PENDING },
+            legs = (1..legs).map {
+                Leg("m$it", "A", "B", "Over 1.5", "Total Gol", prob, odds = 1.0 / prob + 0.10)
+            },
+        )
+
+    @Test
+    fun theParlayReportCountsSlipsNotLegs() {
+        val r = SlipReport(
+            listOf(
+                savedSlip("a", 3, 0.80, true), savedSlip("b", 3, 0.80, false),
+                savedSlip("c", 2, 0.80, false), savedSlip("d", 3, 0.80, null),
+            )
+        )
+        assert(r.total == 3) { "slip yang belum ditandai ikut dihitung" }
+        assert(r.won == 1)
+        assert(r.byLegCount().map { it.name } == listOf("2 leg", "3 leg"))
+        println()
+        println("3 slip selesai, 1 tembus — dipecah per jumlah leg, bukan per market.")
+    }
+
+    @Test
+    fun theParlayReportRefusesToConcludeEarly() {
+        val r = SlipReport(List(4) { savedSlip("s$it", 3, 0.8, false) })
+        assert(r.verdict.contains("Terlalu sedikit")) { "4 slip langsung disimpulkan: ${r.verdict}" }
+        println("4 slip 0 tembus pun belum disimpulkan — parlay jarang tembus, itu wajar.")
+    }
+
+    @Test
+    fun theMoneyIsCountedOnlyWhereAStakeWasEntered() {
+        val r = SlipReport(
+            listOf(
+                savedSlip("a", 2, 0.80, true, stake = 100000.0),
+                savedSlip("b", 2, 0.80, false, stake = 100000.0),
+                savedSlip("c", 2, 0.80, true),
+            )
+        )
+        assert(r.staked == 200000.0) { "slip tanpa nominal ikut dihitung: ${r.staked}" }
+        assert(r.returned > 0 && r.profit != 0.0)
+        println("Rp %,.0f dipasang, kembali Rp %,.0f — slip tanpa nominal tidak diikutkan."
+            .format(r.staked, r.returned))
+    }
+
+    /**
+     * A parlay result is its legs multiplied, so it is only new information when it
+     * disagrees with that multiplication — which is what correlated legs look like.
+     */
+    @Test
+    fun theBriefOnlyMentionsParlaysWhenTheyAddSomething() {
+        val record = List(6) {
+            choice("$it", "Over 1.5", "Over 1.5" to 0.80)
+                .marking("Over 1.5" to Outcome.WON)
+        }
+        val few = Coach.brief(record, List(3) { savedSlip("s$it", 3, 0.8, false) })
+        assert(!few.contains("Parlay:")) { "3 slip sudah dijadikan pelajaran" }
+
+        val correlated = Coach.brief(record, List(8) { savedSlip("s$it", 2, 0.85, false) })
+        assert(correlated.contains("Parlay:")) { "8 slip diabaikan" }
+        assert(correlated.contains("saling terkait")) { "pola leg berkorelasi tidak ditangkap" }
+        println()
+        println(correlated.lines().first { it.startsWith("Parlay:") })
     }
 
     @Test

@@ -47,6 +47,8 @@ fun App(vm: AppViewModel) {
     val selected by vm.selected.collectAsStateWithLifecycle()
     val strategy by vm.strategy.collectAsStateWithLifecycle()
     val legOdds by vm.legOdds.collectAsStateWithLifecycle()
+    val chosen by vm.chosen.collectAsStateWithLifecycle()
+    val slips by vm.slips.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
@@ -127,6 +129,10 @@ fun App(vm: AppViewModel) {
                     matches = matches.filter { it.id in selected },
                     strategy = strategy,
                     onStrategy = vm::setStrategy,
+                    chosen = chosen,
+                    onChoose = vm::chooseMarket,
+                    onBest = { vm.takeBestPriced(matches.filter { it.id in selected }) },
+                    onSave = vm::saveSlip,
                     odds = legOdds,
                     onOdds = vm::setLegOdds,
                     onOpen = { vm.go(Screen.Detail(it)) },
@@ -138,6 +144,9 @@ fun App(vm: AppViewModel) {
                 // was open left the numbers on the previous total.
                 is Screen.Report -> ReportScreen(
                     matches = matches,
+                    slips = slips,
+                    onMarkSlip = vm::markSlip,
+                    onRemoveSlip = vm::removeSlip,
                     onOpen = { vm.go(Screen.Detail(it)) },
                 )
                 is Screen.Settings -> SettingsScreen(vm)

@@ -45,7 +45,7 @@ object Coach {
     /**
      * The text handed to the model, or empty when there is nothing honest to say.
      */
-    fun brief(history: List<MatchPrediction>): String {
+    fun brief(history: List<MatchPrediction>, slips: List<SavedSlip> = emptyList()): String {
         val all = shots(history)
         if (all.size < MIN_SAMPLE) return ""
 
@@ -81,6 +81,7 @@ object Coach {
                 append(lines.joinToString("\n"))
                 append("\n")
             }
+            append(parlayLine(slips))
             append(
                 if (all.size < 30) {
                     "Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, " +
@@ -101,8 +102,8 @@ object Coach {
      * the model to shade a market down, the user should be able to see that and
      * disagree with it.
      */
-    fun summary(history: List<MatchPrediction>): String {
-        val text = brief(history)
+    fun summary(history: List<MatchPrediction>, slips: List<SavedSlip> = emptyList()): String {
+        val text = brief(history, slips)
         if (text.isBlank()) {
             val n = shots(history).size
             return "Belum cukup hasil untuk diumpankan balik ke model — baru $n taruhan " +
@@ -111,6 +112,36 @@ object Coach {
         }
         return text
     }
+
+    /**
+     * The parlay record, and only where it says something the per-market lines do
+     * not.
+     *
+     * A parlay's outcome is its legs multiplied, so on its own it is not new
+     * evidence about any single market. What is new is a gap between the two: if
+     * the legs land at their stated rates but the slips fail more often than the
+     * multiplication predicts, the legs were not independent — several corner lines
+     * off one match rise and fall together. That is worth telling the model,
+     * because it is the model that chose lines that move together.
+     */
+    private fun parlayLine(slips: List<SavedSlip>): String {
+        val settled = slips.filter { it.outcome != Outcome.PENDING }
+        if (settled.size < MIN_SLIPS) return ""
+        val expected = settled.sumOf { it.combined }
+        val actual = settled.count { it.outcome == Outcome.WON }
+        val note = if (actual < expected - 1.0) {
+            " Parlay lebih sering gagal daripada perkalian peluangnya — tanda leg-leg " +
+                "itu saling terkait. Hindari memilih market yang bergerak bersamaan " +
+                "dalam satu laga."
+        } else {
+            ""
+        }
+        return "Parlay: ${settled.size} slip selesai, tembus $actual, " +
+            "perkalian peluang memperkirakan %.1f.$note\n".format(expected)
+    }
+
+    /** Below this a parlay record is noise; parlays fail often even when honest. */
+    private const val MIN_SLIPS = 5
 
     private fun pct(v: Double) = "${(v * 100).roundToInt()}%"
 }

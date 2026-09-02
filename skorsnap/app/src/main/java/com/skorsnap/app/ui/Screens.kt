@@ -66,6 +66,9 @@ import com.skorsnap.app.data.MarketOption
 import kotlin.math.pow
 import com.skorsnap.app.data.Strategy
 import com.skorsnap.app.data.Leg
+import kotlin.math.roundToInt
+import com.skorsnap.app.data.SlipReport
+import com.skorsnap.app.data.SavedSlip
 
 @Composable
 fun Card(
@@ -1080,16 +1083,21 @@ fun SlipScreen(
     matches: List<MatchPrediction>,
     strategy: Strategy,
     onStrategy: (Strategy) -> Unit,
+    chosen: Map<String, String>,
+    onChoose: (String, String) -> Unit,
+    onBest: () -> Unit,
     odds: Map<String, Double>,
     onOdds: (String, Double) -> Unit,
+    onSave: (Slip, Double) -> Unit,
     onOpen: (String) -> Unit,
     onClear: () -> Unit,
 ) {
-    val slip = remember(matches, strategy, odds) {
-        val built = Parlay.build(matches, strategy)
+    val slip = remember(matches, strategy, odds, chosen) {
+        val built = Parlay.build(matches, strategy, chosen)
         built.copy(legs = built.legs.map { it.copy(odds = odds["${it.matchId}|${it.market}"] ?: 0.0) })
     }
-    val skipped = remember(matches, strategy) { Parlay.skipped(matches, strategy) }
+    val skipped = remember(matches, strategy, chosen) { Parlay.skipped(matches, strategy, chosen) }
+    var stake by rememberSaveable { mutableStateOf("") }
 
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -1190,7 +1198,7 @@ fun SlipScreen(
             }
         }
 
-        item { ValueCard(slip) }
+        item { ValueCard(slip, onBest) }
 
         if (slip.weakLegs.isNotEmpty()) {
             item {
@@ -1211,9 +1219,44 @@ fun SlipScreen(
             }
         }
 
-        items(slip.legs, key = { "${it.matchId}|${it.market}" }) { leg ->
-            LegRow(leg, onOpen = { onOpen(leg.matchId) }) {
-                onOdds("${leg.matchId}|${leg.market}", it)
+        items(slip.legs, key = { it.matchId }) { leg ->
+            LegRow(
+                leg = leg,
+                match = matches.first { it.id == leg.matchId },
+                odds = odds,
+                onOpen = { onOpen(leg.matchId) },
+                onOdds = onOdds,
+                onChoose = { onChoose(leg.matchId, it) },
+            )
+        }
+
+        item {
+            Card(
+                title = "Simpan Slip Ini",
+                subtitle = "Supaya parlaynya bisa dinilai sebagai parlay, bukan cuma per leg.",
+            ) {
+                OutlinedTextField(
+                    value = stake,
+                    onValueChange = { raw -> stake = raw.filter { it.isDigit() } },
+                    label = { Text("Nominal pasang (opsional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    textStyle = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = { onSave(slip, stake.toDoubleOrNull() ?: 0.0) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Simpan slip", style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Isi nominalnya kalau mau rapor untung-rugi dalam rupiah. Kosongkan " +
+                        "kalau cuma mau menghitung berapa sering parlaymu tembus.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 
@@ -1236,10 +1279,15 @@ fun SlipScreen(
  * to guess at.
  */
 @Composable
-private fun LegRow(leg: Leg, onOpen: () -> Unit, onOdds: (Double) -> Unit) {
-    var text by remember(leg.matchId, leg.market) {
-        mutableStateOf(if (leg.priced) "%.2f".format(leg.odds) else "")
-    }
+private fun LegRow(
+    leg: Leg,
+    match: MatchPrediction,
+    odds: Map<String, Double>,
+    onOpen: () -> Unit,
+    onOdds: (String, Double) -> Unit,
+    onChoose: (String) -> Unit,
+) {
+    var swapping by remember(leg.matchId) { mutableStateOf(false) }
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(12.dp),
@@ -1251,15 +1299,8 @@ private fun LegRow(leg: Leg, onOpen: () -> Unit, onOdds: (Double) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        "${leg.home} vs ${leg.away}",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Text(
-                        leg.market,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Sky,
-                    )
+                    Text("${leg.home} vs ${leg.away}", style = MaterialTheme.typography.bodyMedium)
+                    Text(leg.market, style = MaterialTheme.typography.labelSmall, color = Sky)
                 }
                 Text(
                     "${leg.percent}%",
@@ -1269,39 +1310,113 @@ private fun LegRow(leg: Leg, onOpen: () -> Unit, onOdds: (Double) -> Unit) {
                 )
             }
             Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "Minimal %.2f".format(leg.breakEven),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    if (leg.priced) {
-                        Text(
-                            if (leg.edge > 0) {
-                                "Melbet bayar lebih tinggi — untung %+d%%".format(leg.edgePercent)
-                            } else {
-                                "Melbet bayar di bawah minimal — rugi %d%%".format(leg.edgePercent)
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (leg.edge > 0) Green else Rose,
-                        )
+            PriceRow(leg, odds) { onOdds("${leg.matchId}|${leg.market}", it) }
+
+            Spacer(Modifier.height(4.dp))
+            TextButton(onClick = { swapping = !swapping }) {
+                Text(
+                    if (swapping) "Tutup" else "Ganti market",
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+
+            if (swapping) {
+                Text(
+                    "Isi odds Melbet untuk beberapa market di bawah, lalu pilih salah satu " +
+                        "— atau pakai tombol berbayaran terbaik di atas.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+                // The safe band only: swapping a bad price for a coin flip is not an
+                // improvement, however generous the price looks.
+                match.safePicks().forEach { option ->
+                    val key = "${match.id}|${option.name}"
+                    val price = odds[key] ?: 0.0
+                    val current = option.name == leg.market
+                    Surface(
+                        color = if (current) Sky.copy(alpha = 0.14f)
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 5.dp),
+                    ) {
+                        Row(
+                            Modifier.padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                Modifier.weight(1f).clickable { onChoose(option.name) }
+                            ) {
+                                Text(
+                                    option.name,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
+                                )
+                                val edge = if (price > 1.0) price * option.prob - 1.0 else 0.0
+                                Text(
+                                    if (price > 1.0) {
+                                        "${option.percent}% · minimal %.2f · %+d%%"
+                                            .format(option.breakEven, (edge * 100).roundToInt())
+                                    } else {
+                                        "${option.percent}% · minimal %.2f".format(option.breakEven)
+                                    },
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = when {
+                                        price <= 1.0 -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        edge > 0 -> Green
+                                        else -> Rose
+                                    },
+                                )
+                            }
+                            OddsBox(key, price) { onOdds(key, it) }
+                        }
                     }
                 }
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { raw ->
-                        text = raw.replace(',', '.').filter { it.isDigit() || it == '.' }
-                        onOdds(text.toDoubleOrNull() ?: 0.0)
-                    },
-                    label = { Text("Odds", style = MaterialTheme.typography.labelSmall) },
-                    singleLine = true,
-                    modifier = Modifier.width(110.dp),
-                    textStyle = MaterialTheme.typography.bodySmall,
-                )
             }
         }
     }
+}
+
+/** Break-even price, the verdict once a real price is in, and the input itself. */
+@Composable
+private fun PriceRow(leg: Leg, odds: Map<String, Double>, onOdds: (Double) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "Minimal %.2f".format(leg.breakEven),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (leg.priced) {
+                Text(
+                    if (leg.edge > 0) {
+                        "Melbet bayar lebih tinggi — untung %+d%%".format(leg.edgePercent)
+                    } else {
+                        "Melbet bayar di bawah minimal — rugi %d%%".format(leg.edgePercent)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (leg.edge > 0) Green else Rose,
+                )
+            }
+        }
+        OddsBox("${leg.matchId}|${leg.market}", odds["${leg.matchId}|${leg.market}"] ?: 0.0, onOdds)
+    }
+}
+
+@Composable
+private fun OddsBox(key: String, value: Double, onOdds: (Double) -> Unit) {
+    var text by remember(key) { mutableStateOf(if (value > 1.0) "%.2f".format(value) else "") }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { raw ->
+            text = raw.replace(',', '.').filter { it.isDigit() || it == '.' }
+            onOdds(text.toDoubleOrNull() ?: 0.0)
+        },
+        label = { Text("Odds", style = MaterialTheme.typography.labelSmall) },
+        singleLine = true,
+        modifier = Modifier.width(104.dp),
+        textStyle = MaterialTheme.typography.bodySmall,
+    )
 }
 
 /**
@@ -1314,7 +1429,7 @@ private fun LegRow(leg: Leg, onOpen: () -> Unit, onOdds: (Double) -> Unit) {
  * rather than leaving it to be inferred.
  */
 @Composable
-private fun ValueCard(slip: Slip) {
+private fun ValueCard(slip: Slip, onBest: () -> Unit) {
     Card(
         title = "Nilai Sebenarnya",
         subtitle = "Angka di aplikasi bukan harga bandar — itu harga minimalnya.",
@@ -1371,10 +1486,78 @@ private fun ValueCard(slip: Slip) {
             Text(
                 "Leg yang harganya di bawah minimal: " +
                     slip.badlyPriced.joinToString { it.market } +
-                    ". Membuangnya menaikkan imbal hasil walau bayarannya jadi lebih kecil.",
+                    ". Tekan \"Ganti market\" di leg itu, isi odds beberapa market lain " +
+                    "dari Melbet, lalu pakai tombol di bawah.",
                 style = MaterialTheme.typography.labelSmall,
                 color = Rose,
             )
+        }
+        Spacer(Modifier.height(10.dp))
+        Button(onClick = onBest, modifier = Modifier.fillMaxWidth()) {
+            Text("Pakai market berbayaran terbaik", style = MaterialTheme.typography.bodySmall)
+        }
+        Text(
+            "Menukar tiap leg ke market yang bayarannya paling jauh di atas harga " +
+                "minimal — hanya di antara market yang sudah kamu isi odds-nya. Tanpa " +
+                "odds, tidak ada yang bisa dibandingkan.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** One saved slip, with its verdict and a way to drop a mis-saved one. */
+@Composable
+private fun SlipRow(saved: SavedSlip, onMark: (Outcome) -> Unit, onRemove: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "${saved.size} leg · ${saved.strategy}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        saved.legs.joinToString(" + ") { "${it.home} ${it.market}" },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    "${saved.percent}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = probColor(saved.combined),
+                )
+            }
+            if (saved.priced) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (saved.stake > 0) {
+                        "Bayaran %.2f · pasang Rp %,.0f".format(saved.bookOdds, saved.stake)
+                    } else {
+                        "Bayaran %.2f".format(saved.bookOdds)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Verdict("Tembus", saved.outcome == Outcome.WON, Green, Modifier.weight(1f)) {
+                    onMark(Outcome.WON)
+                }
+                Verdict("Meleset", saved.outcome == Outcome.LOST, Rose, Modifier.weight(1f)) {
+                    onMark(Outcome.LOST)
+                }
+                TextButton(onClick = onRemove) {
+                    Text("Hapus", style = MaterialTheme.typography.labelSmall, color = Rose)
+                }
+            }
         }
     }
 }
@@ -1632,7 +1815,14 @@ fun SettingsScreen(vm: AppViewModel) {
  * taken at face value.
  */
 @Composable
-fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
+fun ReportScreen(
+    matches: List<MatchPrediction>,
+    slips: List<SavedSlip>,
+    onMarkSlip: (String, Outcome) -> Unit,
+    onRemoveSlip: (String) -> Unit,
+    onOpen: (String) -> Unit,
+) {
+    val slipReport = remember(slips) { SlipReport(slips) }
     var lens by rememberSaveable { mutableStateOf(Lens.BACKED) }
     val report = remember(matches, lens) { Report(matches, lens) }
     val comparison = remember(matches) { Comparison(matches) }
@@ -1792,6 +1982,53 @@ fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
             }
         }
 
+        if (slips.isNotEmpty()) {
+            item {
+                Card(
+                    title = "Rapor Parlay (${slips.size} slip)",
+                    subtitle = "Parlay dinilai sebagai parlay — catatan per market tidak bisa " +
+                        "bilang berapa slip yang mati di satu leg saja.",
+                ) {
+                    if (slipReport.total > 0) {
+                        Row {
+                            Stat(
+                                "Tembus",
+                                "${slipReport.won}/${slipReport.total}",
+                                Modifier.weight(1f),
+                            )
+                            Stat(
+                                "Dijanjikan",
+                                "${Math.round(slipReport.promised * 100)}%",
+                                Modifier.weight(1f),
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    Text(
+                        slipReport.verdict,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (slipReport.hasMoney && slipReport.profit < 0) Rose
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            val byLegs = slipReport.byLegCount()
+            if (byLegs.size > 1) {
+                item {
+                    SliceCard(
+                        "Per Jumlah Leg",
+                        "Di sinilah kerugian parlay biasanya muncul.",
+                        byLegs,
+                    )
+                }
+            }
+
+            items(slips.reversed(), key = { it.id }) { saved ->
+                SlipRow(saved, onMark = { onMarkSlip(saved.id, it) }, onRemove = { onRemoveSlip(saved.id) })
+            }
+        }
+
         val marked = report.byMarkedMarket()
         if (marked.isNotEmpty()) {
             item {
@@ -1811,7 +2048,7 @@ fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
                 subtitle = "Catatan ini ikut dikirim setiap kali kamu menganalisis laga baru.",
             ) {
                 Text(
-                    remember(matches) { Coach.summary(matches) },
+                    remember(matches, slips) { Coach.summary(matches, slips) },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

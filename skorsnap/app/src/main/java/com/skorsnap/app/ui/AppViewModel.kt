@@ -12,6 +12,7 @@ import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Slip
 import com.skorsnap.app.data.Store
+import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.Strategy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -68,6 +69,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      */
     private val _legOdds = MutableStateFlow<Map<String, Double>>(emptyMap())
     val legOdds: StateFlow<Map<String, Double>> = _legOdds.asStateFlow()
+
+    /**
+     * A market picked by hand for a match, overriding the strategy.
+     *
+     * Telling the user a leg is badly priced without letting them do anything about
+     * it is half a feature; this is the other half.
+     */
+    private val _chosen = MutableStateFlow<Map<String, String>>(emptyMap())
+    val chosen: StateFlow<Map<String, String>> = _chosen.asStateFlow()
+
+    private val _slips = MutableStateFlow(store.loadSlips())
+    val slips: StateFlow<List<SavedSlip>> = _slips.asStateFlow()
 
     private val _selected = MutableStateFlow<Set<String>>(emptySet())
     val selected: StateFlow<Set<String>> = _selected.asStateFlow()
@@ -210,7 +223,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val analyst = Analyst(store.apiKey)
                 val result = analyst
-                    .analyse(images, note, store.model, _mode.value, _matches.value)
+                    .analyse(images, note, store.model, _mode.value, _matches.value, _slips.value)
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
                 val updated = _matches.value + result
@@ -302,7 +315,54 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.save(emptyList())
     }
 
-    fun setStrategy(value: Strategy) { _strategy.value = value }
+    fun setStrategy(value: Strategy) {
+        _strategy.value = value
+        // A strategy is a rule for choosing; keeping hand-picked legs on top of it
+        // would show a slip that matches neither.
+        _chosen.value = emptyMap()
+    }
+
+    fun chooseMarket(matchId: String, market: String) {
+        _chosen.value = _chosen.value + (matchId to market)
+    }
+
+    /** Swaps every leg for the best-priced market in its match, where one exists. */
+    fun takeBestPriced(matches: List<MatchPrediction>) {
+        val better = matches.mapNotNull { m ->
+            Parlay.bestPriced(m, _legOdds.value)?.let { m.id to it.market }
+        }
+        _chosen.value = _chosen.value + better
+    }
+
+    fun saveSlip(slip: Slip, stake: Double) {
+        if (slip.size == 0) return
+        val record = SavedSlip(
+            id = java.util.UUID.randomUUID().toString(),
+            placedAt = System.currentTimeMillis(),
+            strategy = _strategy.value.label,
+            legs = slip.legs,
+            stake = stake,
+        )
+        val updated = _slips.value + record
+        _slips.value = updated
+        store.saveSlips(updated)
+        _message.value = "Slip disimpan. Tandai hasilnya di Rapor setelah laganya selesai."
+    }
+
+    fun markSlip(id: String, outcome: Outcome) {
+        val updated = _slips.value.map { s ->
+            if (s.id != id) s
+            else s.copy(outcome = if (s.outcome == outcome) Outcome.PENDING else outcome)
+        }
+        _slips.value = updated
+        store.saveSlips(updated)
+    }
+
+    fun removeSlip(id: String) {
+        val updated = _slips.value.filterNot { it.id == id }
+        _slips.value = updated
+        store.saveSlips(updated)
+    }
 
     /** Empties the slip. Typed prices are kept — they cost effort to re-enter. */
     fun clearSelection() { _selected.value = emptySet() }

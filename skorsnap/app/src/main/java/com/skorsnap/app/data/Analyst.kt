@@ -92,6 +92,7 @@ class Analyst(private val apiKey: String) {
         model: String = DEFAULT_MODEL,
         mode: Mode = Mode.MATCH,
         history: List<MatchPrediction> = emptyList(),
+        slips: List<SavedSlip> = emptyList(),
     ): MatchPrediction = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
         if (images.isEmpty()) throw AnalystException("Belum ada gambar.")
@@ -113,7 +114,7 @@ class Analyst(private val apiKey: String) {
         // The model's own track record, so a market it has been overconfident on
         // does not get the same number again. See Coach for what this can and
         // cannot do.
-        Coach.brief(history).takeIf { it.isNotBlank() }?.let {
+        Coach.brief(history, slips).takeIf { it.isNotBlank() }?.let {
             parts.put(JSONObject().put("text", it))
         }
 
