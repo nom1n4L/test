@@ -56,8 +56,10 @@ class Store(context: Context) {
         put("pick_prob", m.pickProb)
         put("confidence", m.confidence)
         put("confidence_why", m.confidenceWhy)
-        put("pick_outcome", m.pickOutcome.name)
-        put("backed_outcome", m.backedOutcome.name)
+        put(
+            "market_outcomes",
+            JSONObject().apply { m.marketOutcomes.forEach { (k, v) -> put(k, v.name) } }
+        )
         put("mode", m.mode.name)
         put("backed", m.backed)
         put("model", m.model)
@@ -115,8 +117,7 @@ class Store(context: Context) {
             pickProb = o.optDouble("pick_prob", 0.0),
             confidence = o.optString("confidence", "sedang"),
             confidenceWhy = o.optString("confidence_why"),
-            pickOutcome = Migration.outcomes(o).first,
-            backedOutcome = Migration.outcomes(o).second,
+            marketOutcomes = Migration.marketOutcomes(o, markets),
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
             backed = o.optString("backed"),
             model = o.optString("model"),
@@ -127,6 +128,39 @@ class Store(context: Context) {
 
 /** Reading saves written before a field existed. */
 object Migration {
+
+    /**
+     * The per-market results, rebuilt from whichever shape the save was written in.
+     *
+     * Three generations exist on real devices: a single `outcome`, then separate
+     * `pick_outcome`/`backed_outcome`, and now a map. Each older verdict is filed
+     * under the market it was actually about, so nothing is lost and nothing is
+     * attributed to a market that was never judged.
+     */
+    fun marketOutcomes(o: JSONObject, markets: List<MarketOption>): Map<String, Outcome> {
+        o.optJSONObject("market_outcomes")?.let { saved ->
+            val out = HashMap<String, Outcome>()
+            saved.keys().forEach { key ->
+                runCatching { Outcome.valueOf(saved.optString(key)) }
+                    .getOrNull()
+                    ?.takeIf { it != Outcome.PENDING }
+                    ?.let { out[key] = it }
+            }
+            return out
+        }
+
+        fun keyFor(name: String): String =
+            markets.firstOrNull { it.name == name }?.let { "${it.group}|${it.name}" } ?: "|$name"
+
+        val (pick, backed) = outcomes(o)
+        val out = HashMap<String, Outcome>()
+        val pickName = o.optString("pick")
+        val backedName = o.optString("backed").ifBlank { pickName }
+        if (pick != Outcome.PENDING && pickName.isNotBlank()) out[keyFor(pickName)] = pick
+        if (backed != Outcome.PENDING && backedName.isNotBlank()) out[keyFor(backedName)] = backed
+        return out
+    }
+
     /**
      * The two records, reading older saves that only ever had one.
      *

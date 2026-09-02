@@ -61,6 +61,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.Coach
+import androidx.compose.ui.graphics.Color
+import com.skorsnap.app.data.MarketOption
 
 @Composable
 fun Card(
@@ -422,6 +424,7 @@ fun AddScreen(
 fun DetailScreen(
     match: MatchPrediction,
     onMark: (Lens, Outcome) -> Unit,
+    onMarkMarket: (MarketOption, Outcome) -> Unit,
     onBacked: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -505,7 +508,7 @@ fun DetailScreen(
             }
         }
 
-        item { SafeListCard(match) }
+        item { SafeListCard(match, onMarkMarket) }
 
         item {
             Card(title = "Hasil Akhir") {
@@ -541,7 +544,7 @@ fun DetailScreen(
  * calls safe.
  */
 @Composable
-private fun SafeListCard(match: MatchPrediction) {
+private fun SafeListCard(match: MatchPrediction, onMark: (MarketOption, Outcome) -> Unit) {
     val safe = remember(match) { match.safePicks() }
     if (safe.isEmpty()) {
         Card(title = "Tidak Ada yang Masuk Rentang Aman") {
@@ -559,7 +562,9 @@ private fun SafeListCard(match: MatchPrediction) {
 
     Card(
         title = "Pilihan Aman (${safe.size})",
-        subtitle = "Peluang tertinggi di atas. Semua di rentang 68-92%.",
+        subtitle = "Peluang tertinggi di atas. Semua di rentang 68-92%. " +
+            "Tandai hasilnya setelah laga selesai — tiap tanda jadi bahan koreksi " +
+            "buat analisis berikutnya.",
     ) {
         safe.forEachIndexed { index, option ->
             val isPick = option.name == match.pick
@@ -610,6 +615,21 @@ private fun SafeListCard(match: MatchPrediction) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+            // Marking each safe option, not just the one bet, is what turns a single
+            // match into several observations — the record the model is fed grows in
+            // weeks rather than months.
+            val verdict = match.outcomeOf(option)
+            Row(
+                Modifier.fillMaxWidth().padding(start = 22.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Verdict("Tembus", verdict == Outcome.WON, Green, Modifier.weight(1f)) {
+                    onMark(option, Outcome.WON)
+                }
+                Verdict("Meleset", verdict == Outcome.LOST, Rose, Modifier.weight(1f)) {
+                    onMark(option, Outcome.LOST)
+                }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -871,6 +891,31 @@ private fun OutcomeCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** A compact tembus/meleset chip for a row inside a list. */
+@Composable
+private fun Verdict(
+    text: String,
+    active: Boolean,
+    colour: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Surface(
+        color = if (active) colour.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier.clickable(onClick = onClick),
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(vertical = 5.dp),
+            style = MaterialTheme.typography.labelSmall,
+            textAlign = TextAlign.Center,
+            color = if (active) colour else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
+        )
     }
 }
 
@@ -1412,7 +1457,7 @@ fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
             }
         }
 
-        if (report.total == 0) {
+        if (report.total == 0 && report.allMarks().isEmpty()) {
             item {
                 Box(Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
                     Text(
@@ -1429,7 +1474,24 @@ fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
             return@LazyColumn
         }
 
-        item {
+        // Guarded: the safe-list marks can exist before either role on a match has
+        // been settled, and a hit rate of 0/0 reads as a catastrophe rather than as
+        // an empty cell.
+        if (report.total == 0) {
+            item {
+                Card(title = "Belum Ada Hasil di Sudut Ini") {
+                    Text(
+                        "Kamu sudah menandai market di daftar aman, tapi belum menandai " +
+                            "${lens.label.lowercase()}. Tandai di halaman laganya supaya " +
+                            "perbandingan di bawah ada isinya.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        if (report.total > 0) item {
             Card(title = "Rapor Akurasi", subtitle = "${report.total} hasil tercatat.") {
                 Row {
                     Stat("Tembus", "${report.won}/${report.total}", Modifier.weight(1f))
@@ -1450,7 +1512,7 @@ fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
             }
         }
 
-        item {
+        if (report.total > 0) item {
             val good = kotlin.math.abs(report.gap) < 0.05 && report.meaningful
             Surface(
                 color = (if (good) Green else Amber).copy(alpha = 0.12f),
@@ -1466,7 +1528,7 @@ fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
             }
         }
 
-        item {
+        if (report.total > 0) item {
             Card(
                 title = "Seberapa Yakin Angka Ini",
                 subtitle = "Sampel kecil membuat angka terlihat lebih pasti dari sebenarnya.",
@@ -1517,6 +1579,19 @@ fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
                     comparison.verdict,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        val marked = report.byMarkedMarket()
+        if (marked.isNotEmpty()) {
+            item {
+                SliceCard(
+                    "Semua Market yang Kamu Tandai (${report.allMarks().size} tanda)",
+                    "Termasuk pilihan aman yang kamu tandai tapi tidak kamu pasang. " +
+                        "Ini bahan koreksi terbanyak — tiap tanda satu janji yang ditepati " +
+                        "atau tidak.",
+                    marked,
                 )
             }
         }

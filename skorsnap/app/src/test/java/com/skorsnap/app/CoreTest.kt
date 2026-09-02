@@ -204,11 +204,18 @@ class CoreTest {
             "${Analyst.THINKING_BUDGET}, sisa $room untuk jawaban.")
     }
 
+    /**
+     * Marks named markets, mirroring what tapping Tembus/Meleset does. The roles
+     * (recommendation, bet) read straight off this map, so a test cannot set them
+     * to disagree with each other the way separate fields allowed.
+     */
+    private fun MatchPrediction.marking(vararg pairs: Pair<String, Outcome>) =
+        copy(marketOutcomes = marketOutcomes + pairs.associate { (name, o) -> keyOf(name) to o })
+
+    private fun verdict(won: Boolean) = if (won) Outcome.WON else Outcome.LOST
+
     private fun settled(prob: Double, won: Boolean) =
-        match(prob).copy(
-            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
-            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
-        )
+        match(prob).marking("Over 1.5" to verdict(won))
 
     /**
      * The run that prompted this screen: eleven from twelve. It has to read as a
@@ -372,9 +379,8 @@ class CoreTest {
         fun bet(group: String, prob: Double, won: Boolean) = match(prob).copy(
             markets = listOf(MarketOption("m", prob, "", group)),
             backed = "m",
-            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
-            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
-        )
+            pick = "m",
+        ).marking("m" to verdict(won))
         val record =
             List(8) { bet("Corner", 0.76, true) } + List(2) { bet("Corner", 0.76, false) } +
                 List(5) { bet("Total Gol", 0.72, true) } +
@@ -405,9 +411,8 @@ class CoreTest {
         fun bet(won: Boolean) = match(0.8).copy(
             markets = listOf(MarketOption("m", 0.8, "", "Baru")),
             backed = "m",
-            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
-            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
-        )
+            pick = "m",
+        ).marking("m" to verdict(won))
         val slice = Report(listOf(bet(false), bet(false), bet(true))).byGroup().first()
         assert(!slice.worthWatching) { "3 hasil seharusnya belum ditandai" }
     }
@@ -421,9 +426,7 @@ class CoreTest {
                 MarketOption("Double Chance 1X", 0.71, "", "Double Chance"),
             ),
             backed = "Double Chance 1X",
-            backedOutcome = Outcome.WON,
-            pickOutcome = Outcome.LOST,
-        )
+        ).marking("Double Chance 1X" to Outcome.WON, "Over 1.5" to Outcome.LOST)
         assert(m.marketFor(Lens.BACKED) == "Double Chance 1X")
         assert(Math.round(m.probFor(Lens.BACKED) * 100) == 71L) {
             "peluang yang dicatat masih ikut rekomendasi"
@@ -687,9 +690,7 @@ class CoreTest {
                 MarketOption(backedMarket, 0.71, "", "Double Chance"),
             ),
             backed = backedMarket,
-            pickOutcome = if (pickWon) Outcome.WON else Outcome.LOST,
-            backedOutcome = if (backedWon) Outcome.WON else Outcome.LOST,
-        )
+        ).marking(pick to verdict(pickWon), backedMarket to verdict(backedWon))
 
     /**
      * The complaint behind this split: the recommendation missed, the safe market
@@ -711,9 +712,12 @@ class CoreTest {
     @Test
     fun theComparisonOnlyCountsMatchesWhereBothAreKnown() {
         val complete = bothWays("Over 1.5", "1X", pickWon = true, backedWon = false)
-        val halfDone = complete.copy(id = "b", backedOutcome = Outcome.PENDING)
-        val sameMarket = match(0.8).copy(id = "c", pick = "Over 1.5", backed = "Over 1.5",
-            pickOutcome = Outcome.WON, backedOutcome = Outcome.WON)
+        val halfDone = complete.copy(
+            id = "b",
+            marketOutcomes = complete.marketOutcomes - complete.keyOf("1X"),
+        )
+        val sameMarket = match(0.8).copy(id = "c", pick = "Over 1.5", backed = "Over 1.5")
+            .marking("Over 1.5" to Outcome.WON)
         val c = Comparison(listOf(complete, halfDone, sameMarket))
         assert(c.n == 1) { "yang dibandingkan seharusnya 1, dapat ${c.n}" }
         assert(c.pickWon == 1 && c.backedWon == 0)
@@ -734,9 +738,7 @@ class CoreTest {
         fun bet(name: String, won: Boolean) = match(0.74).copy(
             markets = listOf(MarketOption(name, 0.74, "", "Total Gol")),
             backed = name, pick = name,
-            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
-            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
-        )
+        ).marking(name to verdict(won))
         val record = List(3) { bet("Over 1.5", false) } + List(3) { bet("Under 3.5", true) }
         val group = Report(record, Lens.BACKED).byGroup()
         val markets = Report(record, Lens.BACKED).byMarket().associateBy { it.name }
@@ -778,9 +780,7 @@ class CoreTest {
         fun bet(group: String, prob: Double, won: Boolean) = match(prob).copy(
             markets = listOf(MarketOption("m", prob, "", group)),
             pick = "m",
-            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
-            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
-        )
+        ).marking("m" to verdict(won))
         val record = List(3) { bet("Total Gol", 0.74, false) } + List(3) { bet("Total Gol", 0.74, true) } +
             List(8) { bet("Corner", 0.76, true) } + List(2) { bet("Corner", 0.76, false) }
         val brief = Coach.brief(record)
@@ -794,7 +794,7 @@ class CoreTest {
     @Test
     fun theCoachStaysQuietUntilThereIsSomethingToSay() {
         assert(Coach.brief(emptyList()).isBlank())
-        assert(Coach.brief(List(2) { match(0.8).copy(pickOutcome = Outcome.WON) }).isBlank()) {
+        assert(Coach.brief(List(2) { match(0.8).marking("Over 1.5" to Outcome.WON) }).isBlank()) {
             "menyimpulkan dari 2 hasil"
         }
         println("Di bawah ${Coach.MIN_SAMPLE} hasil, tidak ada yang diumpankan — tidak mengarang pola.")
@@ -804,13 +804,95 @@ class CoreTest {
     @Test
     fun backingTheRecommendationCountsOnce() {
         val same = List(6) {
-            match(0.8).copy(pick = "m", backed = "", markets = listOf(MarketOption("m", 0.8, "", "G")),
-                pickOutcome = Outcome.WON, backedOutcome = Outcome.WON)
+            match(0.8).copy(pick = "m", backed = "", markets = listOf(MarketOption("m", 0.8, "", "G")))
+                .marking("m" to Outcome.WON)
         }
         assert(Coach.brief(same).contains("(6 taruhan sudah selesai)")) {
             "hasil yang sama dihitung dua kali:\n${Coach.brief(same)}"
         }
         println("Pasang sesuai rekomendasi → dihitung sekali, bukan dua.")
+    }
+
+    // -------------------------------------- menandai dari daftar aman
+
+    private fun corners() = match(0.85).copy(
+        pick = "Total corner Under 11.5",
+        backed = "Total corner Under 10.5",
+        markets = listOf(
+            MarketOption("Total corner Under 11.5", 0.85, "", "Corner"),
+            MarketOption("Total corner Under 10.5", 0.70, "", "Corner"),
+            MarketOption("Corner babak 1 Under 5.5", 0.70, "", "Corner Babak 1"),
+        ),
+    )
+
+    /**
+     * One map behind every role. Ticking the recommendation off in the safe list
+     * has to settle the recommendation too — two stores would let the same market
+     * be both a hit and a miss depending on where the user tapped.
+     */
+    @Test
+    fun markingInTheSafeListSettlesTheRoleItFills() {
+        val m = corners().marking("Total corner Under 11.5" to Outcome.WON)
+        assert(m.pickOutcome == Outcome.WON) { "rekomendasi tidak ikut tercatat" }
+        assert(m.backedOutcome == Outcome.PENDING) { "market lain ikut tertandai" }
+        println()
+        println("Tandai 'Under 11.5' di daftar aman → rekomendasi otomatis tercatat tembus.")
+    }
+
+    /** Three ticks on one match, three separate observations for the record. */
+    @Test
+    fun oneMatchCanContributeSeveralObservations() {
+        val m = corners().marking(
+            "Total corner Under 11.5" to Outcome.WON,
+            "Total corner Under 10.5" to Outcome.LOST,
+            "Corner babak 1 Under 5.5" to Outcome.WON,
+        )
+        assert(m.marks().size == 3) { "cuma ${m.marks().size} tanda terbaca" }
+        val report = Report(listOf(m), Lens.BACKED)
+        assert(report.allMarks().size == 3)
+        assert(report.total == 1) { "satu laga tetap satu baris di rapor peran" }
+        println("Satu laga ditandai 3 market → 3 bukti kalibrasi, tapi tetap 1 laga.")
+    }
+
+    @Test
+    fun everyTickReachesTheModelsBrief() {
+        val record = List(5) {
+            corners().copy(id = "m$it").marking(
+                "Total corner Under 11.5" to Outcome.LOST,
+                "Total corner Under 10.5" to Outcome.WON,
+            )
+        }
+        val brief = Coach.brief(record)
+        assert(brief.contains("(10 taruhan sudah selesai)")) { "tanda tidak terhitung:\n$brief" }
+        assert(brief.contains("TERLALU PERCAYA DIRI")) { "pola tidak tertangkap:\n$brief" }
+        println()
+        println(brief)
+    }
+
+    /**
+     * Three save formats exist on real devices: one flag, then two, now a map.
+     */
+    @Test
+    fun everySaveFormatStillReadsBack() {
+        val markets = listOf(
+            MarketOption("Over 1.5", 0.8, "", "Total Gol"),
+            MarketOption("1X", 0.7, "", "Double Chance"),
+        )
+        val ancient = JSONObject("""{"pick":"Over 1.5","backed":"1X","outcome":"WON"}""")
+        assert(Migration.marketOutcomes(ancient, markets) == mapOf("Double Chance|1X" to Outcome.WON)) {
+            "hasil taruhan lama salah tempat: ${Migration.marketOutcomes(ancient, markets)}"
+        }
+
+        val previous = JSONObject(
+            """{"pick":"Over 1.5","backed":"1X","pick_outcome":"LOST","backed_outcome":"WON"}"""
+        )
+        assert(Migration.marketOutcomes(previous, markets) ==
+            mapOf("Total Gol|Over 1.5" to Outcome.LOST, "Double Chance|1X" to Outcome.WON))
+
+        val current = JSONObject("""{"market_outcomes":{"Corner|Under 9.5":"WON"}}""")
+        assert(Migration.marketOutcomes(current, markets) == mapOf("Corner|Under 9.5" to Outcome.WON))
+        println()
+        println("Tiga format simpanan lama terbaca semua — catatanmu tidak hilang.")
     }
 
     @Test

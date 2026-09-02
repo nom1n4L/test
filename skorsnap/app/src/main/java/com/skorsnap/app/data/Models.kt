@@ -6,6 +6,9 @@ enum class Mode(val label: String) {
     CORNER("Analisis Corner"),
 }
 
+/** One settled market: what was promised, and what happened. */
+data class Mark(val group: String, val market: String, val promised: Double, val won: Boolean)
+
 /** Which of the two records is being read: the app's advice, or the user's bet. */
 enum class Lens(val label: String, val short: String) {
     PICK("Rekomendasi aplikasi", "Rekomendasi"),
@@ -90,17 +93,17 @@ data class MatchPrediction(
     /** True when the app replaced a recommendation that fell outside the safe band. */
     val pickCorrected: Boolean = false,
     /**
-     * How the app's own recommendation turned out.
+     * How each market turned out, keyed by group and name.
      *
-     * Kept apart from the market the user actually backed. There was one shared
-     * flag before, and the moment the user backed something other than the pick it
-     * described their bet — so the app's advice went unmeasured, and the one
-     * question worth asking ("is its pick better than what I choose myself?")
-     * could not be answered at all.
+     * One map rather than a flag per role. The recommendation, the market the user
+     * backed and every safe option they tick off are all just markets, and the same
+     * market cannot land and miss at once — holding a separate verdict for each role
+     * invited exactly that contradiction, and made the user mark one result twice.
+     *
+     * The key carries the group because a name alone is not unique: "Tuan rumah -1"
+     * is both an Asian and a European handicap and they settle differently.
      */
-    val pickOutcome: Outcome = Outcome.PENDING,
-    /** How the market the user actually backed turned out. */
-    val backedOutcome: Outcome = Outcome.PENDING,
+    val marketOutcomes: Map<String, Outcome> = emptyMap(),
     val raw: String = "",
 ) {
     val title: String get() = if (home.isBlank()) "Pertandingan" else "$home vs $away"
@@ -122,8 +125,36 @@ data class MatchPrediction(
     /** Blank means the user backed the recommendation itself. */
     val backedMarket: String get() = backed.ifBlank { pick }
 
+    fun keyOf(option: MarketOption): String = "${option.group}|${option.name}"
+
+    /** The same key for a market known only by name, as pick and backed are. */
+    fun keyOf(name: String): String =
+        markets.firstOrNull { it.name == name }?.let { keyOf(it) } ?: "|$name"
+
+    fun outcomeOf(option: MarketOption): Outcome =
+        marketOutcomes[keyOf(option)] ?: Outcome.PENDING
+
+    val pickOutcome: Outcome get() = marketOutcomes[keyOf(pick)] ?: Outcome.PENDING
+
+    val backedOutcome: Outcome get() = marketOutcomes[keyOf(backedMarket)] ?: Outcome.PENDING
+
     fun outcomeFor(lens: Lens): Outcome =
         if (lens == Lens.PICK) pickOutcome else backedOutcome
+
+    /**
+     * Every market whose result is known, as evidence about the model's numbers.
+     *
+     * Ticking off the safe shortlist turns one match into several observations
+     * instead of one, which is the only honest way to build a calibration record
+     * quickly — each is a separate promise the model made and either kept or did not.
+     */
+    fun marks(): List<Mark> = markets.mapNotNull { option ->
+        when (marketOutcomes[keyOf(option)]) {
+            Outcome.WON -> Mark(option.group, option.name, option.prob, true)
+            Outcome.LOST -> Mark(option.group, option.name, option.prob, false)
+            else -> null
+        }
+    }
 
     fun marketFor(lens: Lens): String =
         if (lens == Lens.PICK) pick else backedMarket
@@ -276,6 +307,28 @@ data class Report(val all: List<MatchPrediction>, val lens: Lens = Lens.BACKED) 
      * shows up; the exact line is where it can be acted on.
      */
     fun byMarket(): List<Slice> = slice { it.marketFor(lens) }.filter { it.total >= 2 }
+
+    /**
+     * Every settled market, not just the one filling a role on each match.
+     *
+     * The safe shortlist can be ticked off in full, and those verdicts are the
+     * calibration record: each is a percentage the model published and then either
+     * kept or did not. Independent of the lens, since a market is a market.
+     */
+    fun allMarks(): List<Mark> = all.flatMap { it.marks() }
+
+    fun byMarkedMarket(): List<Slice> =
+        allMarks().groupBy { it.market }
+            .map { (name, list) ->
+                Slice(
+                    name = name,
+                    total = list.size,
+                    won = list.count { it.won },
+                    promised = list.sumOf { it.promised } / list.size,
+                )
+            }
+            .filter { it.total >= 2 }
+            .sortedByDescending { it.total }
 
     private fun slice(key: (MatchPrediction) -> String): List<Slice> =
         settled.groupBy(key)

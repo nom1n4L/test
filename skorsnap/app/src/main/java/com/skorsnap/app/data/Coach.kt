@@ -32,24 +32,15 @@ object Coach {
     /** Gaps smaller than this are not worth mentioning; they are sampling noise. */
     private const val NOTABLE_GAP = 0.08
 
-    /** One settled bet: what was promised, what happened, under which heading. */
-    private data class Shot(val group: String, val market: String, val promised: Double, val won: Boolean)
-
-    private fun shots(history: List<MatchPrediction>): List<Shot> =
-        history.flatMap { m ->
-            buildList {
-                if (m.settledFor(Lens.PICK)) {
-                    add(Shot(m.groupFor(Lens.PICK), m.marketFor(Lens.PICK),
-                        m.probFor(Lens.PICK), m.pickOutcome == Outcome.WON))
-                }
-                // Only when it is a different bet, or the same result would be
-                // counted twice and every rate would look twice as certain as it is.
-                if (m.divergent && m.settledFor(Lens.BACKED)) {
-                    add(Shot(m.groupFor(Lens.BACKED), m.marketFor(Lens.BACKED),
-                        m.probFor(Lens.BACKED), m.backedOutcome == Outcome.WON))
-                }
-            }
-        }
+    /**
+     * Every settled market across the record.
+     *
+     * Ticking off the safe shortlist rather than only the one bet placed turns each
+     * match into several observations, so a per-market rate becomes usable in weeks
+     * instead of months. Each market is counted once per match however many roles it
+     * plays — recommendation and bet are often the same line.
+     */
+    private fun shots(history: List<MatchPrediction>): List<Mark> = history.flatMap { it.marks() }
 
     /**
      * The text handed to the model, or empty when there is nothing honest to say.

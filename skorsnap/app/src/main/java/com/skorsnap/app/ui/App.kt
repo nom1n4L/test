@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorsnap.app.data.Lens
+import com.skorsnap.app.data.MarketOption
 
 @Composable
 fun App(vm: AppViewModel) {
@@ -107,6 +108,9 @@ fun App(vm: AppViewModel) {
                         DetailScreen(
                             match = match,
                             onMark = { lens, outcome -> vm.markOutcome(s.id, lens, outcome) },
+                            onMarkMarket = { option, outcome ->
+                                vm.markMarket(s.id, match.keyOf(option), outcome)
+                            },
                             onBacked = { vm.setBacked(s.id, it) },
                             onDelete = { vm.remove(s.id) },
                         )

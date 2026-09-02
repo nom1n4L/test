@@ -223,26 +223,28 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * mis-tap does not quietly poison the record the whole screen exists to keep
      * honest.
      */
-    fun markOutcome(id: String, lens: Lens, outcome: Outcome) {
+    /**
+     * Records how one market turned out, by its key.
+     *
+     * Tapping the same verdict twice clears it, so a mis-tap does not quietly
+     * poison the record the whole screen exists to keep honest.
+     */
+    fun markMarket(id: String, key: String, outcome: Outcome) {
         val updated = _matches.value.map { m ->
-            when {
-                m.id != id -> m
-                // Backing the recommendation itself means the two records are about
-                // the same market, so one verdict settles both. Only the pick row is
-                // shown in that case, and leaving the other blank would quietly drop
-                // the match out of the report the user reads by default.
-                !m.divergent -> {
-                    val next = if (m.pickOutcome == outcome) Outcome.PENDING else outcome
-                    m.copy(pickOutcome = next, backedOutcome = next)
-                }
-                lens == Lens.PICK ->
-                    m.copy(pickOutcome = if (m.pickOutcome == outcome) Outcome.PENDING else outcome)
-                else ->
-                    m.copy(backedOutcome = if (m.backedOutcome == outcome) Outcome.PENDING else outcome)
+            if (m.id != id) m else {
+                val next = m.marketOutcomes.toMutableMap()
+                if (next[key] == outcome) next.remove(key) else next[key] = outcome
+                m.copy(marketOutcomes = next)
             }
         }
         _matches.value = updated
         store.save(updated)
+    }
+
+    /** The same thing addressed by role rather than by key. */
+    fun markOutcome(id: String, lens: Lens, outcome: Outcome) {
+        val m = matchOf(id) ?: return
+        markMarket(id, m.keyOf(m.marketFor(lens)), outcome)
     }
 
     /**
@@ -257,7 +259,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             when {
                 m.id != id -> m
                 m.backedMarket == market -> m
-                else -> m.copy(backed = market, backedOutcome = Outcome.PENDING)
+                // The verdict already recorded belongs to whichever market it
+                // names, so switching bets neither carries it over nor loses it.
+                else -> m.copy(backed = market)
             }
         }
         _matches.value = updated
