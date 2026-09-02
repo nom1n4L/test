@@ -165,7 +165,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _busy.value = true
             _message.value = null
             try {
-                val result = Analyst(store.apiKey).analyse(images, note, store.model, _mode.value)
+                val result = Analyst(store.apiKey)
+                    .analyse(images, note, store.model, _mode.value)
+                    .copy(model = store.model)
                 val updated = _matches.value + result
                 _matches.value = updated
                 store.save(updated)
@@ -194,6 +196,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val updated = _matches.value.map { m ->
             if (m.id != id) m
             else m.copy(outcome = if (m.outcome == outcome) Outcome.PENDING else outcome)
+        }
+        _matches.value = updated
+        store.save(updated)
+    }
+
+    /** Records which market was actually backed, which is often not the pick. */
+    fun setBacked(id: String, market: String) {
+        val updated = _matches.value.map { m ->
+            if (m.id == id) m.copy(backed = market) else m
         }
         _matches.value = updated
         store.save(updated)

@@ -53,6 +53,16 @@ data class MatchPrediction(
     val confidence: String,
     val confidenceWhy: String,
     val mode: Mode = Mode.MATCH,
+    /**
+     * The market actually backed, which is not always the one recommended.
+     *
+     * The app suggests one pick but shows forty markets, and people bet the one
+     * they liked rather than the one at the top. Recording the recommendation
+     * while they backed something else made the report measure a bet nobody
+     * placed — and left the user unable to say whether a match "hit" at all.
+     */
+    val backed: String = "",
+    val model: String = "",
     val outcome: Outcome = Outcome.PENDING,
     val raw: String = "",
 ) {
@@ -74,12 +84,31 @@ data class MatchPrediction(
 
     val settled: Boolean get() = outcome != Outcome.PENDING
 
+    /** What the record is about: the market backed, or the recommendation. */
+    val trackedMarket: String get() = backed.ifBlank { pick }
+
+    val trackedProb: Double
+        get() = markets.firstOrNull { it.name == trackedMarket }?.prob ?: pickProb
+
+    val trackedGroup: String
+        get() = markets.firstOrNull { it.name == trackedMarket }?.group
+            ?: if (mode == Mode.CORNER) "Corner" else "Lainnya"
+
     /** Markets under their headings, in the order the catalogue lists them. */
     fun grouped(): List<Pair<String, List<MarketOption>>> =
         markets.groupBy { it.group }
             .toList()
             .sortedBy { (group, _) -> Markets.order.indexOf(group).takeIf { it >= 0 } ?: 99 }
             .map { (group, list) -> group to list.sortedByDescending { it.prob } }
+}
+
+/** One cut of the record — a market family, or a model. */
+data class Slice(val name: String, val total: Int, val won: Int, val promised: Double) {
+    val actual: Double get() = if (total == 0) 0.0 else won.toDouble() / total
+    val gap: Double get() = actual - promised
+
+    /** Enough results to be worth a second look, still not proof. */
+    val worthWatching: Boolean get() = total >= 5 && kotlin.math.abs(gap) >= 0.15
 }
 
 /** The market catalogue, shared between the prompt and the screen. */
@@ -117,7 +146,32 @@ data class Report(val settled: List<MatchPrediction>) {
     val actual: Double get() = if (total == 0) 0.0 else won.toDouble() / total
 
     /** What the app said would happen, averaged over the same picks. */
-    val promised: Double get() = if (total == 0) 0.0 else settled.sumOf { it.pickProb } / total
+    val promised: Double
+        get() = if (total == 0) 0.0 else settled.sumOf { it.trackedProb } / total
+
+    /**
+     * The record split by market, and by model.
+     *
+     * An overall hit rate averages away the thing worth knowing. A model can be
+     * honest about corners and badly overconfident about one goal line, and the
+     * combined number will look fine while the user keeps losing on that line.
+     * Only a split shows it.
+     */
+    fun byGroup(): List<Slice> = slice { it.trackedGroup }
+
+    fun byModel(): List<Slice> = slice { it.model.ifBlank { "tidak tercatat" } }
+
+    private fun slice(key: (MatchPrediction) -> String): List<Slice> =
+        settled.groupBy(key)
+            .map { (name, list) ->
+                Slice(
+                    name = name,
+                    total = list.size,
+                    won = list.count { it.outcome == Outcome.WON },
+                    promised = list.sumOf { it.trackedProb } / list.size,
+                )
+            }
+            .sortedByDescending { it.total }
 
     val gap: Double get() = actual - promised
 

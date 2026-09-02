@@ -352,6 +352,72 @@ class CoreTest {
         assert(!MarketOption("x", 0.96, "").safe) { "96% odds-nya terlalu kecil untuk dipasang" }
     }
 
+    /**
+     * Reproduces the user's own record: the headline looked healthy while one
+     * market was quietly losing. If the split cannot surface that, it is not
+     * worth having.
+     */
+    @Test
+    fun theSplitFindsTheMarketTheAverageHides() {
+        fun bet(group: String, prob: Double, won: Boolean) = match(prob).copy(
+            markets = listOf(MarketOption("m", prob, "", group)),
+            backed = "m",
+            outcome = if (won) Outcome.WON else Outcome.LOST,
+        )
+        val record =
+            List(8) { bet("Corner", 0.76, true) } + List(2) { bet("Corner", 0.76, false) } +
+                List(5) { bet("Total Gol", 0.72, true) } +
+                List(3) { bet("Over 1.5", 0.74, true) } + List(3) { bet("Over 1.5", 0.74, false) }
+
+        val report = Report(record)
+        assert(Math.round(report.actual * 100) == 76L) { "akurasi total salah: ${report.actual}" }
+
+        val slices = report.byGroup().associateBy { it.name }
+        assert(Math.round(slices.getValue("Corner").actual * 100) == 80L)
+        assert(Math.round(slices.getValue("Over 1.5").actual * 100) == 50L)
+        assert(slices.getValue("Over 1.5").worthWatching) { "market yang meleset jauh tidak ditandai" }
+        assert(!slices.getValue("Corner").worthWatching) { "market yang sehat malah ditandai" }
+
+        println()
+        println("Total terlihat sehat: %d%% lawan janji %d%%"
+            .format(Math.round(report.actual * 100), Math.round(report.promised * 100)))
+        report.byGroup().forEach {
+            println("  %-12s %d/%-2d  nyata %3d%%  janji %3d%%  selisih %+d %s"
+                .format(it.name, it.won, it.total, Math.round(it.actual * 100),
+                    Math.round(it.promised * 100), Math.round(it.gap * 100),
+                    if (it.worthWatching) "← awasi" else ""))
+        }
+    }
+
+    @Test
+    fun aThinSliceIsNotFlagged() {
+        fun bet(won: Boolean) = match(0.8).copy(
+            markets = listOf(MarketOption("m", 0.8, "", "Baru")),
+            backed = "m",
+            outcome = if (won) Outcome.WON else Outcome.LOST,
+        )
+        val slice = Report(listOf(bet(false), bet(false), bet(true))).byGroup().first()
+        assert(!slice.worthWatching) { "3 hasil seharusnya belum ditandai" }
+    }
+
+    @Test
+    fun theRecordFollowsTheBetNotTheRecommendation() {
+        val m = match(0.85).copy(
+            pick = "Over 1.5",
+            markets = listOf(
+                MarketOption("Over 1.5", 0.85, "", "Total Gol"),
+                MarketOption("Double Chance 1X", 0.71, "", "Double Chance"),
+            ),
+            backed = "Double Chance 1X",
+            outcome = Outcome.WON,
+        )
+        assert(m.trackedMarket == "Double Chance 1X")
+        assert(Math.round(m.trackedProb * 100) == 71L) { "peluang yang dicatat masih ikut rekomendasi" }
+        assert(m.trackedGroup == "Double Chance")
+        println()
+        println("Direkomendasikan '${m.pick}', dipasang '${m.trackedMarket}' — yang dicatat yang dipasang.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

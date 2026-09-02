@@ -106,6 +106,7 @@ fun App(vm: AppViewModel) {
                         DetailScreen(
                             match = match,
                             onMark = { vm.markOutcome(s.id, it) },
+                            onBacked = { vm.setBacked(s.id, it) },
                             onDelete = { vm.remove(s.id) },
                         )
                     }

@@ -58,6 +58,8 @@ class Store(context: Context) {
         put("confidence_why", m.confidenceWhy)
         put("outcome", m.outcome.name)
         put("mode", m.mode.name)
+        put("backed", m.backed)
+        put("model", m.model)
         put(
             "markets",
             JSONArray().apply {
@@ -112,6 +114,8 @@ class Store(context: Context) {
             outcome = runCatching { Outcome.valueOf(o.optString("outcome")) }
                 .getOrDefault(Outcome.PENDING),
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
+            backed = o.optString("backed"),
+            model = o.optString("model"),
         )
     }
 }

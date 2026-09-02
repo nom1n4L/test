@@ -418,6 +418,7 @@ fun AddScreen(
 fun DetailScreen(
     match: MatchPrediction,
     onMark: (Outcome) -> Unit,
+    onBacked: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
     LazyColumn(
@@ -503,7 +504,7 @@ fun DetailScreen(
             item { MarketsCard(match) }
         }
 
-        item { OutcomeCard(match, onMark) }
+        item { OutcomeCard(match, onMark, onBacked) }
 
         item { StatsReadCard(match) }
 
@@ -650,11 +651,74 @@ private fun MarketGroup(
  * anything is to write down what happened while it is still known.
  */
 @Composable
-private fun OutcomeCard(match: MatchPrediction, onMark: (Outcome) -> Unit) {
+private fun OutcomeCard(
+    match: MatchPrediction,
+    onMark: (Outcome) -> Unit,
+    onBacked: (String) -> Unit,
+) {
+    var choosing by remember(match.id) { mutableStateOf(false) }
     Card(
         title = "Sudah Main?",
-        subtitle = "Tandai hasilnya supaya akurasi aslimu bisa dihitung.",
+        subtitle = "Tandai hasil dari market yang kamu pasang, bukan yang direkomendasikan.",
     ) {
+        // The recommendation and the bet are often different markets. Recording
+        // the wrong one is what made the report unanswerable.
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth().clickable { choosing = !choosing },
+        ) {
+            Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Yang kamu pasang",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        match.trackedMarket.ifBlank { "belum dipilih" },
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+                Text(
+                    "${Math.round(match.trackedProb * 100)}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = probColor(match.trackedProb),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(if (choosing) "−" else "ganti", style = MaterialTheme.typography.labelSmall, color = Sky)
+            }
+        }
+        AnimatedVisibility(choosing) {
+            Column(Modifier.padding(top = 8.dp)) {
+                match.markets.sortedByDescending { it.prob }.forEach { option ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onBacked(option.name)
+                                choosing = false
+                            }
+                            .padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            option.name,
+                            Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = if (option.name == match.trackedMarket) FontWeight.Bold else FontWeight.Normal,
+                        )
+                        Text(
+                            "${option.percent}%",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = probColor(option.prob),
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutcomeButton(
                 text = "Tembus",
@@ -1188,6 +1252,21 @@ fun ReportScreen(report: Report, onOpen: (String) -> Unit) {
             }
         }
 
+        val byGroup = report.byGroup()
+        if (byGroup.size > 1) {
+            item { SliceCard("Per Market", "Di mana akurasinya benar-benar berada.", byGroup) }
+        }
+        val byModel = report.byModel()
+        if (byModel.size > 1) {
+            item {
+                SliceCard(
+                    "Per Model Gemini",
+                    "Kalau satu model jelas lebih baik, ini yang akan menunjukkannya.",
+                    byModel,
+                )
+            }
+        }
+
         item {
             Text(
                 "Riwayat",
@@ -1220,5 +1299,105 @@ fun ReportScreen(report: Report, onOpen: (String) -> Unit) {
                 }
             }
         }
+    }
+}
+
+
+/**
+ * One cut of the record, market by market or model by model.
+ *
+ * The headline hit rate averages away the thing worth acting on. A model can be
+ * honest about corners and badly overconfident about a single goal line, and the
+ * combined figure looks healthy while that line keeps losing. This is the table
+ * that shows it, and the only change to betting behaviour the app can honestly
+ * suggest: back the rows that deliver what they promise, leave the ones that
+ * don't.
+ */
+@Composable
+private fun SliceCard(title: String, subtitle: String, slices: List<com.skorsnap.app.data.Slice>) {
+    Card(title = title, subtitle = subtitle) {
+        Row {
+            Text("", Modifier.weight(1.6f))
+            Text(
+                "Tembus",
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.End,
+            )
+            Text(
+                "Janji",
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.End,
+            )
+            Text(
+                "Selisih",
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.End,
+            )
+        }
+        Spacer(Modifier.height(6.dp))
+        slices.forEach { slice ->
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1.6f)) {
+                    Text(slice.name, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        "${slice.won}/${slice.total}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    "${Math.round(slice.actual * 100)}%",
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = probColor(slice.actual),
+                    textAlign = TextAlign.End,
+                )
+                Text(
+                    "${Math.round(slice.promised * 100)}%",
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.End,
+                )
+                Text(
+                    "%+d".format(Math.round(slice.gap * 100)),
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (slice.worthWatching) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        slice.total < 5 -> MaterialTheme.colorScheme.onSurfaceVariant
+                        slice.gap <= -0.15 -> Rose
+                        slice.gap >= 0.15 -> Green
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    textAlign = TextAlign.End,
+                )
+            }
+        }
+        val watch = slices.filter { it.worthWatching && it.gap < 0 }
+        if (watch.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Layak diawasi: " + watch.joinToString { it.name } +
+                    " — hasilnya jauh di bawah yang dijanjikan. Belum tentu kebetulan, " +
+                    "belum tentu juga bukan; kalau polanya bertahan setelah 20-an taruhan, " +
+                    "hindari saja market itu.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Amber,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Baris dengan kurang dari 5 hasil belum berarti apa-apa — dibiarkan abu-abu.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
