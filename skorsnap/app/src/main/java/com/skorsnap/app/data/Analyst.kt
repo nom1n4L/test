@@ -144,13 +144,65 @@ class Analyst(private val apiKey: String) {
             }
             post(model, constrained.toString())
         }
-        parse(reply).copy(mode = mode)
+        enforceSafePick(Grid.fill(parse(reply).copy(mode = mode)))
+    }
+
+    /**
+     * Keeps the recommendation inside the band the app calls safe.
+     *
+     * The badge and the pick were defined separately, so a 57% market could be
+     * recommended while nothing about it was marked safe — advice the rest of the
+     * screen disagreed with. The instruction above asks the model to stay in the
+     * band; this makes it so regardless, because a rule that matters should not
+     * depend on the model choosing to follow it.
+     *
+     * When the pick is replaced the app says so rather than quietly presenting its
+     * own choice as the model's.
+     */
+    internal fun enforceSafePick(p: MatchPrediction): MatchPrediction {
+        val current = p.markets.firstOrNull { it.name == p.pick }
+        if (current != null && current.safe) return p
+
+        // A market the model actually looked at beats one the app worked out, even
+        // when the arithmetic one reads higher: the model saw the screenshots.
+        val safe = p.safePicks()
+        val best = safe.firstOrNull { !it.derived } ?: safe.firstOrNull() ?: return p
+        return p.copy(
+            pick = best.name,
+            pickProb = best.prob,
+            pickCorrected = true,
+        )
     }
 
     /** Raised when the model ran out of room before finishing its JSON. */
     private class TruncatedException : Exception()
 
+    /**
+     * Sends the request, and follows Google's own advice when a model has retired.
+     *
+     * A retired model answers 404 with "no longer available to new users. Please
+     * update your code to use models/gemini-3.6-flash" — the replacement is right
+     * there in the message, so failing the user's analysis rather than following it
+     * would be perverse. The substitution happens once and the caller is told which
+     * model actually answered.
+     */
     private fun post(model: String, body: String): String {
+        try {
+            return postOnce(model, body)
+        } catch (e: RetiredModelException) {
+            substituted = model to e.replacement
+            return postOnce(e.replacement, body)
+        }
+    }
+
+    /** Set when a retired model was silently swapped for the one Google named. */
+    @Volatile
+    var substituted: Pair<String, String>? = null
+        private set
+
+    private class RetiredModelException(val replacement: String) : Exception()
+
+    private fun postOnce(model: String, body: String): String {
         var conn: HttpURLConnection? = null
         try {
             val url = "$HOST/v1beta/models/$model:generateContent"
@@ -169,7 +221,10 @@ class Analyst(private val apiKey: String) {
             val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
 
-            if (code !in 200..299) throw AnalystException(errorMessage(code, text))
+            if (code !in 200..299) {
+                retirementReplacement(code, text)?.let { throw RetiredModelException(it) }
+                throw AnalystException(errorMessage(code, text))
+            }
 
             val json = JSONObject(text)
             val candidate = json.optJSONArray("candidates")?.optJSONObject(0)
@@ -211,6 +266,21 @@ class Analyst(private val apiKey: String) {
      * with advice that did not help and no way to find out more. The service's
      * message goes through verbatim; the hint is added beside it, not instead.
      */
+    /**
+     * The model Google tells us to use instead, or null if this is a different 404.
+     */
+    internal fun retirementReplacement(code: Int, body: String): String? {
+        if (code != 404) return null
+        // Collapsed to single spaces first: the phrase is matched as text, and a
+        // line break landing mid-phrase should not decide whether the user's
+        // analysis recovers or fails.
+        val detail = runCatching {
+            JSONObject(body).optJSONObject("error")?.optString("message")
+        }.getOrNull().orEmpty().replace(Regex("""\s+"""), " ")
+        if (!detail.contains("no longer available", true)) return null
+        return Regex("""use models/([A-Za-z0-9.\-]+)""").find(detail)?.groupValues?.get(1)
+    }
+
     private fun errorMessage(code: Int, body: String): String {
         val detail = runCatching {
             JSONObject(body).optJSONObject("error")?.optString("message")
@@ -325,16 +395,24 @@ class Analyst(private val apiKey: String) {
 Aturan pengisian:
 - prob_home + prob_draw + prob_away harus berjumlah 1,0.
 - Semua "prob" adalah peluang antara 0 dan 1, bukan persen. 0,72 berarti 72%.
-- Isi "markets" selengkap mungkin dari daftar di atas — tapi HANYA yang datanya
-  benar-benar ada di gambar. Market yang datanya tidak ada, jangan dimasukkan
-  sama sekali; jangan menebak hanya supaya daftarnya panjang.
+- Isi "markets" LENGKAP. Setiap market di daftar di atas wajib ada; satu pun jangan
+  dilewati, karena daftar yang bolong bikin pengguna kehilangan pilihan pasang.
+- Kalau statistik untuk satu market tipis, tetap isi dari xg_home/xg_away, turunkan
+  angkanya supaya jujur, dan tulis alasannya di "why". Yang tidak boleh dikarang itu
+  statistiknya, bukan hitungannya. Kalau gambarnya sendiri tidak terbaca, jangan
+  menebak apa pun: set "readable" = false.
+- xg_home dan xg_away wajib berisi perkiraan gol yang masuk akal dan tidak boleh 0 —
+  seluruh market gol diturunkan dari keduanya.
 - Setiap market wajib punya "group" persis seperti judul di daftar di atas.
 - Peluang di satu pasangan harus konsisten: Over 2.5 dan Under 2.5 dijumlah 1,0,
   BTTS Ya dan Tidak dijumlah 1,0, 1X2 dijumlah 1,0.
-- "pick" hanya SATU, diambil dari "markets" — yang paling seimbang antara peluang
-  tinggi dan dukungan data yang jelas. Jangan pilih yang peluangnya di atas 0,92,
-  karena odds-nya terlalu kecil untuk dipasang. Tetap satu saja walaupun
-  market-nya banyak.
+- "pick" hanya SATU, diambil dari "markets", dan peluangnya WAJIB antara 0,68 dan
+  0,92. Di bawah 0,68 terlalu dekat lempar koin untuk disebut rekomendasi; di atas
+  0,92 odds-nya terlalu kecil untuk dipasang. Di dalam rentang itu, pilih yang
+  peluangnya paling tinggi DAN dukungan datanya paling jelas — kalau dua market
+  sama-sama didukung data, ambil yang peluangnya lebih tinggi.
+- Kalau tidak ada satu pun market yang jatuh di 0,68-0,92, isi "pick" dengan yang
+  paling mendekati rentang itu dan turunkan "confidence" jadi "rendah".
 - "stats_seen" diisi statistik yang benar-benar kamu baca dari gambar.
 - "stats_missing" diisi statistik penting yang kamu cari tapi tidak ada di gambar.
 - Semua teks dalam bahasa Indonesia.
@@ -345,7 +423,15 @@ Aturan pengisian:
     companion object {
         private const val HOST = "https://generativelanguage.googleapis.com"
 
-        const val DEFAULT_MODEL = "gemini-2.5-flash"
+        /**
+         * The alias rather than a dated name.
+         *
+         * `gemini-2.5-flash` was the default and it now answers 404 for any key
+         * created recently — "no longer available to new users" — so a brand-new
+         * paid key could not call a single model. The `-latest` aliases always
+         * resolve to a current model, which is exactly the property a default needs.
+         */
+        const val DEFAULT_MODEL = "gemini-flash-latest"
 
         /**
          * Room for the answer, generous because thinking is drawn from the same
@@ -356,11 +442,24 @@ Aturan pengisian:
         /** Thinking allowance on the retry, leaving the rest for the JSON. */
         internal const val THINKING_BUDGET = 8192
 
+        /**
+         * The floor the schema puts under the market list.
+         *
+         * Asked for the full catalogue the model would still return three or four
+         * markets and call it done, which is what made whole groups appear on one
+         * match and vanish on the next. Well under the catalogue size, so a genuinely
+         * thin answer is still possible — Grid fills whatever is missing.
+         */
+        internal const val MIN_MARKETS = 24
+
 
         /** Variants built for other jobs entirely. */
         private val SPECIALISED = listOf(
             "embedding", "-tts", "-image", "native-audio", "live-",
             "robotics", "transcribe", "guard", "computer-use", "-thinking-",
+            // Listed as supporting generateContent, but every call answers
+            // "This model only supports Interactions API".
+            "-omni-",
         )
 
         /**
@@ -372,17 +471,38 @@ Aturan pengisian:
         internal fun usable(name: String): Boolean =
             name.startsWith("gemini-") && SPECIALISED.none { it in name }
 
-        /** Flash and Pro first — the real choice — then newest within each group. */
-        internal fun rank(models: List<Model>): List<Model> = models.sortedWith(
-            compareByDescending<Model> { "flash" in it.id || "pro" in it.id }
-                .thenByDescending { it.id }
-        )
+        /**
+         * Best first, where "best" means most likely to still work tomorrow.
+         *
+         * The aliases lead because they never retire; after them come the numbered
+         * models newest-first, full models ahead of their lite variants, and stable
+         * releases ahead of previews.
+         */
+        internal fun rank(models: List<Model>): List<Model> =
+            models.sortedWith(compareByDescending<Model> { score(it.id) }.thenBy { it.id })
 
-        /** Label, model id, and what to expect. */
+        internal fun score(id: String): Double {
+            val family = when {
+                "pro" in id -> 3.0
+                "lite" in id -> 1.0
+                else -> 2.0
+            }
+            val preview = if ("preview" in id || "customtools" in id) -4.0 else 0.0
+            if (id.endsWith("-latest")) return 1000.0 + family
+            val version = Regex("""gemini-(\d+(?:\.\d+)?)""").find(id)
+                ?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+            return version * 10 + family + preview
+        }
+
+        /**
+         * Shown only until the live list arrives. Aliases exclusively: the previous
+         * list named three dated models and all three have since been closed to new
+         * keys, so it sent users straight into a 404.
+         */
         val MODELS = listOf(
-            Triple("Gemini 2.5 Flash", "gemini-2.5-flash", "Gratis, cepat — pilihan awal yang baik"),
-            Triple("Gemini 3 Flash", "gemini-3-flash", "Lebih baru, biasanya lebih teliti"),
-            Triple("Gemini 2.5 Pro", "gemini-2.5-pro", "Paling teliti baca angka, jatah gratisnya lebih kecil"),
+            Triple("Gemini Flash (terbaru)", "gemini-flash-latest", "Selalu versi terkini — pilihan awal"),
+            Triple("Gemini Pro (terbaru)", "gemini-pro-latest", "Paling teliti baca angka, lebih lambat"),
+            Triple("Gemini Flash Lite (terbaru)", "gemini-flash-lite-latest", "Paling hemat kuota"),
         )
 
         /**
@@ -408,7 +528,7 @@ Aturan pengisian:
                     .put("xg_away", num())
                     .put(
                         "markets",
-                        JSONObject().put("type", "ARRAY").put(
+                        JSONObject().put("type", "ARRAY").put("minItems", MIN_MARKETS).put(
                             "items",
                             JSONObject()
                                 .put("type", "OBJECT")

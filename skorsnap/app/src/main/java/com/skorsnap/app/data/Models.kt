@@ -13,6 +13,12 @@ data class MarketOption(
     val why: String,
     /** Heading this belongs under, so forty markets stay readable. */
     val group: String = "Lainnya",
+    /**
+     * True when the app worked this number out from the goal expectations rather
+     * than the model naming it. The screen says which is which, and a market the
+     * model actually judged is preferred when recommending.
+     */
+    val derived: Boolean = false,
 ) {
     val percent: Int get() = Math.round(prob * 100).toInt()
 
@@ -26,7 +32,19 @@ data class MarketOption(
     val breakEven: Double get() = if (prob > 1e-9) 1.0 / prob else 0.0
 
     /** High enough to lead with, low enough that a bookmaker will price it. */
-    val safe: Boolean get() = prob in 0.68..0.92
+    val safe: Boolean get() = prob in SAFE_LOW..SAFE_HIGH
+
+    companion object {
+        /**
+         * The band a recommendation has to sit in.
+         *
+         * Below the floor the bet is a coin toss dressed up as advice. Above the
+         * ceiling it prices under 1.10, which no bookmaker offers and which was
+         * never measured for calibration either.
+         */
+        const val SAFE_LOW = 0.68
+        const val SAFE_HIGH = 0.92
+    }
 }
 
 /** How a followed pick actually turned out. */
@@ -63,6 +81,8 @@ data class MatchPrediction(
      */
     val backed: String = "",
     val model: String = "",
+    /** True when the app replaced a recommendation that fell outside the safe band. */
+    val pickCorrected: Boolean = false,
     val outcome: Outcome = Outcome.PENDING,
     val raw: String = "",
 ) {
@@ -93,6 +113,10 @@ data class MatchPrediction(
     val trackedGroup: String
         get() = markets.firstOrNull { it.name == trackedMarket }?.group
             ?: if (mode == Mode.CORNER) "Corner" else "Lainnya"
+
+    /** Safe-band markets, strongest first — the shortlist worth leading with. */
+    fun safePicks(): List<MarketOption> =
+        markets.filter { it.safe }.sortedByDescending { it.prob }
 
     /** Markets under their headings, in the order the catalogue lists them. */
     fun grouped(): List<Pair<String, List<MarketOption>>> =

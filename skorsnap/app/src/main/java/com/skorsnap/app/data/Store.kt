@@ -60,6 +60,7 @@ class Store(context: Context) {
         put("mode", m.mode.name)
         put("backed", m.backed)
         put("model", m.model)
+        put("pick_corrected", m.pickCorrected)
         put(
             "markets",
             JSONArray().apply {
@@ -67,6 +68,7 @@ class Store(context: Context) {
                     put(
                         JSONObject().put("name", it.name).put("prob", it.prob)
                             .put("why", it.why).put("group", it.group)
+                            .put("derived", it.derived)
                     )
                 }
             }
@@ -88,6 +90,7 @@ class Store(context: Context) {
                         m.optDouble("prob", 0.0),
                         m.optString("why"),
                         m.optString("group").ifBlank { "Lainnya" },
+                        m.optBoolean("derived", false),
                     )
                 )
             }
@@ -116,6 +119,7 @@ class Store(context: Context) {
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
             backed = o.optString("backed"),
             model = o.optString("model"),
+            pickCorrected = o.optBoolean("pick_corrected"),
         )
     }
 }

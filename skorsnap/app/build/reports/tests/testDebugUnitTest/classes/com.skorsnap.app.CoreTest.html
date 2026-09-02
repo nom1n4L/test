@@ -23,7 +23,7 @@
 <tr>
 <td>
 <div class="infoBox" id="tests">
-<div class="counter">25</div>
+<div class="counter">41</div>
 <p>tests</p>
 </div>
 </td>
@@ -41,7 +41,7 @@
 </td>
 <td>
 <div class="infoBox" id="duration">
-<div class="counter">0.192s</div>
+<div class="counter">0.279s</div>
 <p>duration</p>
 </div>
 </td>
@@ -78,23 +78,58 @@
 </tr>
 </thead>
 <tr>
-<td class="success">aThinSliceIsNotFlagged</td>
-<td class="success">0s</td>
+<td class="success">aRecommendationAboveTheBandIsAlsoReplaced</td>
+<td class="success">0.003s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
-<td class="success">bandsCoverALongCaptureWithoutGaps</td>
+<td class="success">aRecommendationBelowTheBandIsReplaced</td>
+<td class="success">0.005s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">aRecommendationInsideTheBandIsLeftAlone</td>
+<td class="success">0.022s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">aThinSliceIsNotFlagged</td>
 <td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">aliasesLeadAndPreviewsTrail</td>
+<td class="success">0.010s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">anUnreadableMatchIsLeftAlone</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">bandsCoverALongCaptureWithoutGaps</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">cappedThinkingLeavesRoomForTheAnswer</td>
-<td class="success">0.006s</td>
+<td class="success">0.005s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">cornerModeGetsItsOwnCatalogue</td>
+<td class="success">0.005s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">derivedMarketsAgreeWithEachOther</td>
+<td class="success">0.037s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">duplicateLegsAreCollapsed</td>
-<td class="success">0.056s</td>
+<td class="success">0.064s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -104,7 +139,12 @@
 </tr>
 <tr>
 <td class="success">everyGroupInThePromptIsOneTheScreenKnows</td>
-<td class="success">0.014s</td>
+<td class="success">0.016s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">everyGroupIsCoveredWhateverTheModelReturns</td>
+<td class="success">0.009s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -114,37 +154,37 @@
 </tr>
 <tr>
 <td class="success">ignoresImpossibleProbabilities</td>
-<td class="success">0.002s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">marketsAreGroupedInCatalogueOrder</td>
-<td class="success">0.005s</td>
-<td class="success">passed</td>
-</tr>
-<tr>
-<td class="success">onlyOffersModelsThatCanReadAScreenshot</td>
-<td class="success">0.004s</td>
-<td class="success">passed</td>
-</tr>
-<tr>
-<td class="success">ordinaryScreenshotsAreNotSliced</td>
 <td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">onlyOffersModelsThatCanReadAScreenshot</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">ordinaryScreenshotsAreNotSliced</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">parsesACleanReply</td>
-<td class="success">0.018s</td>
+<td class="success">0.012s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">pendingMatchesStayOutOfTheRecord</td>
-<td class="success">0.003s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">precisionTightensAsResultsAccumulate</td>
-<td class="success">0.003s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -154,7 +194,7 @@
 </tr>
 <tr>
 <td class="success">putsTheUsefulModelsFirst</td>
-<td class="success">0.002s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -164,22 +204,47 @@
 </tr>
 <tr>
 <td class="success">reportsTheGapBetweenPromisedAndDelivered</td>
-<td class="success">0.007s</td>
+<td class="success">0.006s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">responseSchemaCoversEveryFieldTheParserNeeds</td>
-<td class="success">0.003s</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">retiredModelsHandGoogleTheirOwnReplacement</td>
+<td class="success">0.007s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">sixLegsIsTheCaseTheUserAsksFor</td>
-<td class="success">0.002s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">survivesAStraySentenceBeforeTheJson</td>
-<td class="success">0.032s</td>
+<td class="success">0.004s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">theDefaultModelIsAnAliasThatCannotRetire</td>
+<td class="success">0s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">theGridIsFittedToTheModelsOwnCall</td>
+<td class="success">0.007s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">theModelsOwnNumberIsNeverOverwritten</td>
+<td class="success">0.005s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">theOmniVariantsAreFilteredOut</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -189,7 +254,7 @@
 </tr>
 <tr>
 <td class="success">theRecordFollowsTheBetNotTheRecommendation</td>
-<td class="success">0.004s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -198,8 +263,23 @@
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">theSafeListRunsHighestFirstAndExcludesTheRest</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">theSplitFindsTheMarketTheAverageHides</td>
-<td class="success">0.024s</td>
+<td class="success">0.029s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">theTwoHandicapFamiliesBothSurvive</td>
+<td class="success">0.008s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">withNothingSafeTheAppDoesNotInventOne</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 </table>
@@ -207,16 +287,22 @@
 <div class="tab">
 <h2>Standard output</h2>
 <span class="code">
-<pre>
+<pre>Gambar tidak terbaca → tetap kosong, tidak dikarang.
+
 Total terlihat sehat: 76% lawan janji 74%
   Corner       8/10  nyata  80%  janji  76%  selisih +4 
   Over 1.5     3/6   nyata  50%  janji  74%  selisih -24 ← awasi
   Total Gol    5/5   nyata 100%  janji  72%  selisih +28 ← awasi
+Yang sudah di rentang aman tidak diutak-atik — walau ada yang lebih tinggi.
+Pasangan berjumlah 1,0; DC tidak pernah di bawah komponennya.
 Kalimat tambahan di luar JSON tidak merusak hasil.
 4 leg @80% → 41% (1 dari 2)
+Model omni disaring — dulu muncul di daftar lalu selalu gagal 400.
 
 Jatah output 32768, berpikir dibatasi 8192, sisa 24576 untuk jawaban.
+Urutan model: [gemini-flash-latest, gemini-3.7-flash, gemini-3.5-flash-lite, gemini-3-flash-preview, gemini-2.5-flash]
 Katalog match dan corner lengkap.
+404 'sudah pensiun' → otomatis pindah ke gemini-3.6-flash, bukan gagal total.
 
 Terbaca: Preston vs Bristol City, pilih Over 1.5 82%, impas di 1.22
 
@@ -225,8 +311,11 @@ Grup di prompt: [Corner, Corner Babak 1, Corner per Tim, Double Chance, Handicap
 Janji 75%, tembus 75% → Akurasi nyatamu kurang lebih sama dengan yang dijanjikan model. Artiny…
 Janji 85%, tembus 55% → Hasilnya di bawah yang dijanjikan model. Kalau bertahan sampai 100 has…
 Urutan grup: [Double Chance, Total Gol, Handicap Asia]
+Corner 5,4-4,6 → Over 9.5 50%.
 
 Screenshot biasa dibiarkan utuh; hanya long capture yang dipotong.
+
+Model kasih 1 market → layar dapat 51, 8 grup lengkap.
 Balasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.
   tinggi  2600 →  1 potong, tertinggi 2600 px
   tinggi  4000 →  3 potong, tertinggi 1600 px
@@ -238,11 +327,19 @@ Direkomendasikan 'Over 1.5', dipasang 'Double Chance 1X' — yang dicatat yang d
 
 12 hasil  → ±22 poin (belum cukup)
 120 hasil → ±7 poin (cukup)
+97% (odds di bawah 1,04) diganti jadi 84%.
+Model bilang 62% menang → grid disetel ke 2.16/1.08, bacanya 62%.
 
 Penyaring model: 5 dipertahankan, 8 disembunyikan.
+Daftar aman: [DC, Over 1.5, BTTS] — tertinggi di atas, yang di luar rentang dibuang.
+
+57% diganti jadi 'Double Chance 1X' 81% — dan dikabari ke pengguna.
+Kalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.
 
 11 dari 12: nyata 92%, dijanjikan 78%, sejatinya antara 65% dan 99% (±17 poin)
 Vonis: Baru 12 hasil. Terlalu sedikit untuk menyimpulkan apa pun — beruntung dan pintar terlihat sama di jumlah segini.
+
+Default sekarang 'gemini-flash-latest' — alias, tidak bisa pensiun.
 
 Skema mencakup 17 field, 12 di antaranya wajib.
 
@@ -252,6 +349,8 @@ Skema mencakup 17 field, 12 di antaranya wajib.
    imbal hasil harapan 70%
 Peluang mustahil dibuang, bukan ditampilkan.
 Urutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
+Handicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
+Angka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
 
 3 leg aman    : tembus 72.1%, harapan 83.9%
 3 leg berisiko: tembus 17.2%, harapan 83.9%
@@ -267,7 +366,7 @@ Urutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp
 <input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
 </label>
 </div>Generated by 
-<a href="https://www.gradle.org">Gradle 8.14.3</a> at Sep 2, 2026, 12:28:36 AM</p>
+<a href="https://www.gradle.org">Gradle 8.14.3</a> at Sep 2, 2026, 10:15:18 AM</p>
 </div>
 </div>
 </body>

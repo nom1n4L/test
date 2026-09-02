@@ -3,8 +3,10 @@ package com.skorsnap.app
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MarketOption
 import com.skorsnap.app.data.Markets
+import com.skorsnap.app.data.Grid
 import com.skorsnap.app.data.Images
 import com.skorsnap.app.data.MatchPrediction
+import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Report
@@ -416,6 +418,212 @@ class CoreTest {
         assert(m.trackedGroup == "Double Chance")
         println()
         println("Direkomendasikan '${m.pick}', dipasang '${m.trackedMarket}' — yang dicatat yang dipasang.")
+    }
+
+    private fun withMarkets(pick: String, vararg m: Pair<String, Double>) = match(0.5).copy(
+        pick = pick,
+        pickProb = m.first { it.first == pick }.second,
+        markets = m.map { (name, prob) -> MarketOption(name, prob, "", "Total Gol") },
+    )
+
+    /**
+     * The badge and the recommendation were defined separately, so a 57% market
+     * could be recommended while nothing on the page called it safe. The band is
+     * enforced in the app rather than trusted to the model.
+     */
+    @Test
+    fun aRecommendationBelowTheBandIsReplaced() {
+        val fixed = Analyst("k").enforceSafePick(
+            withMarkets("Over 1.5", "Over 1.5" to 0.57, "Double Chance 1X" to 0.81, "BTTS" to 0.71)
+        )
+        assert(fixed.pick == "Double Chance 1X") { "tidak diganti ke yang aman: ${fixed.pick}" }
+        assert(fixed.pickCorrected) { "penggantian tidak diberitahukan" }
+        println()
+        println("57% diganti jadi '${fixed.pick}' ${fixed.pickPercent}% — dan dikabari ke pengguna.")
+    }
+
+    @Test
+    fun aRecommendationAboveTheBandIsAlsoReplaced() {
+        val fixed = Analyst("k").enforceSafePick(
+            withMarkets("Over 0.5", "Over 0.5" to 0.97, "Over 1.5" to 0.84)
+        )
+        assert(fixed.pick == "Over 1.5") { "97% tetap direkomendasikan: ${fixed.pick}" }
+        println("97% (odds di bawah 1,04) diganti jadi ${fixed.pickPercent}%.")
+    }
+
+    @Test
+    fun aRecommendationInsideTheBandIsLeftAlone() {
+        val original = withMarkets("BTTS", "BTTS" to 0.74, "Over 1.5" to 0.88)
+        val after = Analyst("k").enforceSafePick(original)
+        assert(after.pick == "BTTS") { "rekomendasi yang sudah aman ikut diganti" }
+        assert(!after.pickCorrected)
+        println("Yang sudah di rentang aman tidak diutak-atik — walau ada yang lebih tinggi.")
+    }
+
+    @Test
+    fun withNothingSafeTheAppDoesNotInventOne() {
+        val original = withMarkets("Over 2.5", "Over 2.5" to 0.55, "BTTS" to 0.61)
+        val after = Analyst("k").enforceSafePick(original)
+        assert(after.pick == "Over 2.5") { "memaksakan pilihan padahal tidak ada yang aman" }
+        assert(!after.pickCorrected)
+        assert(after.safePicks().isEmpty())
+        println("Kalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.")
+    }
+
+    @Test
+    fun theSafeListRunsHighestFirstAndExcludesTheRest() {
+        val m = withMarkets(
+            "Over 1.5",
+            "Over 1.5" to 0.84, "Terlalu rendah" to 0.60,
+            "BTTS" to 0.71, "Terlalu tinggi" to 0.95, "DC" to 0.90,
+        )
+        val safe = m.safePicks().map { it.name }
+        assert(safe == listOf("DC", "Over 1.5", "BTTS")) { "urutan atau saringan salah: $safe" }
+        println("Daftar aman: $safe — tertinggi di atas, yang di luar rentang dibuang.")
+    }
+
+    // ------------------------------------------------------------ market grid
+
+    /**
+     * The reported bug: whole groups came back on one match and were gone on the
+     * next, because the model chose how many markets to bother listing.
+     */
+    @Test
+    fun everyGroupIsCoveredWhateverTheModelReturns() {
+        val filled = Grid.fill(match(0.5).copy(markets = listOf(
+            MarketOption("Over 1.5", 0.80, "dari model", "Total Gol")
+        )))
+        val groups = filled.markets.map { it.group }.toSet()
+        val wanted = Markets.order.filterNot { it.startsWith("Corner") || it == "Lainnya" }
+        val missing = wanted.filterNot { it in groups }
+        assert(missing.isEmpty()) { "grup masih kosong: $missing" }
+        println()
+        println("Model kasih 1 market → layar dapat ${filled.markets.size}, ${groups.size} grup lengkap.")
+    }
+
+    @Test
+    fun theModelsOwnNumberIsNeverOverwritten() {
+        val mine = MarketOption("Over 1.5", 0.42, "kata model", "Total Gol")
+        val filled = Grid.fill(match(0.5).copy(markets = listOf(mine)))
+        val kept = filled.markets.filter { it.name == "Over 1.5" && it.group == "Total Gol" }
+        assert(kept.size == 1) { "market model diduplikasi: ${kept.size}" }
+        assert(kept[0].prob == 0.42) { "angka model ditimpa jadi ${kept[0].prob}" }
+        println("Angka model dipertahankan (42%), hitungan cuma mengisi yang kosong.")
+    }
+
+    /**
+     * An unreadable screenshot must not become fifty confident percentages.
+     */
+    @Test
+    fun anUnreadableMatchIsLeftAlone() {
+        val blank = match(0.5).copy(readable = false, markets = emptyList())
+        assert(Grid.fill(blank).markets.isEmpty()) { "gambar tak terbaca malah diisi angka" }
+        println("Gambar tidak terbaca → tetap kosong, tidak dikarang.")
+    }
+
+    @Test
+    fun derivedMarketsAgreeWithEachOther() {
+        val m = Grid.matchMarkets(1.6, 1.1, 0.47, 0.26, 0.27).associateBy { it.group to it.name }
+        fun p(g: String, n: String) = m[g to n]!!.prob
+
+        val ou = p("Total Gol", "Over 2.5") + p("Total Gol", "Under 2.5")
+        assert(abs(ou - 1.0) < 1e-6) { "Over+Under 2.5 = $ou" }
+        val x = p("Hasil Akhir", "Tuan rumah menang") + p("Hasil Akhir", "Seri") +
+            p("Hasil Akhir", "Tandang menang")
+        assert(abs(x - 1.0) < 1e-6) { "1X2 = $x" }
+        assert(p("Double Chance", "1X (tuan rumah atau seri)") >= p("Hasil Akhir", "Tuan rumah menang")) {
+            "Double Chance di bawah komponennya"
+        }
+        assert(p("Total Gol", "Over 1.5") >= p("Total Gol", "Over 2.5")) { "garis Over tidak menurun" }
+        println("Pasangan berjumlah 1,0; DC tidak pernah di bawah komponennya.")
+    }
+
+    /**
+     * Both handicap families list "Tuan rumah -1" and they settle differently, so
+     * the fill has to key on group as well as name or one silently eats the other.
+     */
+    @Test
+    fun theTwoHandicapFamiliesBothSurvive() {
+        val m = Grid.matchMarkets(1.6, 1.1, 0.47, 0.26, 0.27)
+        val named = m.filter { it.name == "Tuan rumah -1" }.map { it.group }.toSet()
+        assert(named == setOf("Handicap Asia", "Handicap Eropa")) { "handicap saling menimpa: $named" }
+        println("Handicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.")
+    }
+
+    @Test
+    fun theGridIsFittedToTheModelsOwnCall() {
+        val (lh, la) = Grid.fit(1.5, 1.5, 0.62, 0.20, 0.18)
+        val m = Grid.matchMarkets(1.5, 1.5, 0.62, 0.20, 0.18)
+        val home = m.first { it.group == "Hasil Akhir" && it.name == "Tuan rumah menang" }.prob
+        assert(abs(home - 0.62) < 0.03) { "grid bilang $home padahal model bilang 0,62" }
+        println("Model bilang 62%% menang → grid disetel ke %.2f/%.2f, bacanya %d%%."
+            .format(lh, la, Math.round(home * 100)))
+    }
+
+    @Test
+    fun cornerModeGetsItsOwnCatalogue() {
+        val filled = Grid.fill(match(0.5).copy(mode = Mode.CORNER, xgHome = 5.4, xgAway = 4.6))
+        val groups = filled.markets.map { it.group }.toSet()
+        assert(groups.all { it.startsWith("Corner") }) { "market gol bocor ke analisis corner: $groups" }
+        val o = filled.markets.first { it.name == "Total corner Over 9.5" }.prob
+        val u = filled.markets.first { it.name == "Total corner Under 9.5" }.prob
+        assert(abs(o + u - 1.0) < 1e-6)
+        println("Corner 5,4-4,6 → Over 9.5 %d%%.".format(Math.round(o * 100)))
+    }
+
+    // ------------------------------------------------------------ model layer
+
+    /**
+     * The exact bug behind "dah beli tapi gabisa make model apapun": the default was
+     * a dated name, and dated names get closed to new keys.
+     */
+    @Test
+    fun theDefaultModelIsAnAliasThatCannotRetire() {
+        assert(Analyst.DEFAULT_MODEL.endsWith("-latest")) {
+            "default kembali ke nama bertanggal: ${Analyst.DEFAULT_MODEL}"
+        }
+        assert(Analyst.MODELS.all { it.second.endsWith("-latest") }) {
+            "daftar cadangan masih memuat nama bertanggal"
+        }
+        println()
+        println("Default sekarang '${Analyst.DEFAULT_MODEL}' — alias, tidak bisa pensiun.")
+    }
+
+    @Test
+    fun retiredModelsHandGoogleTheirOwnReplacement() {
+        // Google's wording, verbatim from the 404 the user's new key received.
+        val body = """{"error":{"code":404,"message":"This model models/gemini-2.5-flash """ +
+            """is no longer available to new users. Please update your code to use """ +
+            """models/gemini-3.6-flash for the latest features and improvements."}}"""
+        val fix = Analyst("k").retirementReplacement(404, body)
+        assert(fix == "gemini-3.6-flash") { "pengganti tidak terbaca: $fix" }
+        assert(Analyst("k").retirementReplacement(404, """{"error":{"message":"not found"}}""") == null)
+        println("404 'sudah pensiun' → otomatis pindah ke $fix, bukan gagal total.")
+    }
+
+    @Test
+    fun aliasesLeadAndPreviewsTrail() {
+        val ids = listOf(
+            "gemini-3-flash-preview", "gemini-2.5-flash", "gemini-flash-latest",
+            "gemini-3.7-flash", "gemini-3.5-flash-lite",
+        )
+        val order = Analyst.rank(ids.map { Analyst.Model(it, it, "") }).map { it.id }
+        assert(order.first() == "gemini-flash-latest") { "urutan: $order" }
+        assert(Analyst.score("gemini-3.1-flash-lite-preview") < Analyst.score("gemini-3.1-flash-lite")) {
+            "preview tidak kalah dari versi stabil segenerasi"
+        }
+        assert(order.indexOf("gemini-3.7-flash") < order.indexOf("gemini-2.5-flash")) {
+            "model lama di atas yang baru: $order"
+        }
+        println("Urutan model: $order")
+    }
+
+    @Test
+    fun theOmniVariantsAreFilteredOut() {
+        assert(!Analyst.usable("gemini-omni-flash-preview")) { "omni lolos padahal cuma Interactions API" }
+        assert(!Analyst.usable("gemini-omni-1.1-flash"))
+        assert(Analyst.usable("gemini-3.7-flash"))
+        println("Model omni disaring — dulu muncul di daftar lalu selalu gagal 400.")
     }
 
     @Test

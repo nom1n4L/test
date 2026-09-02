@@ -489,8 +489,19 @@ fun DetailScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (match.pickCorrected) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Rekomendasi aslinya di luar rentang aman 68-92%, jadi diganti " +
+                            "dengan peluang tertinggi yang masuk rentang.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Amber,
+                    )
+                }
             }
         }
+
+        item { SafeListCard(match) }
 
         item {
             Card(title = "Hasil Akhir") {
@@ -512,6 +523,107 @@ fun DetailScreen(
             TextButton(onClick = onDelete) {
                 Text("Hapus pertandingan ini", color = Rose, style = MaterialTheme.typography.labelSmall)
             }
+        }
+    }
+}
+
+/**
+ * The safe-band markets, strongest first.
+ *
+ * One recommendation is still one recommendation — but a single row gave no way
+ * to see what came a close second, and the alternatives were buried inside forty
+ * grouped rows. This is the shortlist the pick is drawn from, in the order the
+ * user asked for: highest first, and nothing outside the band that the badge
+ * calls safe.
+ */
+@Composable
+private fun SafeListCard(match: MatchPrediction) {
+    val safe = remember(match) { match.safePicks() }
+    if (safe.isEmpty()) {
+        Card(title = "Tidak Ada yang Masuk Rentang Aman") {
+            Text(
+                "Tidak satu pun market di laga ini jatuh di 68-92%. Yang di bawah 68% " +
+                    "terlalu dekat lempar koin, yang di atas 92% odds-nya terlalu kecil " +
+                    "untuk dipasang.\n\nHari seperti ini memang ada. Melewatkannya adalah " +
+                    "keputusan yang sah.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+
+    Card(
+        title = "Pilihan Aman (${safe.size})",
+        subtitle = "Peluang tertinggi di atas. Semua di rentang 68-92%.",
+    ) {
+        safe.forEachIndexed { index, option ->
+            val isPick = option.name == match.pick
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${index + 1}",
+                    Modifier.width(22.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            option.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = if (isPick) FontWeight.Bold else FontWeight.Normal,
+                        )
+                        if (isPick) {
+                            Spacer(Modifier.width(6.dp))
+                            Surface(color = Green.copy(alpha = 0.20f), shape = RoundedCornerShape(5.dp)) {
+                                Text(
+                                    "rekomendasi",
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Green,
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        if (option.derived) "${option.group} · dihitung" else option.group,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    "${option.percent}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = probColor(option.prob),
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "%.2f".format(option.breakEven),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Peluang tertinggi bukan jaminan tertinggi — rapormu sendiri menunjukkan " +
+                "satu market 85% yang sering meleset. Angka kanan tetap odds impasnya.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (safe.any { it.derived }) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Bertanda \"dihitung\" artinya angkanya diturunkan dari perkiraan gol, " +
+                    "bukan disebut langsung oleh model. Rekomendasi selalu mendahulukan " +
+                    "market yang model sendiri nilai.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
