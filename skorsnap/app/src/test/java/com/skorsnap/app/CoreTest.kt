@@ -15,6 +15,7 @@ import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Leg
 import com.skorsnap.app.data.Parlay
+import com.skorsnap.app.data.priceLabel
 import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.Strategy
@@ -1158,6 +1159,54 @@ class CoreTest {
         assert(correlated.contains("saling terkait")) { "pola leg berkorelasi tidak ditangkap" }
         println()
         println(correlated.lines().first { it.startsWith("Parlay:") })
+    }
+
+    // ------------------------------------------------ teks yang bikin crash
+
+    /**
+     * The app crashed on "Ganti market". The label interpolated the percentage into
+     * the string and then called format() on the result, so format() met the bare
+     * "%" in "84% · minimal" and threw UnknownFormatConversionException.
+     *
+     * Moved out of the composable precisely so it can be run here.
+     */
+    @Test
+    fun theSwapLabelDoesNotThrowOnItsOwnPercentSign() {
+        val option = MarketOption("Over 1.5", 0.84, "", "Total Gol")
+        val plain = priceLabel(option, 0.0)
+        assert(plain == "84% · minimal 1.19") { "teks salah: $plain" }
+
+        val good = priceLabel(option, 1.70)
+        assert(good == "84% · minimal 1.19 · +43%") { "teks salah: $good" }
+
+        val bad = priceLabel(option, 1.10)
+        assert(bad == "84% · minimal 1.19 · -8%") { "teks salah: $bad" }
+        println()
+        println("Tanpa odds : $plain")
+        println("Odds 1,70  : $good")
+        println("Odds 1,10  : $bad")
+    }
+
+    /**
+     * The same mistake was made twice — once in a test months ago, once in the code
+     * that shipped. Checked mechanically rather than by eye.
+     */
+    @Test
+    fun noSourceMixesAnInterpolatedPercentWithFormat() {
+        val root = java.io.File("src/main/java/com/skorsnap/app")
+        assert(root.isDirectory) { "sumber tidak ditemukan di ${root.absolutePath}" }
+        val offenders = root.walkTopDown()
+            .filter { it.extension == "kt" }
+            .flatMap { file ->
+                // A literal "%" followed by a space or the string's end is not a
+                // format specifier, and format() rejects it at runtime.
+                Regex("""\"[^"\n]*\$\{[^}]*\}%[^"\n]*\"\s*\n?\s*\.format\(""")
+                    .findAll(file.readText())
+                    .map { "${file.name}: ${it.value.take(70)}" }
+            }
+            .toList()
+        assert(offenders.isEmpty()) { "teks ini akan crash saat dijalankan:\n" + offenders.joinToString("\n") }
+        println("Tidak ada teks yang menyisipkan %% lalu memanggil format() — pola yang bikin crash.")
     }
 
     @Test

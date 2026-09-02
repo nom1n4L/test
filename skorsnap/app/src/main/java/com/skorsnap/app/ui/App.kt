@@ -84,6 +84,7 @@ fun App(vm: AppViewModel) {
                     onToggle = vm::toggle,
                     onSlip = { vm.go(Screen.Slip) },
                     onReport = { vm.go(Screen.Report) },
+                    onHistory = { vm.go(Screen.History) },
                     onSettings = { vm.go(Screen.Settings) },
                 )
                 is Screen.Add -> AddScreen(
@@ -142,6 +143,10 @@ fun App(vm: AppViewModel) {
                 // the view model. vm.report() read the flow's value directly, which
                 // Compose does not watch, so recording a result while this screen
                 // was open left the numbers on the previous total.
+                is Screen.History -> HistoryScreen(
+                    matches = matches,
+                    onOpen = { vm.go(Screen.Detail(it)) },
+                )
                 is Screen.Report -> ReportScreen(
                     matches = matches,
                     slips = slips,
@@ -180,6 +185,7 @@ private fun TopBar(screen: Screen, vm: AppViewModel) {
                         is Screen.Add -> "Tambah Pertandingan"
                         is Screen.Detail -> "Analisa"
                         is Screen.Slip -> "Parlay"
+                        is Screen.History -> "Riwayat"
                         is Screen.Report -> "Rapor"
                         is Screen.Settings -> "Pengaturan"
                     },

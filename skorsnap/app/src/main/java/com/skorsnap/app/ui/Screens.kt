@@ -69,6 +69,7 @@ import com.skorsnap.app.data.Leg
 import kotlin.math.roundToInt
 import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.SavedSlip
+import com.skorsnap.app.data.priceLabel
 
 @Composable
 fun Card(
@@ -112,8 +113,13 @@ fun HomeScreen(
     onToggle: (String) -> Unit,
     onSlip: () -> Unit,
     onReport: () -> Unit,
+    onHistory: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    // Played matches move to their own screen: the list is for deciding what to
+    // bet, and a decided match is only clutter there.
+    val pending = matches.filter { !it.settled }
+    val done = matches.size - pending.size
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
@@ -149,11 +155,15 @@ fun HomeScreen(
             }
         }
 
-        if (matches.isEmpty()) {
+        if (pending.isEmpty()) {
             item {
                 Box(Modifier.fillMaxWidth().height(320.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        "Belum ada pertandingan.\n\n" +
+                        if (done > 0) {
+                            "Semua pertandingan sudah ada hasilnya.\n\n" +
+                                "Yang sudah selesai pindah ke Riwayat. Tambah pertandingan " +
+                                "baru dengan tombol di atas."
+                        } else "Belum ada pertandingan.\n\n" +
                             "Buka aplikasi statistikmu, screenshot halaman pertandingan, " +
                             "lalu tekan tombol di atas. Boleh beberapa gambar untuk satu " +
                             "pertandingan.",
@@ -164,6 +174,7 @@ fun HomeScreen(
                     )
                 }
             }
+            if (done > 0) item { HistoryLink(done, onHistory) }
             return@LazyColumn
         }
 
@@ -179,16 +190,17 @@ fun HomeScreen(
             }
         }
 
-        items(matches, key = { it.id }) { match ->
+        items(pending, key = { it.id }) { match ->
             MatchRow(match, match.id in selected, onOpen, onToggle)
         }
 
+        if (done > 0) item { HistoryLink(done, onHistory) }
+
         item {
             Spacer(Modifier.height(6.dp))
-            val settled = matches.count { it.settled }
             TextButton(onClick = onReport) {
                 Text(
-                    if (settled == 0) "Rapor akurasi" else "Rapor akurasi ($settled hasil)",
+                    if (done == 0) "Rapor akurasi" else "Rapor akurasi ($done hasil)",
                     style = MaterialTheme.typography.labelSmall,
                 )
             }
@@ -203,11 +215,72 @@ fun HomeScreen(
 }
 
 @Composable
+private fun HistoryLink(count: Int, onHistory: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onHistory),
+    ) {
+        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Riwayat", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    "$count pertandingan yang sudah ada hasilnya",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text("→", style = MaterialTheme.typography.titleMedium, color = Sky)
+        }
+    }
+}
+
+/**
+ * Matches that have been played, kept out of the way but not thrown away: the
+ * verdicts here are the record everything else is measured against.
+ */
+@Composable
+fun HistoryScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
+    val done = remember(matches) { matches.filter { it.settled }.reversed() }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (done.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
+                    Text(
+                        "Belum ada pertandingan yang sudah ditandai hasilnya.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            return@LazyColumn
+        }
+        item {
+            Text(
+                "Buka salah satu kalau mau mengubah tandanya — hapus tandanya dan " +
+                    "pertandingannya kembali ke daftar utama.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        items(done, key = { it.id }) { match ->
+            MatchRow(match, checked = false, onOpen = onOpen, onToggle = {}, selectable = false)
+        }
+    }
+}
+
+@Composable
 private fun MatchRow(
     match: MatchPrediction,
     checked: Boolean,
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
+    selectable: Boolean = true,
 ) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
@@ -218,11 +291,15 @@ private fun MatchRow(
             Modifier.padding(start = 4.dp, end = 13.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Checkbox(
-                checked = checked,
-                onCheckedChange = { onToggle(match.id) },
-                colors = CheckboxDefaults.colors(checkedColor = Green),
-            )
+            if (selectable) {
+                Checkbox(
+                    checked = checked,
+                    onCheckedChange = { onToggle(match.id) },
+                    colors = CheckboxDefaults.colors(checkedColor = Green),
+                )
+            } else {
+                Spacer(Modifier.width(12.dp))
+            }
             Column(Modifier.weight(1f).clickable { onOpen(match.id) }) {
                 Text(match.title, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(2.dp))
@@ -1354,12 +1431,7 @@ private fun LegRow(
                                 )
                                 val edge = if (price > 1.0) price * option.prob - 1.0 else 0.0
                                 Text(
-                                    if (price > 1.0) {
-                                        "${option.percent}% · minimal %.2f · %+d%%"
-                                            .format(option.breakEven, (edge * 100).roundToInt())
-                                    } else {
-                                        "${option.percent}% · minimal %.2f".format(option.breakEven)
-                                    },
+                                    priceLabel(option, price),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = when {
                                         price <= 1.0 -> MaterialTheme.colorScheme.onSurfaceVariant

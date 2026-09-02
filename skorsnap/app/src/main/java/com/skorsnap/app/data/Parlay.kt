@@ -205,6 +205,24 @@ data class SlipReport(val all: List<SavedSlip>) {
     private fun money(v: Double) = String.format("%,.0f", v).replace(',', '.')
 }
 
+/**
+ * The one-line summary under a market when swapping legs.
+ *
+ * Lives here rather than in the composable because the version that lived there
+ * crashed the app: it interpolated the percentage into the string and then called
+ * format() on the result, so format() met a bare "%" and threw. A pure function can
+ * be tested; a string built inside a Compose lambda cannot.
+ */
+fun priceLabel(option: MarketOption, odds: Double): String {
+    val head = "${option.percent}% · minimal ${twoDecimals(option.breakEven)}"
+    if (odds <= 1.0) return head
+    val edge = ((odds * option.prob - 1.0) * 100).roundToInt()
+    val sign = if (edge > 0) "+" else ""
+    return "$head · $sign$edge%"
+}
+
+internal fun twoDecimals(v: Double): String = String.format("%.2f", v)
+
 object Parlay {
 
     /**

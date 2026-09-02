@@ -26,6 +26,7 @@ sealed interface Screen {
     data object Add : Screen
     data class Detail(val id: String) : Screen
     data object Slip : Screen
+    data object History : Screen
     data object Report : Screen
     data object Settings : Screen
 }
@@ -272,6 +273,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         _matches.value = updated
         store.save(updated)
+        // A settled match has already been played; leaving it checked would build a
+        // parlay out of results that are already known.
+        updated.firstOrNull { it.id == id && it.settled }?.let {
+            _selected.value = _selected.value - id
+        }
     }
 
     /** The same thing addressed by role rather than by key. */

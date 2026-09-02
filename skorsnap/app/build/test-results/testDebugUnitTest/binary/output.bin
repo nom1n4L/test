@@ -57,67 +57,72 @@ NYang sudah di rentang aman tidak diutak-atik — walau ada yang lebih tinggi.
 "�Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, bukan aturan mati. Jangan mengubah pembacaanmu atas statistik di gambar hanya supaya cocok dengan catatan ini.
 #!Corner 5,4-4,6 → Over 9.5 50%.
 $
-$CScreenshot biasa dibiarkan utuh; hanya long capture yang dipotong.
+$!Tanpa odds : 84% · minimal 1.19
+$)Odds 1,70  : 84% · minimal 1.19 · +43%
+$(Odds 1,10  : 84% · minimal 1.19 · -8%
 %
-%9Model kasih 1 market → layar dapat 51, 8 grup lengkap.
-&JBalasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.
-'0  tinggi  2600 →  1 potong, tertinggi 2600 px
-'0  tinggi  4000 →  3 potong, tertinggi 1600 px
-'0  tinggi  8000 →  6 potong, tertinggi 1600 px
-'0  tinggi 20000 → 10 potong, tertinggi 2120 px
-'0  tinggi 45000 → 10 potong, tertinggi 4620 px
-(
-(eRekomendasi 'Over 1.5' meleset, pasangan 'Double Chance 1X' tembus — dua-duanya tercatat terpisah.
+%CScreenshot biasa dibiarkan utuh; hanya long capture yang dipotong.
+&
+&9Model kasih 1 market → layar dapat 51, 8 grup lengkap.
+'JBalasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.
+(0  tinggi  2600 →  1 potong, tertinggi 2600 px
+(0  tinggi  4000 →  3 potong, tertinggi 1600 px
+(0  tinggi  8000 →  6 potong, tertinggi 1600 px
+(0  tinggi 20000 → 10 potong, tertinggi 2120 px
+(0  tinggi 45000 → 10 potong, tertinggi 4620 px
 )
-)&12 hasil  → ±22 poin (belum cukup)
-)120 hasil → ±7 poin (cukup)
-*+97% (odds di bawah 1,04) diganti jadi 84%.
-+DModel bilang 62% menang → grid disetel ke 2.16/1.08, bacanya 62%.
-,
-,YOver 1.5 84% (+1%) vs BTTS 70% (+19%) → dipilih BTTS, bukan yang peluangnya tertinggi.
+)eRekomendasi 'Over 1.5' meleset, pasangan 'Double Chance 1X' tembus — dua-duanya tercatat terpisah.
+*
+*&12 hasil  → ±22 poin (belum cukup)
+*120 hasil → ±7 poin (cukup)
+++97% (odds di bawah 1,04) diganti jadi 84%.
+,DModel bilang 62% menang → grid disetel ke 2.16/1.08, bacanya 62%.
 -
--3Penyaring model: 5 dipertahankan, 8 disembunyikan.
-.WDaftar aman: [DC, Over 1.5, BTTS] — tertinggi di atas, yang di luar rentang dibuang.
-/.Paling aman  : tembus 59%, bayaran wajar 1.69
-/.Bayaran naik : tembus 34%, bayaran wajar 2.92
-0
-0F57% diganti jadi 'Double Chance 1X' 81% — dan dikabari ke pengguna.
-1RKalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.
-2CTiga leg 84%: di odds 1,30 harapan 130%, di odds 1,12 harapan 83%.
-2;Angka aplikasi tidak berubah — harganya yang menentukan.
-3
-3DTiga format simpanan lama terbaca semua — catatanmu tidak hilang.
-4]5-0 pun belum disimpulkan: "Baru 5 laga yang bisa dibandingkan (5-0). Terlalu sedikit un…"
-5
-5P11 dari 12: nyata 92%, dijanjikan 78%, sejatinya antara 65% dan 99% (±17 poin)
-5zVonis: Baru 12 hasil. Terlalu sedikit untuk menyimpulkan apa pun — beruntung dan pintar terlihat sama di jumlah segini.
-6FSatu laga ditandai 3 market → 3 bukti kalibrasi, tapi tetap 1 laga.
-7
-7FDefault sekarang 'gemini-flash-latest' — alias, tidak bisa pensiun.
-9
-90Skema mencakup 17 field, 12 di antaranya wajib.
+-YOver 1.5 84% (+1%) vs BTTS 70% (+19%) → dipilih BTTS, bukan yang peluangnya tertinggi.
+.
+.3Penyaring model: 5 dipertahankan, 8 disembunyikan.
+/WDaftar aman: [DC, Over 1.5, BTTS] — tertinggi di atas, yang di luar rentang dibuang.
+0.Paling aman  : tembus 59%, bayaran wajar 1.69
+0.Bayaran naik : tembus 34%, bayaran wajar 2.92
+1
+1F57% diganti jadi 'Double Chance 1X' 81% — dan dikabari ke pengguna.
+2RKalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.
+3CTiga leg 84%: di odds 1,30 harapan 130%, di odds 1,12 harapan 83%.
+3;Angka aplikasi tidak berubah — harganya yang menentukan.
+4
+4DTiga format simpanan lama terbaca semua — catatanmu tidak hilang.
+5]5-0 pun belum disimpulkan: "Baru 5 laga yang bisa dibandingkan (5-0). Terlalu sedikit un…"
+6
+6P11 dari 12: nyata 92%, dijanjikan 78%, sejatinya antara 65% dan 99% (±17 poin)
+6zVonis: Baru 12 hasil. Terlalu sedikit untuk menyimpulkan apa pun — beruntung dan pintar terlihat sama di jumlah segini.
+7FSatu laga ditandai 3 market → 3 bukti kalibrasi, tapi tetap 1 laga.
+8
+8FDefault sekarang 'gemini-flash-latest' — alias, tidak bisa pensiun.
 :
-:Y54 fungsi publik diperiksa — tak satu pun menyerahkan data laga tanpa diawasi Compose.
+:0Skema mencakup 17 field, 12 di antaranya wajib.
 ;
-;(6 leg @75%: tembus semua 18% (1 dari 6)
-;"   diperkirakan tembus 4.5 dari 6
-;   bayaran wajar 5.62
-;   imbal hasil harapan 70%
+;Y54 fungsi publik diperiksa — tak satu pun menyerahkan data laga tanpa diawasi Compose.
 <
-<G3 slip selesai, 1 tembus — dipecah per jumlah leg, bukan per market.
-=K4 slip 0 tembus pun belum disimpulkan — parlay jarang tembus, itu wajar.
->
->NSatu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.
+<(6 leg @75%: tembus semua 18% (1 dari 6)
+<"   diperkirakan tembus 4.5 dari 6
+<   bayaran wajar 5.62
+<   imbal hasil harapan 70%
+=
+=G3 slip selesai, 1 tembus — dipecah per jumlah leg, bukan per market.
+>K4 slip 0 tembus pun belum disimpulkan — parlay jarang tembus, itu wajar.
 ?
-?>Tes model: 2048 token — cukup untuk berpikir lalu menjawab.
-@-Peluang mustahil dibuang, bukan ditampilkan.
-AKHanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
-BWUrutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
-CCHandicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
-DDAngka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
-EPRp 200,000 dipasang, kembali Rp 182,250 — slip tanpa nominal tidak diikutkan.
-FQKalau semua harga di bawah minimal, tidak ada yang ditukar — bukan asal ganti.
-H
-H,3 leg aman    : tembus 72.1%, harapan 83.9%
-H,3 leg berisiko: tembus 17.2%, harapan 83.9%
-H'=> peluang beda jauh, harapan identik.
+?NSatu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.
+@
+@>Tes model: 2048 token — cukup untuk berpikir lalu menjawab.
+A-Peluang mustahil dibuang, bukan ditampilkan.
+BKHanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
+CWUrutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
+DCHandicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
+EDAngka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
+FPRp 200,000 dipasang, kembali Rp 182,250 — slip tanpa nominal tidak diikutkan.
+GQKalau semua harga di bawah minimal, tidak ada yang ditukar — bukan asal ganti.
+HVTidak ada teks yang menyisipkan %% lalu memanggil format() — pola yang bikin crash.
+J
+J,3 leg aman    : tembus 72.1%, harapan 83.9%
+J,3 leg berisiko: tembus 17.2%, harapan 83.9%
+J'=> peluang beda jauh, harapan identik.
