@@ -1022,7 +1022,7 @@ fun SettingsScreen(vm: AppViewModel) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Card(title = "Kunci Gemini", subtitle = "Dibutuhkan untuk membaca gambar.") {
+        Card(title = "1. Kunci Gemini", subtitle = "Dibutuhkan untuk membaca gambar.") {
             Text(
                 "Buka aistudio.google.com, masuk dengan akun Google, tekan \"Get API key\", " +
                     "lalu tempel kuncinya di sini.\n\n" +
@@ -1035,26 +1035,42 @@ fun SettingsScreen(vm: AppViewModel) {
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value = key,
-                onValueChange = {
-                    key = it.trim()
-                    vm.setApiKey(key)
-                },
+                onValueChange = { key = it.trim() },
                 label = { Text("AQ.Ab8... atau AIza...") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = MaterialTheme.typography.bodySmall,
             )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = { vm.saveAndCheckKey(key) },
+                enabled = !modelsBusy && key.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (modelsBusy) "Memeriksa…" else "Simpan & Cek Kunci")
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (vm.store.hasKey) {
+                    "Ada kunci tersimpan. Tekan tombol di atas kalau kamu baru menggantinya."
+                } else {
+                    "Belum ada kunci tersimpan. Tempel kuncinya lalu tekan tombol di atas."
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = if (vm.store.hasKey) MaterialTheme.colorScheme.onSurfaceVariant else Amber,
+            )
         }
 
         Card(
-            title = "Model",
-            subtitle = "Nama model sering berubah dan berbeda tiap kunci — jadi daftarnya " +
-                "diambil langsung dari Google, bukan ditebak.",
+            title = "2. Model",
+            subtitle = "Daftarnya diambil langsung dari Google, bukan ditebak. " +
+                "Pilih satu, lalu tes.",
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(
                     onClick = { vm.loadModels() },
-                    enabled = !modelsBusy && key.isNotBlank(),
+                    enabled = !modelsBusy && vm.store.hasKey,
                     colors = ButtonDefaults.buttonColors(containerColor = Sky),
                     modifier = Modifier.weight(1f),
                 ) {
@@ -1062,7 +1078,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 }
                 Button(
                     onClick = { vm.testModel() },
-                    enabled = !modelsBusy && key.isNotBlank(),
+                    enabled = !modelsBusy && vm.store.hasKey,
                     colors = ButtonDefaults.buttonColors(containerColor = Green),
                     modifier = Modifier.weight(1f),
                 ) {
@@ -1137,6 +1153,21 @@ fun SettingsScreen(vm: AppViewModel) {
                     }
                 }
             }
+        }
+
+        Card(title = "Kalau Semua Model Gagal") {
+            Text(
+                "Tekan \"Tes model ini\" dan baca baris \"Kata Google\" — pesan aslinya " +
+                    "ada di situ, bukan tebakan saya. Tiga penyebab yang paling sering:\n\n" +
+                    "• \"Kuota habis\" — jatah gratis harian sudah terpakai. Tunggu sampai " +
+                    "besok, atau pakai model Flash yang jatahnya lebih besar.\n\n" +
+                    "• \"Kunci ditolak\" — kuncinya sudah dihapus atau salah salin. Buat " +
+                    "yang baru di aistudio.google.com, lalu Simpan & Cek Kunci di atas.\n\n" +
+                    "• \"Model tidak ada\" — model itu memang tidak dibuka untuk kuncimu. " +
+                    "Pilih yang lain, biasanya yang namanya paling sederhana.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         Card(title = "Yang Perlu Kamu Tahu") {

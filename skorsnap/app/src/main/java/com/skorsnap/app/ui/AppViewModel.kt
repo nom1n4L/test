@@ -68,6 +68,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _modelsBusy = MutableStateFlow(false)
     val modelsBusy: StateFlow<Boolean> = _modelsBusy.asStateFlow()
 
+    /**
+     * Saves the key and immediately checks it.
+     *
+     * The field used to save silently on every keystroke, which left no way to
+     * tell whether anything had been stored — the user pasted a key and had no
+     * idea what to do next. Saving and verifying in one press removes the
+     * question.
+     */
+    fun saveAndCheckKey(key: String) {
+        store.apiKey = key
+        if (key.isBlank()) {
+            _modelReport.value = "Kunci dikosongkan."
+            return
+        }
+        loadModels()
+    }
+
     fun loadModels() {
         if (_modelsBusy.value) return
         viewModelScope.launch {
@@ -76,9 +93,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val found = Analyst(store.apiKey).listModels()
                 _models.value = found
                 _modelReport.value = if (found.isEmpty()) {
-                    "Tidak ada model yang bisa dipakai kunci ini."
+                    "Kunci diterima, tapi tidak ada model yang bisa dipakai."
                 } else {
-                    "${found.size} model tersedia. Memuat daftar ini tidak memakai kuota."
+                    "Kunci tersimpan dan berfungsi. ${found.size} model tersedia — " +
+                        "memuat daftar ini tidak memakai kuota."
                 }
                 // A remembered choice that is no longer offered would fail again on
                 // the next analysis, so move to something that works.
