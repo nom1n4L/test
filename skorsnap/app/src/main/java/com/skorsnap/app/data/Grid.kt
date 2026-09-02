@@ -219,6 +219,25 @@ object Grid {
         return out
     }
 
+    /**
+     * The one pair this mode exists for, from first-half corner counts.
+     *
+     * The counts are already first-half here, so no 45% split is applied — doing it
+     * twice would halve a number the model has been told to give in halves. Filling
+     * the pair matters even though the model is asked for both: a reply missing one
+     * side would otherwise leave the screen with half a question.
+     */
+    fun firstHalfCornerMarkets(cH: Double, cA: Double): List<MarketOption> {
+        val m = matrix(max(cH, 0.2), max(cA, 0.2), corners = true)
+        val over = sum(m) { i, j -> i + j > 4.5 }
+        val why = "Dihitung dari perkiraan corner babak 1 ${fmt(cH)} - ${fmt(cA)}, " +
+            "sebaran negative binomial."
+        return listOf(
+            MarketOption("Corner babak 1 Over 4.5", over, why, "Corner Babak 1", derived = true),
+            MarketOption("Corner babak 1 Under 4.5", 1 - over, why, "Corner Babak 1", derived = true),
+        )
+    }
+
     /** The corner grid, from the per-team corner counts the model estimates. */
     fun cornerMarkets(cH: Double, cA: Double): List<MarketOption> {
         val m = matrix(max(cH, 0.2), max(cA, 0.2), corners = true)
@@ -263,10 +282,10 @@ object Grid {
         if (!p.readable) return p
         if (p.xgHome <= 0.0 && p.xgAway <= 0.0) return p
 
-        val derived = if (p.mode == Mode.CORNER) {
-            cornerMarkets(p.xgHome, p.xgAway)
-        } else {
-            matchMarkets(p.xgHome, p.xgAway, p.probHome, p.probDraw, p.probAway)
+        val derived = when (p.mode) {
+            Mode.CORNER -> cornerMarkets(p.xgHome, p.xgAway)
+            Mode.CORNER_1H -> firstHalfCornerMarkets(p.xgHome, p.xgAway)
+            Mode.MATCH -> matchMarkets(p.xgHome, p.xgAway, p.probHome, p.probDraw, p.probAway)
         }
 
         // A name alone is not unique: "Tuan rumah -1" is both an Asian and a

@@ -1209,6 +1209,54 @@ class CoreTest {
         println("Tidak ada teks yang menyisipkan %% lalu memanggil format() — pola yang bikin crash.")
     }
 
+    // ------------------------------------------------ mode corner babak 1
+
+    @Test
+    fun theFocusedModeReturnsExactlyTheOnePair() {
+        val m = Grid.firstHalfCornerMarkets(2.8, 2.4)
+        assert(m.size == 2) { "seharusnya dua baris, dapat ${m.size}" }
+        assert(m.map { it.name } == listOf("Corner babak 1 Over 4.5", "Corner babak 1 Under 4.5"))
+        assert(m.all { it.group == "Corner Babak 1" })
+        assert(abs(m[0].prob + m[1].prob - 1.0) < 1e-9) { "dua sisi tidak berjumlah 1,0" }
+        println()
+        println("Corner babak 1 %.1f + %.1f → Over 4.5 %d%%, Under 4.5 %d%%."
+            .format(2.8, 2.4, m[0].percent, m[1].percent))
+    }
+
+    /**
+     * The counts handed in are already first-half, so applying the 45% split again
+     * would halve a number the model was told to give in halves.
+     */
+    @Test
+    fun theFirstHalfCountsAreNotHalvedTwice() {
+        val direct = Grid.firstHalfCornerMarkets(2.7, 2.3)
+        val full = Grid.cornerMarkets(6.0, 5.1)
+        val fullFirstHalf = full.first { it.name == "Corner babak 1 Over 4.5" }
+        assert(abs(direct[0].prob - fullFirstHalf.prob) < 0.06) {
+            "mode khusus ${direct[0].percent}% vs mode corner umum ${fullFirstHalf.percent}%"
+        }
+        println("Mode khusus %d%% vs corner umum %d%% — sepadan, tidak dibagi dua kali."
+            .format(direct[0].percent, fullFirstHalf.percent))
+    }
+
+    @Test
+    fun theFocusedModeDoesNotLeakOtherMarkets() {
+        val m = match(0.5).copy(mode = Mode.CORNER_1H, xgHome = 2.8, xgAway = 2.4, markets = emptyList())
+        val filled = Grid.fill(m)
+        assert(filled.markets.size == 2) { "market lain ikut masuk: ${filled.markets.size}" }
+        println("Satu pasaran diminta, dua angka dikembalikan — tidak ada 51 baris.")
+    }
+
+    @Test
+    fun theModelIsToldToUseFirstHalfNumbers() {
+        val prompt = Analyst.CORNER_1H_MARKETS
+        assert(prompt.contains("BABAK PERTAMA")) { "babak pertama tidak ditegaskan" }
+        assert(prompt.contains("4.5"))
+        assert(prompt.contains("stats_missing")) { "tidak menyuruh mengaku kalau datanya tidak ada" }
+        assert(prompt.contains("45%")) { "tidak memberi cara aman kalau cuma ada angka laga penuh" }
+        println("Prompt menegaskan babak pertama, dan menyuruh mengaku kalau datanya tidak ada.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

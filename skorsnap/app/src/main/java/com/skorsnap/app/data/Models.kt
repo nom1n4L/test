@@ -1,9 +1,18 @@
 package com.skorsnap.app.data
 
 /** Which set of markets an analysis was asked for. */
-enum class Mode(val label: String) {
-    MATCH("Analisis Match"),
-    CORNER("Analisis Corner"),
+enum class Mode(val label: String, val short: String) {
+    MATCH("Analisis Match", "Match"),
+    CORNER("Analisis Corner", "Corner"),
+
+    /**
+     * One question, one answer: over or under 4.5 corners in the first half.
+     *
+     * The general modes answer fifty questions at once, which is the right shape
+     * when hunting for a bet and the wrong shape when the bet is already decided.
+     * This mode returns two numbers that sum to one, and nothing else.
+     */
+    CORNER_1H("Corner Babak 1 · O/U 4.5", "Corner 1H"),
 }
 
 /** One settled market: what was promised, and what happened. */

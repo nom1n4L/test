@@ -428,7 +428,13 @@ class Analyst(private val apiKey: String) {
     private fun userPrompt(note: String, mode: Mode): String = buildString {
         append("Baca statistik di gambar-gambar di atas, lalu isi JSON sesuai skema.\n\n")
         if (note.isNotBlank()) append("Catatan dari pengguna: $note\n\n")
-        append(if (mode == Mode.CORNER) CORNER_MARKETS else MATCH_MARKETS)
+        append(
+            when (mode) {
+                Mode.CORNER -> CORNER_MARKETS
+                Mode.CORNER_1H -> CORNER_1H_MARKETS
+                Mode.MATCH -> MATCH_MARKETS
+            }
+        )
         append("\n\n")
         append(
             """
@@ -649,6 +655,43 @@ Isi market-market berikut, pakai "group" persis seperti judulnya:
 
 [Handicap Eropa]
 - "Tuan rumah -1", "Tandang +1", "Tuan rumah -2", "Tandang +2"
+        """.trimIndent()
+
+        /**
+         * The single-market catalogue.
+         *
+         * Deliberately narrow. Asked for forty markets a model spreads its attention
+         * over all of them; asked for one it can spend the whole reading on the
+         * statistics that actually decide that one. The instruction to say so when
+         * the first-half split is missing matters more here than anywhere else,
+         * because a full-match corner average tells you almost nothing about the
+         * first half on its own.
+         */
+        internal val CORNER_1H_MARKETS = """
+Analisis ini KHUSUS SATU PASARAN: total sepak pojok (corner) kedua tim digabung
+di BABAK PERTAMA saja, garis 4.5. Abaikan gol, abaikan babak kedua, abaikan
+market lain sepenuhnya.
+
+Isi "markets" dengan TEPAT DUA baris, group-nya "Corner Babak 1":
+- "Corner babak 1 Over 4.5"   (5 corner atau lebih di babak 1)
+- "Corner babak 1 Under 4.5"  (4 corner atau kurang di babak 1)
+Kedua peluang itu wajib berjumlah 1,0.
+
+Yang harus kamu cari di gambar, sebutkan di "stats_seen" mana yang benar-benar ada:
+- rata-rata corner babak 1 tiap tim (ini yang paling menentukan)
+- rata-rata corner penuh tiap tim, dan corner yang diberikan ke lawan
+- berapa sering laga tiap tim melewati 4.5 corner di babak 1
+- tempo awal: tim yang menyerang sejak menit pertama menghasilkan corner lebih awal
+
+Kalau angka khusus babak pertama TIDAK ADA di gambar dan kamu hanya punya angka
+corner satu laga penuh, katakan itu di "stats_missing", turunkan "confidence" jadi
+"rendah", dan perkirakan babak pertama sekitar 45% dari total laga penuh — jangan
+berpura-pura punya data babak pertama.
+
+Isi xg_home dan xg_away dengan perkiraan jumlah corner BABAK PERTAMA tiap tim
+(biasanya 2 sampai 4 per tim, bukan angka satu laga penuh).
+Isi prob_home/prob_draw/prob_away dengan peluang siapa yang dapat corner lebih
+banyak di babak 1.
         """.trimIndent()
 
         /** The corner catalogue, used when the user asks for a corner analysis. */

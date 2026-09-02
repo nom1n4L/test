@@ -70,6 +70,7 @@ import kotlin.math.roundToInt
 import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.priceLabel
+import com.skorsnap.app.data.twoDecimals
 
 @Composable
 fun Card(
@@ -370,7 +371,7 @@ fun AddScreen(
                         modifier = Modifier.weight(1f).clickable { onMode(option) },
                     ) {
                         Text(
-                            option.label,
+                            option.short,
                             modifier = Modifier.padding(vertical = 12.dp),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = if (mode == option) FontWeight.Bold else FontWeight.Normal,
@@ -382,12 +383,18 @@ fun AddScreen(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                if (mode == Mode.CORNER) {
-                    "Khusus sepak pojok: total corner, corner babak 1, dan corner per tim. " +
-                        "Kirim screenshot yang memuat statistik corner."
-                } else {
-                    "1X2, double chance, total gol, total babak 1, total per tim, " +
-                        "kombinasi hasil + total, handicap Asia dan Eropa."
+                when (mode) {
+                    Mode.CORNER ->
+                        "Khusus sepak pojok: total corner, corner babak 1, dan corner per tim. " +
+                            "Kirim screenshot yang memuat statistik corner."
+                    Mode.CORNER_1H ->
+                        "Satu pasaran saja: total corner kedua tim di babak pertama, garis 4.5. " +
+                            "Jawabannya cuma dua angka. Kirim screenshot yang memuat rata-rata " +
+                            "corner babak 1 — kalau yang ada cuma angka satu laga penuh, " +
+                            "keyakinannya akan diturunkan dan itu akan dikatakan apa adanya."
+                    Mode.MATCH ->
+                        "1X2, double chance, total gol, total babak 1, total per tim, " +
+                            "kombinasi hasil + total, handicap Asia dan Eropa."
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -591,18 +598,25 @@ fun DetailScreen(
             }
         }
 
-        item { SafeListCard(match, onMarkMarket) }
+        // The focused mode answers one question, so it shows one answer. The safe
+        // shortlist, the 1X2 bars and a forty-row market table are all noise when
+        // there are two markets and they sum to one.
+        if (match.mode == Mode.CORNER_1H) {
+            item { OneMarketCard(match, onMarkMarket) }
+        } else {
+            item { SafeListCard(match, onMarkMarket) }
 
-        item {
-            Card(title = "Hasil Akhir") {
-                Bar("${match.home} menang", match.probHome)
-                Bar("Seri", match.probDraw)
-                Bar("${match.away} menang", match.probAway)
+            item {
+                Card(title = "Hasil Akhir") {
+                    Bar("${match.home} menang", match.probHome)
+                    Bar("Seri", match.probDraw)
+                    Bar("${match.away} menang", match.probAway)
+                }
             }
-        }
 
-        if (match.markets.isNotEmpty()) {
-            item { MarketsCard(match) }
+            if (match.markets.isNotEmpty()) {
+                item { MarketsCard(match) }
+            }
         }
 
         item { OutcomeCard(match, onMark, onBacked) }
@@ -977,6 +991,95 @@ private fun OutcomeCard(
     }
 }
 
+/**
+ * Over against Under, side by side, with the verdict buttons on each.
+ *
+ * Two numbers that sum to one do not need a ranked shortlist wrapped around them.
+ * The break-even price stays, because it is the only number that decides whether
+ * either side is worth backing at the price on offer.
+ */
+@Composable
+private fun OneMarketCard(match: MatchPrediction, onMark: (MarketOption, Outcome) -> Unit) {
+    val pair = remember(match) {
+        listOf("Corner babak 1 Over 4.5", "Corner babak 1 Under 4.5")
+            .mapNotNull { name -> match.markets.firstOrNull { it.name == name } }
+    }
+    if (pair.size < 2) {
+        Card(title = "Jawaban Tidak Lengkap") {
+            Text(
+                "Model tidak mengembalikan kedua sisi pasaran ini. Coba analisis ulang, " +
+                    "atau kirim screenshot yang memuat rata-rata corner babak 1.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Amber,
+            )
+        }
+        return
+    }
+
+    Card(
+        title = "Corner Babak 1 — Garis 4.5",
+        subtitle = "Total corner kedua tim di babak pertama saja.",
+    ) {
+        pair.forEach { option ->
+            val leading = option.name == match.pick
+            Surface(
+                color = if (leading) Green.copy(alpha = 0.12f)
+                else MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            ) {
+                Column(Modifier.padding(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                if (option.name.contains("Over")) "Over 4.5" else "Under 4.5",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = if (leading) FontWeight.Bold else FontWeight.Normal,
+                            )
+                            Text(
+                                if (option.name.contains("Over")) "5 corner atau lebih"
+                                else "4 corner atau kurang",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                "${option.percent}%",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = probColor(option.prob),
+                            )
+                            Text(
+                                "pasang di atas %s".format(twoDecimals(option.breakEven)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    val verdict = match.outcomeOf(option)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Verdict("Tembus", verdict == Outcome.WON, Green, Modifier.weight(1f)) {
+                            onMark(option, Outcome.WON)
+                        }
+                        Verdict("Meleset", verdict == Outcome.LOST, Rose, Modifier.weight(1f)) {
+                            onMark(option, Outcome.LOST)
+                        }
+                    }
+                }
+            }
+        }
+        // firstOrNull, not first: the pick can be blank, or a name outside this
+        // pair, and a reason line is not worth crashing the screen over.
+        Text(
+            (pair.firstOrNull { it.name == match.pick } ?: pair.first()).why,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 /** A compact tembus/meleset chip for a row inside a list. */
 @Composable
 private fun Verdict(
@@ -1297,9 +1400,11 @@ fun SlipScreen(
         }
 
         items(slip.legs, key = { it.matchId }) { leg ->
+            // Deleting a match while this screen is open would otherwise crash here.
+            val match = matches.firstOrNull { it.id == leg.matchId } ?: return@items
             LegRow(
                 leg = leg,
-                match = matches.first { it.id == leg.matchId },
+                match = match,
                 odds = odds,
                 onOpen = { onOpen(leg.matchId) },
                 onOdds = onOdds,
