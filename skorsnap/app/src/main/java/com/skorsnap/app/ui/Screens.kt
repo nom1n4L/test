@@ -1124,6 +1124,7 @@ fun SettingsScreen(vm: AppViewModel) {
     val available by vm.models.collectAsStateWithLifecycle()
     val modelsBusy by vm.modelsBusy.collectAsStateWithLifecycle()
     val report by vm.modelReport.collectAsStateWithLifecycle()
+    val usage by vm.lastUsage.collectAsStateWithLifecycle()
     var model by remember(available) { mutableStateOf(vm.store.model) }
 
     Column(
@@ -1221,6 +1222,25 @@ fun SettingsScreen(vm: AppViewModel) {
                     )
                 }
             }
+            Spacer(Modifier.height(10.dp))
+
+            usage?.let {
+                Text(
+                    "Analisis terakhir memakai ${it.total} token " +
+                        "(${it.input} baca gambar, ${it.thinking} berpikir, ${it.output} jawaban).",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(6.dp))
+            }
+            Text(
+                "Kalau kuncimu sudah pakai penagihan, tidak ada lagi jatah gratis — " +
+                    "tiap panggilan dihitung. Screenshot panjang itu bagian yang paling " +
+                    "mahal karena dibaca sebagai puluhan ribu token. Model Pro beberapa " +
+                    "kali lipat harga Flash untuk gambar yang sama; Flash Lite paling murah.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Amber,
+            )
             Spacer(Modifier.height(10.dp))
 
             val options: List<Triple<String, String, String>> = if (available.isNotEmpty()) {

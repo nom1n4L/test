@@ -62,6 +62,17 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _modelReport = MutableStateFlow<String?>(null)
     val modelReport: StateFlow<String?> = _modelReport.asStateFlow()
 
+    /**
+     * Tokens the last analysis consumed.
+     *
+     * Spending was invisible until the bill arrived: a long capture is tens of
+     * thousands of input tokens and the user had no way to see that before choosing
+     * a model. Showing it after each run makes the cost of a Pro model obvious while
+     * there is still a decision to make.
+     */
+    private val _lastUsage = MutableStateFlow<Analyst.Usage?>(null)
+    val lastUsage: StateFlow<Analyst.Usage?> = _lastUsage.asStateFlow()
+
     private val _models = MutableStateFlow<List<Analyst.Model>>(emptyList())
     val models: StateFlow<List<Analyst.Model>> = _models.asStateFlow()
 
@@ -183,9 +194,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _busy.value = true
             _message.value = null
             try {
-                val result = Analyst(store.apiKey)
+                val analyst = Analyst(store.apiKey)
+                val result = analyst
                     .analyse(images, note, store.model, _mode.value)
                     .copy(model = store.model)
+                _lastUsage.value = analyst.lastUsage
                 val updated = _matches.value + result
                 _matches.value = updated
                 store.save(updated)
@@ -271,7 +284,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _modelReport.value = try {
                 Analyst(store.apiKey).testModel(store.model)
             } catch (e: Exception) {
-                e.message ?: "Gagal."
+                // A bare "Gagal." was what the broken test button showed for weeks,
+                // and it told the user nothing they could act on.
+                e.message ?: "Gagal tanpa keterangan (${e.javaClass.simpleName})."
             }
             _modelsBusy.value = false
         }

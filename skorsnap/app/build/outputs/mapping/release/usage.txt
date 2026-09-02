@@ -19211,16 +19211,24 @@ com.skorsnap.app.data.Analyst$Model:
     public final java.lang.String component3()
     public final com.skorsnap.app.data.Analyst$Model copy(java.lang.String,java.lang.String,java.lang.String)
     public static synthetic com.skorsnap.app.data.Analyst$Model copy$default(com.skorsnap.app.data.Analyst$Model,java.lang.String,java.lang.String,java.lang.String,int,java.lang.Object)
+com.skorsnap.app.data.Analyst$Usage:
+    public static final int $stable
+    public final int component1()
+    public final int component2()
+    public final int component3()
+    public final com.skorsnap.app.data.Analyst$Usage copy(int,int,int)
+    public static synthetic com.skorsnap.app.data.Analyst$Usage copy$default(com.skorsnap.app.data.Analyst$Usage,int,int,int,int,java.lang.Object)
 com.skorsnap.app.data.Analyst:
     public static final java.lang.String DEFAULT_MODEL
     private static final java.lang.String HOST
     public static final int MAX_OUTPUT_TOKENS
     public static final int MIN_MARKETS
+    public static final int TEST_OUTPUT_TOKENS
     public static final int THINKING_BUDGET
+    public static final int TIGHT_THINKING_BUDGET
     public static final synthetic java.lang.String access$getCORNER_MARKETS$cp()
     public static final synthetic java.lang.String access$getMATCH_MARKETS$cp()
     public static synthetic java.lang.Object analyse$default(com.skorsnap.app.data.Analyst,java.util.List,java.lang.String,java.lang.String,com.skorsnap.app.data.Mode,kotlin.coroutines.Continuation,int,java.lang.Object)
-    public final kotlin.Pair getSubstituted()
 com.skorsnap.app.data.Grid:
     public static final int $stable
     private static final double CORNER_SHAPE
@@ -40402,6 +40410,12 @@ com.skorsnap.app.data.Analyst$Model:
     public static java.lang.String getLabel()
 com.skorsnap.app.data.Analyst$RetiredModelException:
     public static java.lang.String getReplacement()
+com.skorsnap.app.data.Analyst$Usage:
+    static void <clinit>()
+    public static int getInput()
+    public static int getOutput()
+    public static int getThinking()
+    public final int getTotal()
 com.skorsnap.app.data.Analyst$analyse$2:
     public int label
     public final java.lang.Object invoke$4()
@@ -40414,10 +40428,10 @@ com.skorsnap.app.data.Analyst$testModel$2:
 com.skorsnap.app.data.Analyst:
     public static final int $stable
     public static final com.skorsnap.app.data.Analyst$Companion Companion
-    public volatile kotlin.Pair substituted
-    public static final java.lang.String access$post(com.skorsnap.app.data.Analyst,java.lang.String,java.lang.String)
     public static java.lang.Object analyse()
     public static com.skorsnap.app.data.MatchPrediction enforceSafePick$app_release()
+    public static com.skorsnap.app.data.Analyst$Usage getLastUsage()
+    public static kotlin.Pair getSubstituted()
     public static java.lang.Object listModels()
     public static java.lang.String mimeTypeOf()
     public static com.skorsnap.app.data.MatchPrediction parse$app_release()
@@ -40569,6 +40583,7 @@ com.skorsnap.app.ui.AppViewModel:
     public final void back()
     public static void dismissMessage()
     public static kotlinx.coroutines.flow.StateFlow getBusy()
+    public static kotlinx.coroutines.flow.StateFlow getLastUsage()
     public static kotlinx.coroutines.flow.StateFlow getMatches()
     public static kotlinx.coroutines.flow.StateFlow getMessage()
     public static kotlinx.coroutines.flow.StateFlow getMode()
@@ -40750,13 +40765,13 @@ com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$7$1$1:
     public final void invoke()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$7$2:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$82$lambda$81$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$82$lambda$81$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$83$lambda$82$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$83$lambda$82$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$82$lambda$81$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$82$lambda$81$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$83$lambda$82$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$83$lambda$82$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$82$lambda$81$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$83$lambda$82$$inlined$items$default$4:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SafeListCard$2:
     public final void invoke$2()

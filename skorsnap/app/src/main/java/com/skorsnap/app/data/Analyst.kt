@@ -127,6 +127,11 @@ class Analyst(private val apiKey: String) {
                     // whole allowance reasoning and never reach the JSON, which
                     // surfaced as "jawaban terpotong" on perfectly good input.
                     .put("maxOutputTokens", MAX_OUTPUT_TOKENS)
+                    // Bounded from the first attempt rather than only after a
+                    // failure. Truncation used to trigger a full retry, and a retry
+                    // re-uploads every screenshot — on a long capture that is the
+                    // expensive half of the request, charged twice for one answer.
+                    .put("thinkingConfig", JSONObject().put("thinkingBudget", THINKING_BUDGET))
                     .put("responseMimeType", "application/json")
                     .put("responseSchema", RESPONSE_SCHEMA)
             )
@@ -140,7 +145,7 @@ class Analyst(private val apiKey: String) {
             val constrained = JSONObject(body.toString()).also { retry ->
                 retry.getJSONObject("generationConfig")
                     .put("maxOutputTokens", MAX_OUTPUT_TOKENS)
-                    .put("thinkingConfig", JSONObject().put("thinkingBudget", THINKING_BUDGET))
+                    .put("thinkingConfig", JSONObject().put("thinkingBudget", TIGHT_THINKING_BUDGET))
             }
             post(model, constrained.toString())
         }
@@ -175,7 +180,8 @@ class Analyst(private val apiKey: String) {
     }
 
     /** Raised when the model ran out of room before finishing its JSON. */
-    private class TruncatedException : Exception()
+    private class TruncatedException :
+        Exception("Jawaban model terpotong sebelum selesai.")
 
     /**
      * Sends the request, and follows Google's own advice when a model has retired.
@@ -194,6 +200,15 @@ class Analyst(private val apiKey: String) {
             return postOnce(e.replacement, body)
         }
     }
+
+    /** What the last call actually consumed, so spending is visible rather than guessed. */
+    data class Usage(val input: Int, val thinking: Int, val output: Int) {
+        val total: Int get() = input + thinking + output
+    }
+
+    @Volatile
+    var lastUsage: Usage? = null
+        private set
 
     /** Set when a retired model was silently swapped for the one Google named. */
     @Volatile
@@ -227,6 +242,13 @@ class Analyst(private val apiKey: String) {
             }
 
             val json = JSONObject(text)
+            json.optJSONObject("usageMetadata")?.let {
+                lastUsage = Usage(
+                    input = it.optInt("promptTokenCount"),
+                    thinking = it.optInt("thoughtsTokenCount"),
+                    output = it.optInt("candidatesTokenCount"),
+                )
+            }
             val candidate = json.optJSONArray("candidates")?.optJSONObject(0)
                 ?: throw AnalystException(
                     json.optJSONObject("promptFeedback")?.optString("blockReason")
@@ -311,12 +333,22 @@ class Analyst(private val apiKey: String) {
             .put(
                 "contents",
                 JSONArray().put(
-                    JSONObject().put("parts", JSONArray().put(JSONObject().put("text", "Balas: OK")))
+                    JSONObject().put(
+                        "parts",
+                        JSONArray().put(JSONObject().put("text", "Balas persis satu kata: OK"))
+                    )
                 )
             )
-            .put("generationConfig", JSONObject().put("maxOutputTokens", 16))
+            // Sixteen tokens used to be the whole allowance here, and current models
+            // spend their first tokens thinking: every model answered MAX_TOKENS with
+            // no text, which the screen reported as a bare "Gagal." So the test said
+            // every model was broken while all of them worked. Two thousand tokens is
+            // still a fraction of a rupiah and leaves room for an actual reply.
+            .put("generationConfig", JSONObject().put("maxOutputTokens", TEST_OUTPUT_TOKENS))
         val reply = post(model, body.toString())
-        "Model $model berfungsi. Balasannya: ${reply.take(60)}"
+        val spent = lastUsage?.let { " Terpakai ${it.total} token." }.orEmpty()
+        val moved = substituted?.let { " (${it.first} sudah pensiun, dialihkan ke ${it.second}.)" }.orEmpty()
+        "Model $model berfungsi. Balasannya: ${reply.take(60)}$spent$moved"
     }
 
     /** Sniffs the format from the file's own header rather than trusting a name. */
@@ -441,6 +473,14 @@ Aturan pengisian:
 
         /** Thinking allowance on the retry, leaving the rest for the JSON. */
         internal const val THINKING_BUDGET = 8192
+
+        /** The tighter budget used if a bounded first attempt still ran out of room. */
+        internal const val TIGHT_THINKING_BUDGET = 2048
+
+        /**
+         * Enough room for a one-word reply after the model has finished thinking.
+         */
+        internal const val TEST_OUTPUT_TOKENS = 2048
 
         /**
          * The floor the schema puts under the market list.

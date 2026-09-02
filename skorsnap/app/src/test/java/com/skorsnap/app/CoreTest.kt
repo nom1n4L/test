@@ -626,6 +626,41 @@ class CoreTest {
         println("Model omni disaring — dulu muncul di daftar lalu selalu gagal 400.")
     }
 
+    /**
+     * The test button reported every model broken while all of them worked.
+     *
+     * It allowed 16 output tokens, and current models spend their first tokens
+     * thinking: the reply came back finishReason=MAX_TOKENS with no text at all, and
+     * the screen showed a bare "Gagal." Measured against the user's own key, the
+     * thinking alone was 13 tokens on Flash and 161 on Pro before a word was written.
+     */
+    @Test
+    fun theModelTestLeavesRoomToActuallyAnswer() {
+        assert(Analyst.TEST_OUTPUT_TOKENS >= 512) {
+            "jatah tes terlalu kecil lagi: ${Analyst.TEST_OUTPUT_TOKENS} token"
+        }
+        println()
+        println("Tes model: ${Analyst.TEST_OUTPUT_TOKENS} token — cukup untuk berpikir lalu menjawab.")
+    }
+
+    /**
+     * A truncated answer used to retry the whole request, and a retry re-uploads
+     * every screenshot — the expensive half, charged twice for one answer. Thinking
+     * is bounded on the first attempt so the retry stays rare.
+     */
+    @Test
+    fun thinkingIsBoundedBeforeTheExpensiveRetry() {
+        assert(Analyst.THINKING_BUDGET < Analyst.MAX_OUTPUT_TOKENS) {
+            "berpikir bisa menghabiskan seluruh jatah jawaban"
+        }
+        assert(Analyst.TIGHT_THINKING_BUDGET < Analyst.THINKING_BUDGET) {
+            "percobaan ulang tidak lebih ketat dari yang pertama"
+        }
+        val room = Analyst.MAX_OUTPUT_TOKENS - Analyst.THINKING_BUDGET
+        assert(room >= 16384) { "sisa ruang untuk JSON cuma $room token" }
+        println("Berpikir dibatasi ${Analyst.THINKING_BUDGET}, sisa $room token untuk jawaban.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},
