@@ -6,6 +6,12 @@ enum class Mode(val label: String) {
     CORNER("Analisis Corner"),
 }
 
+/** Which of the two records is being read: the app's advice, or the user's bet. */
+enum class Lens(val label: String, val short: String) {
+    PICK("Rekomendasi aplikasi", "Rekomendasi"),
+    BACKED("Market yang saya pasang", "Pilihanku"),
+}
+
 /** One market the model is willing to name a number for. */
 data class MarketOption(
     val name: String,
@@ -83,7 +89,18 @@ data class MatchPrediction(
     val model: String = "",
     /** True when the app replaced a recommendation that fell outside the safe band. */
     val pickCorrected: Boolean = false,
-    val outcome: Outcome = Outcome.PENDING,
+    /**
+     * How the app's own recommendation turned out.
+     *
+     * Kept apart from the market the user actually backed. There was one shared
+     * flag before, and the moment the user backed something other than the pick it
+     * described their bet — so the app's advice went unmeasured, and the one
+     * question worth asking ("is its pick better than what I choose myself?")
+     * could not be answered at all.
+     */
+    val pickOutcome: Outcome = Outcome.PENDING,
+    /** How the market the user actually backed turned out. */
+    val backedOutcome: Outcome = Outcome.PENDING,
     val raw: String = "",
 ) {
     val title: String get() = if (home.isBlank()) "Pertandingan" else "$home vs $away"
@@ -102,17 +119,29 @@ data class MatchPrediction(
 
     val thin: Boolean get() = confidence.equals("rendah", true) || statsMissing.size > 3
 
-    val settled: Boolean get() = outcome != Outcome.PENDING
+    /** Blank means the user backed the recommendation itself. */
+    val backedMarket: String get() = backed.ifBlank { pick }
 
-    /** What the record is about: the market backed, or the recommendation. */
-    val trackedMarket: String get() = backed.ifBlank { pick }
+    fun outcomeFor(lens: Lens): Outcome =
+        if (lens == Lens.PICK) pickOutcome else backedOutcome
 
-    val trackedProb: Double
-        get() = markets.firstOrNull { it.name == trackedMarket }?.prob ?: pickProb
+    fun marketFor(lens: Lens): String =
+        if (lens == Lens.PICK) pick else backedMarket
 
-    val trackedGroup: String
-        get() = markets.firstOrNull { it.name == trackedMarket }?.group
+    fun probFor(lens: Lens): Double =
+        markets.firstOrNull { it.name == marketFor(lens) }?.prob ?: pickProb
+
+    fun groupFor(lens: Lens): String =
+        markets.firstOrNull { it.name == marketFor(lens) }?.group
             ?: if (mode == Mode.CORNER) "Corner" else "Lainnya"
+
+    fun settledFor(lens: Lens): Boolean = outcomeFor(lens) != Outcome.PENDING
+
+    /** True once either record has been filled in. */
+    val settled: Boolean get() = settledFor(Lens.PICK) || settledFor(Lens.BACKED)
+
+    /** The user backed something the app did not recommend. */
+    val divergent: Boolean get() = backed.isNotBlank() && backed != pick
 
     /** Safe-band markets, strongest first — the shortlist worth leading with. */
     fun safePicks(): List<MarketOption> =
@@ -136,6 +165,52 @@ data class Slice(val name: String, val total: Int, val won: Int, val promised: D
 }
 
 /** The market catalogue, shared between the prompt and the screen. */
+/**
+ * The app's recommendation against the user's own choice, head to head.
+ *
+ * Only matches where BOTH records are filled in count. Comparing 21 of the app's
+ * picks against 14 of the user's would be comparing two different sets of matches
+ * and calling the difference skill.
+ */
+data class Comparison(val all: List<MatchPrediction>) {
+
+    val both: List<MatchPrediction> =
+        all.filter { it.settledFor(Lens.PICK) && it.settledFor(Lens.BACKED) }
+
+    /** Matches where the two records could differ at all. */
+    val contested: List<MatchPrediction> = both.filter { it.divergent }
+
+    val pickWon: Int get() = contested.count { it.pickOutcome == Outcome.WON }
+    val backedWon: Int get() = contested.count { it.backedOutcome == Outcome.WON }
+    val n: Int get() = contested.size
+
+    /**
+     * Plain-language reading, refusing to call a winner on a handful of matches.
+     *
+     * At n = 5 a two-result lead happens by chance often enough to be worthless as
+     * evidence, and this screen exists to stop the user acting on that kind of run.
+     */
+    val verdict: String
+        get() = when {
+            n == 0 ->
+                "Belum ada laga yang dua-duanya tercatat sekaligus berbeda pilihan. " +
+                    "Isi kedua hasil pada laga yang kamu pasang di luar rekomendasi, " +
+                    "baru perbandingan ini ada isinya."
+            n < 10 ->
+                "Baru $n laga yang bisa dibandingkan ($pickWon-$backedWon). " +
+                    "Terlalu sedikit untuk menyimpulkan siapa yang lebih baik — " +
+                    "selisih sekecil ini sering muncul karena kebetulan saja."
+            pickWon > backedWon ->
+                "Dari $n laga, rekomendasi aplikasi menang $pickWon, pilihanmu $backedWon. " +
+                    "Condong ke rekomendasi, tapi belum telak."
+            backedWon > pickWon ->
+                "Dari $n laga, pilihanmu menang $backedWon, rekomendasi aplikasi $pickWon. " +
+                    "Naluri pasarmu sejauh ini lebih baik daripada rekomendasinya."
+            else ->
+                "Dari $n laga, keduanya sama-sama $pickWon. Belum ada bedanya."
+        }
+}
+
 object Markets {
 
     val order = listOf(
@@ -162,16 +237,24 @@ object Markets {
  * at its word, and one claiming 78% and landing 55% cannot, however pleasant the
  * recent run has been.
  */
-data class Report(val settled: List<MatchPrediction>) {
+/**
+ * The record seen through one lens.
+ *
+ * Built from every match rather than a pre-filtered list, so the screen cannot
+ * hand it a stale snapshot: it decides for itself what counts as settled.
+ */
+data class Report(val all: List<MatchPrediction>, val lens: Lens = Lens.BACKED) {
+
+    val settled: List<MatchPrediction> = all.filter { it.settledFor(lens) }
 
     val total: Int get() = settled.size
-    val won: Int get() = settled.count { it.outcome == Outcome.WON }
+    val won: Int get() = settled.count { it.outcomeFor(lens) == Outcome.WON }
 
     val actual: Double get() = if (total == 0) 0.0 else won.toDouble() / total
 
     /** What the app said would happen, averaged over the same picks. */
     val promised: Double
-        get() = if (total == 0) 0.0 else settled.sumOf { it.trackedProb } / total
+        get() = if (total == 0) 0.0 else settled.sumOf { it.probFor(lens) } / total
 
     /**
      * The record split by market, and by model.
@@ -181,9 +264,18 @@ data class Report(val settled: List<MatchPrediction>) {
      * combined number will look fine while the user keeps losing on that line.
      * Only a split shows it.
      */
-    fun byGroup(): List<Slice> = slice { it.trackedGroup }
+    fun byGroup(): List<Slice> = slice { it.groupFor(lens) }
 
     fun byModel(): List<Slice> = slice { it.model.ifBlank { "tidak tercatat" } }
+
+    /**
+     * The record split by the exact market, not just its heading.
+     *
+     * "Total Gol" lumps Over 1.5 together with Under 3.5, and those are different
+     * bets that can run in opposite directions. The heading is where a problem
+     * shows up; the exact line is where it can be acted on.
+     */
+    fun byMarket(): List<Slice> = slice { it.marketFor(lens) }.filter { it.total >= 2 }
 
     private fun slice(key: (MatchPrediction) -> String): List<Slice> =
         settled.groupBy(key)
@@ -191,8 +283,8 @@ data class Report(val settled: List<MatchPrediction>) {
                 Slice(
                     name = name,
                     total = list.size,
-                    won = list.count { it.outcome == Outcome.WON },
-                    promised = list.sumOf { it.trackedProb } / list.size,
+                    won = list.count { it.outcomeFor(lens) == Outcome.WON },
+                    promised = list.sumOf { it.probFor(lens) } / list.size,
                 )
             }
             .sortedByDescending { it.total }

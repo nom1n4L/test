@@ -56,7 +56,8 @@ class Store(context: Context) {
         put("pick_prob", m.pickProb)
         put("confidence", m.confidence)
         put("confidence_why", m.confidenceWhy)
-        put("outcome", m.outcome.name)
+        put("pick_outcome", m.pickOutcome.name)
+        put("backed_outcome", m.backedOutcome.name)
         put("mode", m.mode.name)
         put("backed", m.backed)
         put("model", m.model)
@@ -114,12 +115,38 @@ class Store(context: Context) {
             pickProb = o.optDouble("pick_prob", 0.0),
             confidence = o.optString("confidence", "sedang"),
             confidenceWhy = o.optString("confidence_why"),
-            outcome = runCatching { Outcome.valueOf(o.optString("outcome")) }
-                .getOrDefault(Outcome.PENDING),
+            pickOutcome = Migration.outcomes(o).first,
+            backedOutcome = Migration.outcomes(o).second,
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
             backed = o.optString("backed"),
             model = o.optString("model"),
             pickCorrected = o.optBoolean("pick_corrected"),
         )
+    }
+}
+
+/** Reading saves written before a field existed. */
+object Migration {
+    /**
+     * The two records, reading older saves that only ever had one.
+     *
+     * The single old flag described whichever market was actually backed. So when
+     * the user had backed something other than the recommendation, that verdict
+     * belongs to their bet and the recommendation was never judged — recording it
+     * as the app's own result too would credit the app with a call it never made.
+     * When nothing was backed, the two are the same market and share the verdict.
+     */
+    fun outcomes(o: JSONObject): Pair<Outcome, Outcome> {
+        val fresh = o.has("pick_outcome") || o.has("backed_outcome")
+        if (fresh) {
+            fun read(key: String) = runCatching { Outcome.valueOf(o.optString(key)) }
+                .getOrDefault(Outcome.PENDING)
+            return read("pick_outcome") to read("backed_outcome")
+        }
+        val old = runCatching { Outcome.valueOf(o.optString("outcome")) }
+            .getOrDefault(Outcome.PENDING)
+        val backed = o.optString("backed")
+        val divergent = backed.isNotBlank() && backed != o.optString("pick")
+        return if (divergent) Outcome.PENDING to old else old to old
     }
 }

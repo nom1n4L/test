@@ -1,6 +1,11 @@
 package com.skorsnap.app
 
 import com.skorsnap.app.data.Analyst
+import com.skorsnap.app.data.Comparison
+import com.skorsnap.app.data.Migration
+import org.json.JSONObject
+import com.skorsnap.app.data.Coach
+import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.MarketOption
 import com.skorsnap.app.data.Markets
 import com.skorsnap.app.data.Grid
@@ -200,7 +205,10 @@ class CoreTest {
     }
 
     private fun settled(prob: Double, won: Boolean) =
-        match(prob).copy(outcome = if (won) Outcome.WON else Outcome.LOST)
+        match(prob).copy(
+            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
+            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
+        )
 
     /**
      * The run that prompted this screen: eleven from twelve. It has to read as a
@@ -364,7 +372,8 @@ class CoreTest {
         fun bet(group: String, prob: Double, won: Boolean) = match(prob).copy(
             markets = listOf(MarketOption("m", prob, "", group)),
             backed = "m",
-            outcome = if (won) Outcome.WON else Outcome.LOST,
+            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
+            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
         )
         val record =
             List(8) { bet("Corner", 0.76, true) } + List(2) { bet("Corner", 0.76, false) } +
@@ -396,7 +405,8 @@ class CoreTest {
         fun bet(won: Boolean) = match(0.8).copy(
             markets = listOf(MarketOption("m", 0.8, "", "Baru")),
             backed = "m",
-            outcome = if (won) Outcome.WON else Outcome.LOST,
+            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
+            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
         )
         val slice = Report(listOf(bet(false), bet(false), bet(true))).byGroup().first()
         assert(!slice.worthWatching) { "3 hasil seharusnya belum ditandai" }
@@ -411,13 +421,19 @@ class CoreTest {
                 MarketOption("Double Chance 1X", 0.71, "", "Double Chance"),
             ),
             backed = "Double Chance 1X",
-            outcome = Outcome.WON,
+            backedOutcome = Outcome.WON,
+            pickOutcome = Outcome.LOST,
         )
-        assert(m.trackedMarket == "Double Chance 1X")
-        assert(Math.round(m.trackedProb * 100) == 71L) { "peluang yang dicatat masih ikut rekomendasi" }
-        assert(m.trackedGroup == "Double Chance")
+        assert(m.marketFor(Lens.BACKED) == "Double Chance 1X")
+        assert(Math.round(m.probFor(Lens.BACKED) * 100) == 71L) {
+            "peluang yang dicatat masih ikut rekomendasi"
+        }
+        assert(m.groupFor(Lens.BACKED) == "Double Chance")
+        assert(m.marketFor(Lens.PICK) == "Over 1.5")
+        assert(Math.round(m.probFor(Lens.PICK) * 100) == 85L)
         println()
-        println("Direkomendasikan '${m.pick}', dipasang '${m.trackedMarket}' — yang dicatat yang dipasang.")
+        println("Rekomendasi '${m.pick}' meleset, pasangan '${m.marketFor(Lens.BACKED)}' tembus — " +
+            "dua-duanya tercatat terpisah.")
     }
 
     private fun withMarkets(pick: String, vararg m: Pair<String, Double>) = match(0.5).copy(
@@ -659,6 +675,142 @@ class CoreTest {
         val room = Analyst.MAX_OUTPUT_TOKENS - Analyst.THINKING_BUDGET
         assert(room >= 16384) { "sisa ruang untuk JSON cuma $room token" }
         println("Berpikir dibatasi ${Analyst.THINKING_BUDGET}, sisa $room token untuk jawaban.")
+    }
+
+    // ------------------------------------------------ dua catatan, bukan satu
+
+    private fun bothWays(pick: String, backedMarket: String, pickWon: Boolean, backedWon: Boolean) =
+        match(0.8).copy(
+            pick = pick,
+            markets = listOf(
+                MarketOption(pick, 0.80, "", "Total Gol"),
+                MarketOption(backedMarket, 0.71, "", "Double Chance"),
+            ),
+            backed = backedMarket,
+            pickOutcome = if (pickWon) Outcome.WON else Outcome.LOST,
+            backedOutcome = if (backedWon) Outcome.WON else Outcome.LOST,
+        )
+
+    /**
+     * The complaint behind this split: the recommendation missed, the safe market
+     * the user actually backed landed, and the report could only show one of them.
+     */
+    @Test
+    fun oneMatchNowAnswersTwoQuestions() {
+        val m = bothWays("Over 1.5", "1X", pickWon = false, backedWon = true)
+        val asPick = Report(listOf(m), Lens.PICK)
+        val asBacked = Report(listOf(m), Lens.BACKED)
+        assert(asPick.won == 0 && asPick.total == 1) { "rekomendasi salah dicatat" }
+        assert(asBacked.won == 1 && asBacked.total == 1) { "pilihan pengguna salah dicatat" }
+        assert(Math.round(asPick.promised * 100) == 80L)
+        assert(Math.round(asBacked.promised * 100) == 71L)
+        println()
+        println("Satu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.")
+    }
+
+    @Test
+    fun theComparisonOnlyCountsMatchesWhereBothAreKnown() {
+        val complete = bothWays("Over 1.5", "1X", pickWon = true, backedWon = false)
+        val halfDone = complete.copy(id = "b", backedOutcome = Outcome.PENDING)
+        val sameMarket = match(0.8).copy(id = "c", pick = "Over 1.5", backed = "Over 1.5",
+            pickOutcome = Outcome.WON, backedOutcome = Outcome.WON)
+        val c = Comparison(listOf(complete, halfDone, sameMarket))
+        assert(c.n == 1) { "yang dibandingkan seharusnya 1, dapat ${c.n}" }
+        assert(c.pickWon == 1 && c.backedWon == 0)
+        println("Hanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.")
+    }
+
+    @Test
+    fun theComparisonRefusesToCallAWinnerTooEarly() {
+        val lopsided = List(5) { bothWays("Over 1.5", "1X", pickWon = true, backedWon = false)
+            .copy(id = "m$it") }
+        val verdict = Comparison(lopsided).verdict
+        assert(verdict.contains("Terlalu sedikit")) { "5-0 langsung disimpulkan: $verdict" }
+        println("5-0 pun belum disimpulkan: \"${verdict.take(60)}…\"")
+    }
+
+    @Test
+    fun theExactMarketSplitSeparatesOppositeBets() {
+        fun bet(name: String, won: Boolean) = match(0.74).copy(
+            markets = listOf(MarketOption(name, 0.74, "", "Total Gol")),
+            backed = name, pick = name,
+            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
+            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
+        )
+        val record = List(3) { bet("Over 1.5", false) } + List(3) { bet("Under 3.5", true) }
+        val group = Report(record, Lens.BACKED).byGroup()
+        val markets = Report(record, Lens.BACKED).byMarket().associateBy { it.name }
+        assert(group.size == 1) { "keduanya memang satu kelompok" }
+        assert(markets["Over 1.5"]!!.won == 0 && markets["Under 3.5"]!!.won == 3) {
+            "market berlawanan masih tercampur"
+        }
+        println("Kelompok 'Total Gol' 50%, tapi Over 1.5 0/3 dan Under 3.5 3/3 — beda jauh.")
+    }
+
+    // ------------------------------------------------ catatan lama tidak hilang
+
+    /**
+     * The old save had one flag, and it described whichever market was backed. A
+     * divergent bet's verdict therefore belongs to the bet, and the recommendation
+     * was never judged — crediting the app with it would invent a result.
+     */
+    @Test
+    fun oldRecordsSurviveWithoutInventingResults() {
+        val divergent = JSONObject("""{"pick":"Over 1.5","backed":"1X","outcome":"WON"}""")
+        val (p1, b1) = Migration.outcomes(divergent)
+        assert(b1 == Outcome.WON) { "hasil taruhan lama hilang" }
+        assert(p1 == Outcome.PENDING) { "rekomendasi diberi hasil yang tak pernah dinilai" }
+
+        val same = JSONObject("""{"pick":"Over 1.5","backed":"","outcome":"LOST"}""")
+        val (p2, b2) = Migration.outcomes(same)
+        assert(p2 == Outcome.LOST && b2 == Outcome.LOST) { "taruhan sama market malah kosong" }
+
+        val fresh = JSONObject("""{"pick_outcome":"WON","backed_outcome":"LOST"}""")
+        assert(Migration.outcomes(fresh) == Outcome.WON to Outcome.LOST)
+        println()
+        println("Catatan lama terbaca: hasil taruhan tetap, rekomendasi tidak dikarang.")
+    }
+
+    // ------------------------------------------------ umpan balik ke model
+
+    @Test
+    fun theCoachFlagsAnOverconfidentMarketAndSaysHowMany() {
+        fun bet(group: String, prob: Double, won: Boolean) = match(prob).copy(
+            markets = listOf(MarketOption("m", prob, "", group)),
+            pick = "m",
+            pickOutcome = if (won) Outcome.WON else Outcome.LOST,
+            backedOutcome = if (won) Outcome.WON else Outcome.LOST,
+        )
+        val record = List(3) { bet("Total Gol", 0.74, false) } + List(3) { bet("Total Gol", 0.74, true) } +
+            List(8) { bet("Corner", 0.76, true) } + List(2) { bet("Corner", 0.76, false) }
+        val brief = Coach.brief(record)
+        assert(brief.contains("TERLALU PERCAYA DIRI")) { "market yang overclaim tidak ditandai:\n$brief" }
+        assert(brief.contains("dari 6 taruhan")) { "jumlah data tidak disebut:\n$brief" }
+        assert(brief.contains("masih sedikit")) { "tidak mengakui sampelnya kecil" }
+        println()
+        println(brief)
+    }
+
+    @Test
+    fun theCoachStaysQuietUntilThereIsSomethingToSay() {
+        assert(Coach.brief(emptyList()).isBlank())
+        assert(Coach.brief(List(2) { match(0.8).copy(pickOutcome = Outcome.WON) }).isBlank()) {
+            "menyimpulkan dari 2 hasil"
+        }
+        println("Di bawah ${Coach.MIN_SAMPLE} hasil, tidak ada yang diumpankan — tidak mengarang pola.")
+    }
+
+    /** The same result must not be counted twice just because two fields hold it. */
+    @Test
+    fun backingTheRecommendationCountsOnce() {
+        val same = List(6) {
+            match(0.8).copy(pick = "m", backed = "", markets = listOf(MarketOption("m", 0.8, "", "G")),
+                pickOutcome = Outcome.WON, backedOutcome = Outcome.WON)
+        }
+        assert(Coach.brief(same).contains("(6 taruhan sudah selesai)")) {
+            "hasil yang sama dihitung dua kali:\n${Coach.brief(same)}"
+        }
+        println("Pasang sesuai rekomendasi → dihitung sekali, bukan dua.")
     }
 
     @Test

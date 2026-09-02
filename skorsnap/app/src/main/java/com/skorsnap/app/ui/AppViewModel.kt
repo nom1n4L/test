@@ -7,9 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
+import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
-import com.skorsnap.app.data.Report
 import com.skorsnap.app.data.Slip
 import com.skorsnap.app.data.Store
 import kotlinx.coroutines.Dispatchers
@@ -196,7 +196,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val analyst = Analyst(store.apiKey)
                 val result = analyst
-                    .analyse(images, note, store.model, _mode.value)
+                    .analyse(images, note, store.model, _mode.value, _matches.value)
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
                 val updated = _matches.value + result
@@ -223,25 +223,46 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * mis-tap does not quietly poison the record the whole screen exists to keep
      * honest.
      */
-    fun markOutcome(id: String, outcome: Outcome) {
+    fun markOutcome(id: String, lens: Lens, outcome: Outcome) {
         val updated = _matches.value.map { m ->
-            if (m.id != id) m
-            else m.copy(outcome = if (m.outcome == outcome) Outcome.PENDING else outcome)
+            when {
+                m.id != id -> m
+                // Backing the recommendation itself means the two records are about
+                // the same market, so one verdict settles both. Only the pick row is
+                // shown in that case, and leaving the other blank would quietly drop
+                // the match out of the report the user reads by default.
+                !m.divergent -> {
+                    val next = if (m.pickOutcome == outcome) Outcome.PENDING else outcome
+                    m.copy(pickOutcome = next, backedOutcome = next)
+                }
+                lens == Lens.PICK ->
+                    m.copy(pickOutcome = if (m.pickOutcome == outcome) Outcome.PENDING else outcome)
+                else ->
+                    m.copy(backedOutcome = if (m.backedOutcome == outcome) Outcome.PENDING else outcome)
+            }
         }
         _matches.value = updated
         store.save(updated)
     }
 
-    /** Records which market was actually backed, which is often not the pick. */
+    /**
+     * Records which market was actually backed, which is often not the pick.
+     *
+     * Changing it clears any result already recorded against it: that verdict was
+     * about a different bet, and carrying it over would quietly file the outcome of
+     * one market under another.
+     */
     fun setBacked(id: String, market: String) {
         val updated = _matches.value.map { m ->
-            if (m.id == id) m.copy(backed = market) else m
+            when {
+                m.id != id -> m
+                m.backedMarket == market -> m
+                else -> m.copy(backed = market, backedOutcome = Outcome.PENDING)
+            }
         }
         _matches.value = updated
         store.save(updated)
     }
-
-    fun report(): Report = Report(_matches.value.filter { it.settled })
 
     fun remove(id: String) {
         val updated = _matches.value.filterNot { it.id == id }

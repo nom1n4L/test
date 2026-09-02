@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.skorsnap.app.data.Lens
 
 @Composable
 fun App(vm: AppViewModel) {
@@ -105,7 +106,7 @@ fun App(vm: AppViewModel) {
                     } else {
                         DetailScreen(
                             match = match,
-                            onMark = { vm.markOutcome(s.id, it) },
+                            onMark = { lens, outcome -> vm.markOutcome(s.id, lens, outcome) },
                             onBacked = { vm.setBacked(s.id, it) },
                             onDelete = { vm.remove(s.id) },
                         )
@@ -116,8 +117,12 @@ fun App(vm: AppViewModel) {
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onClear = { matches.forEach { m -> if (m.id in selected) vm.toggle(m.id) } },
                 )
+                // Built from the observed match list rather than a plain call into
+                // the view model. vm.report() read the flow's value directly, which
+                // Compose does not watch, so recording a result while this screen
+                // was open left the numbers on the previous total.
                 is Screen.Report -> ReportScreen(
-                    report = vm.report(),
+                    matches = matches,
                     onOpen = { vm.go(Screen.Detail(it)) },
                 )
                 is Screen.Settings -> SettingsScreen(vm)

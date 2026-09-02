@@ -57,6 +57,10 @@ import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Report
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Slip
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.skorsnap.app.data.Comparison
+import com.skorsnap.app.data.Lens
+import com.skorsnap.app.data.Coach
 
 @Composable
 fun Card(
@@ -226,7 +230,7 @@ private fun MatchRow(
                     style = MaterialTheme.typography.titleMedium,
                     color = probColor(match.pickProb),
                 )
-                when (match.outcome) {
+                when (match.outcomeFor(Lens.BACKED)) {
                     Outcome.WON -> Text(
                         "tembus ✓",
                         style = MaterialTheme.typography.labelSmall,
@@ -417,7 +421,7 @@ fun AddScreen(
 @Composable
 fun DetailScreen(
     match: MatchPrediction,
-    onMark: (Outcome) -> Unit,
+    onMark: (Lens, Outcome) -> Unit,
     onBacked: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -765,13 +769,14 @@ private fun MarketGroup(
 @Composable
 private fun OutcomeCard(
     match: MatchPrediction,
-    onMark: (Outcome) -> Unit,
+    onMark: (Lens, Outcome) -> Unit,
     onBacked: (String) -> Unit,
 ) {
     var choosing by remember(match.id) { mutableStateOf(false) }
     Card(
         title = "Sudah Main?",
-        subtitle = "Tandai hasil dari market yang kamu pasang, bukan yang direkomendasikan.",
+        subtitle = "Catat dua-duanya: rekomendasi aplikasi dan market yang kamu pasang. " +
+            "Itu satu-satunya cara tahu mana yang lebih baik.",
     ) {
         // The recommendation and the bet are often different markets. Recording
         // the wrong one is what made the report unanswerable.
@@ -788,15 +793,15 @@ private fun OutcomeCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        match.trackedMarket.ifBlank { "belum dipilih" },
+                        match.backedMarket.ifBlank { "belum dipilih" },
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
                 Text(
-                    "${Math.round(match.trackedProb * 100)}%",
+                    "${Math.round(match.probFor(Lens.BACKED) * 100)}%",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = probColor(match.trackedProb),
+                    color = probColor(match.probFor(Lens.BACKED)),
                 )
                 Spacer(Modifier.width(10.dp))
                 Text(if (choosing) "−" else "ganti", style = MaterialTheme.typography.labelSmall, color = Sky)
@@ -819,7 +824,7 @@ private fun OutcomeCard(
                             option.name,
                             Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = if (option.name == match.trackedMarket) FontWeight.Bold else FontWeight.Normal,
+                            fontWeight = if (option.name == match.backedMarket) FontWeight.Bold else FontWeight.Normal,
                         )
                         Text(
                             "${option.percent}%",
@@ -830,20 +835,33 @@ private fun OutcomeCard(
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutcomeButton(
-                text = "Tembus",
-                active = match.outcome == Outcome.WON,
-                colour = Green,
-                modifier = Modifier.weight(1f),
-            ) { onMark(Outcome.WON) }
-            OutcomeButton(
-                text = "Meleset",
-                active = match.outcome == Outcome.LOST,
-                colour = Rose,
-                modifier = Modifier.weight(1f),
-            ) { onMark(Outcome.LOST) }
+        Spacer(Modifier.height(14.dp))
+        // Two separate records. With one shared flag, backing anything other than
+        // the recommendation left the app's own advice unmeasured — so the question
+        // the user kept asking, whether its pick beats their own, had no answer.
+        OutcomeRow(
+            label = "Rekomendasi aplikasi",
+            market = match.pick,
+            percent = Math.round(match.pickProb * 100).toInt(),
+            current = match.pickOutcome,
+        ) { onMark(Lens.PICK, it) }
+
+        if (match.divergent) {
+            Spacer(Modifier.height(12.dp))
+            OutcomeRow(
+                label = "Market yang kamu pasang",
+                market = match.backedMarket,
+                percent = Math.round(match.probFor(Lens.BACKED) * 100).toInt(),
+                current = match.backedOutcome,
+            ) { onMark(Lens.BACKED, it) }
+        } else {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Kamu memasang market yang sama dengan rekomendasi, jadi satu catatan " +
+                    "sudah cukup. Ganti market di atas kalau kamu pasang yang lain.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
         if (match.settled) {
             Spacer(Modifier.height(8.dp))
@@ -853,6 +871,38 @@ private fun OutcomeCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+/** One label, the market it refers to, and the two verdicts. */
+@Composable
+private fun OutcomeRow(
+    label: String,
+    market: String,
+    percent: Int,
+    current: Outcome,
+    onMark: (Outcome) -> Unit,
+) {
+    Text(label, style = MaterialTheme.typography.labelSmall, color = Sky)
+    Text(
+        "${market.ifBlank { "belum ada" }} · $percent%",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(6.dp))
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        OutcomeButton(
+            text = "Tembus",
+            active = current == Outcome.WON,
+            colour = Green,
+            modifier = Modifier.weight(1f),
+        ) { onMark(Outcome.WON) }
+        OutcomeButton(
+            text = "Meleset",
+            active = current == Outcome.LOST,
+            colour = Rose,
+            modifier = Modifier.weight(1f),
+        ) { onMark(Outcome.LOST) }
     }
 }
 
@@ -1328,17 +1378,45 @@ fun SettingsScreen(vm: AppViewModel) {
  * taken at face value.
  */
 @Composable
-fun ReportScreen(report: Report, onOpen: (String) -> Unit) {
+fun ReportScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
+    var lens by rememberSaveable { mutableStateOf(Lens.BACKED) }
+    val report = remember(matches, lens) { Report(matches, lens) }
+    val comparison = remember(matches) { Comparison(matches) }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        item {
+            // Two records, two answers. Which one is on screen has to be explicit,
+            // or the reader cannot tell whose accuracy the number describes.
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Lens.entries.forEach { option ->
+                    val on = lens == option
+                    Surface(
+                        color = if (on) Sky.copy(alpha = 0.20f)
+                        else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).clickable { lens = option },
+                    ) {
+                        Text(
+                            option.label,
+                            modifier = Modifier.padding(vertical = 9.dp, horizontal = 8.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            textAlign = TextAlign.Center,
+                            color = if (on) Sky else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                        )
+                    }
+                }
+            }
+        }
+
         if (report.total == 0) {
             item {
                 Box(Modifier.fillMaxWidth().height(280.dp), contentAlignment = Alignment.Center) {
                     Text(
-                        "Belum ada hasil yang ditandai.\n\n" +
+                        "Belum ada hasil untuk ${lens.label.lowercase()}.\n\n" +
                             "Setelah pertandingan selesai, buka halamannya lalu tekan " +
                             "Tembus atau Meleset. Angka di sini akan terisi sendiri.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -1415,9 +1493,70 @@ fun ReportScreen(report: Report, onOpen: (String) -> Unit) {
             }
         }
 
+        item {
+            Card(
+                title = "Rekomendasi vs Pilihanmu",
+                subtitle = "Hanya laga yang dua-duanya tercatat dan pilihannya berbeda.",
+            ) {
+                if (comparison.n > 0) {
+                    Row {
+                        Stat(
+                            "Rekomendasi",
+                            "${comparison.pickWon}/${comparison.n}",
+                            Modifier.weight(1f),
+                        )
+                        Stat(
+                            "Pilihanmu",
+                            "${comparison.backedWon}/${comparison.n}",
+                            Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+                Text(
+                    comparison.verdict,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        item {
+            Card(
+                title = "Yang Dipelajari Model",
+                subtitle = "Catatan ini ikut dikirim setiap kali kamu menganalisis laga baru.",
+            ) {
+                Text(
+                    remember(matches) { Coach.summary(matches) },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Ini bukan model yang dilatih ulang — modelnya tetap punya Google dan " +
+                        "tidak berubah. Yang berubah cuma apa yang diberitahukan ke dia " +
+                        "sebelum menganalisis. Efeknya nyata tapi terbatas, dan makin " +
+                        "banyak hasil yang kamu tandai, makin berguna catatannya.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Amber,
+                )
+            }
+        }
+
         val byGroup = report.byGroup()
         if (byGroup.size > 1) {
-            item { SliceCard("Per Market", "Di mana akurasinya benar-benar berada.", byGroup) }
+            item { SliceCard("Per Kelompok Market", "Di mana akurasinya benar-benar berada.", byGroup) }
+        }
+        val byMarket = report.byMarket()
+        if (byMarket.isNotEmpty()) {
+            item {
+                SliceCard(
+                    "Per Market Persis",
+                    "Over 1.5 dan Under 3.5 sama-sama \"Total Gol\" tapi taruhan yang berbeda. " +
+                        "Yang muncul di sini minimal dua kali tercatat.",
+                    byMarket,
+                )
+            }
         }
         val byModel = report.byModel()
         if (byModel.size > 1) {
@@ -1454,10 +1593,10 @@ fun ReportScreen(report: Report, onOpen: (String) -> Unit) {
                         )
                     }
                     Text(
-                        if (match.outcome == Outcome.WON) "tembus ✓" else "meleset ✗",
+                        if (match.outcomeFor(lens) == Outcome.WON) "tembus ✓" else "meleset ✗",
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (match.outcome == Outcome.WON) Green else Rose,
+                        color = if (match.outcomeFor(lens) == Outcome.WON) Green else Rose,
                     )
                 }
             }

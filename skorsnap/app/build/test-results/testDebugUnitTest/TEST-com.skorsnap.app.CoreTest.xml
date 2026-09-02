@@ -1,56 +1,68 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.skorsnap.app.CoreTest" tests="43" skipped="0" failures="0" errors="0" timestamp="2026-09-02T10:32:42.432Z" hostname="vm" time="0.593">
+<testsuite name="com.skorsnap.app.CoreTest" tests="51" skipped="0" failures="0" errors="0" timestamp="2026-09-02T12:20:34.169Z" hostname="vm" time="0.412">
   <properties/>
-  <testcase name="duplicateLegsAreCollapsed" classname="com.skorsnap.app.CoreTest" time="0.06"/>
-  <testcase name="anUnreadableMatchIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.01"/>
-  <testcase name="theSplitFindsTheMarketTheAverageHides" classname="com.skorsnap.app.CoreTest" time="0.098"/>
-  <testcase name="aRecommendationInsideTheBandIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.024"/>
-  <testcase name="derivedMarketsAgreeWithEachOther" classname="com.skorsnap.app.CoreTest" time="0.072"/>
-  <testcase name="survivesAStraySentenceBeforeTheJson" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="theCoachStaysQuietUntilThereIsSomethingToSay" classname="com.skorsnap.app.CoreTest" time="0.076"/>
+  <testcase name="oldRecordsSurviveWithoutInventingResults" classname="com.skorsnap.app.CoreTest" time="0.011"/>
+  <testcase name="duplicateLegsAreCollapsed" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="anUnreadableMatchIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theSplitFindsTheMarketTheAverageHides" classname="com.skorsnap.app.CoreTest" time="0.029"/>
+  <testcase name="aRecommendationInsideTheBandIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.01"/>
+  <testcase name="theExactMarketSplitSeparatesOppositeBets" classname="com.skorsnap.app.CoreTest" time="0.004"/>
+  <testcase name="derivedMarketsAgreeWithEachOther" classname="com.skorsnap.app.CoreTest" time="0.042"/>
+  <testcase name="survivesAStraySentenceBeforeTheJson" classname="com.skorsnap.app.CoreTest" time="0.009"/>
+  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <testcase name="theOmniVariantsAreFilteredOut" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="aThinSliceIsNotFlagged" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="cappedThinkingLeavesRoomForTheAnswer" classname="com.skorsnap.app.CoreTest" time="0.014"/>
-  <testcase name="aliasesLeadAndPreviewsTrail" classname="com.skorsnap.app.CoreTest" time="0.022"/>
-  <testcase name="thePromptCoversTheMarketsAsked" classname="com.skorsnap.app.CoreTest" time="0.009"/>
-  <testcase name="retiredModelsHandGoogleTheirOwnReplacement" classname="com.skorsnap.app.CoreTest" time="0.007"/>
-  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.018"/>
-  <testcase name="everyGroupInThePromptIsOneTheScreenKnows" classname="com.skorsnap.app.CoreTest" time="0.044"/>
-  <testcase name="reportsTheGapBetweenPromisedAndDelivered" classname="com.skorsnap.app.CoreTest" time="0.028"/>
-  <testcase name="thinkingIsBoundedBeforeTheExpensiveRetry" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aThinSliceIsNotFlagged" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="cappedThinkingLeavesRoomForTheAnswer" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="aliasesLeadAndPreviewsTrail" classname="com.skorsnap.app.CoreTest" time="0.012"/>
+  <testcase name="thePromptCoversTheMarketsAsked" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="retiredModelsHandGoogleTheirOwnReplacement" classname="com.skorsnap.app.CoreTest" time="0.01"/>
+  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.014"/>
+  <testcase name="everyGroupInThePromptIsOneTheScreenKnows" classname="com.skorsnap.app.CoreTest" time="0.021"/>
+  <testcase name="reportsTheGapBetweenPromisedAndDelivered" classname="com.skorsnap.app.CoreTest" time="0.009"/>
+  <testcase name="thinkingIsBoundedBeforeTheExpensiveRetry" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="backingTheRecommendationCountsOnce" classname="com.skorsnap.app.CoreTest" time="0.018"/>
   <testcase name="marketsAreGroupedInCatalogueOrder" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="cornerModeGetsItsOwnCatalogue" classname="com.skorsnap.app.CoreTest" time="0.026"/>
-  <testcase name="ordinaryScreenshotsAreNotSliced" classname="com.skorsnap.app.CoreTest" time="0.006"/>
-  <testcase name="everyGroupIsCoveredWhateverTheModelReturns" classname="com.skorsnap.app.CoreTest" time="0.028"/>
-  <testcase name="refusesGarbageInsteadOfInventing" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theCoachFlagsAnOverconfidentMarketAndSaysHowMany" classname="com.skorsnap.app.CoreTest" time="0.004"/>
+  <testcase name="cornerModeGetsItsOwnCatalogue" classname="com.skorsnap.app.CoreTest" time="0.011"/>
+  <testcase name="ordinaryScreenshotsAreNotSliced" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="everyGroupIsCoveredWhateverTheModelReturns" classname="com.skorsnap.app.CoreTest" time="0.009"/>
+  <testcase name="refusesGarbageInsteadOfInventing" classname="com.skorsnap.app.CoreTest" time="0.008"/>
   <testcase name="bandsCoverALongCaptureWithoutGaps" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="theRecordFollowsTheBetNotTheRecommendation" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="precisionTightensAsResultsAccumulate" classname="com.skorsnap.app.CoreTest" time="0.014"/>
+  <testcase name="precisionTightensAsResultsAccumulate" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="aRecommendationAboveTheBandIsAlsoReplaced" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theGridIsFittedToTheModelsOwnCall" classname="com.skorsnap.app.CoreTest" time="0.015"/>
-  <testcase name="onlyOffersModelsThatCanReadAScreenshot" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theSafeListRunsHighestFirstAndExcludesTheRest" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="aRecommendationBelowTheBandIsReplaced" classname="com.skorsnap.app.CoreTest" time="0.007"/>
-  <testcase name="withNothingSafeTheAppDoesNotInventOne" classname="com.skorsnap.app.CoreTest" time="0.007"/>
+  <testcase name="theGridIsFittedToTheModelsOwnCall" classname="com.skorsnap.app.CoreTest" time="0.008"/>
+  <testcase name="onlyOffersModelsThatCanReadAScreenshot" classname="com.skorsnap.app.CoreTest" time="0.003"/>
+  <testcase name="theSafeListRunsHighestFirstAndExcludesTheRest" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aRecommendationBelowTheBandIsReplaced" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="withNothingSafeTheAppDoesNotInventOne" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theComparisonRefusesToCallAWinnerTooEarly" classname="com.skorsnap.app.CoreTest" time="0.01"/>
   <testcase name="elevenFromTwelveIsNotYetEvidence" classname="com.skorsnap.app.CoreTest" time="0.007"/>
-  <testcase name="theDefaultModelIsAnAliasThatCannotRetire" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="pendingMatchesStayOutOfTheRecord" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theDefaultModelIsAnAliasThatCannotRetire" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="pendingMatchesStayOutOfTheRecord" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="responseSchemaCoversEveryFieldTheParserNeeds" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="sixLegsIsTheCaseTheUserAsksFor" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="theModelTestLeavesRoomToActuallyAnswer" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="sixLegsIsTheCaseTheUserAsksFor" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="oneMatchNowAnswersTwoQuestions" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theModelTestLeavesRoomToActuallyAnswer" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <testcase name="ignoresImpossibleProbabilities" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="putsTheUsefulModelsFirst" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theTwoHandicapFamiliesBothSurvive" classname="com.skorsnap.app.CoreTest" time="0.015"/>
-  <testcase name="theModelsOwnNumberIsNeverOverwritten" classname="com.skorsnap.app.CoreTest" time="0.012"/>
-  <testcase name="theSafeBandMatchesTheOneThePickUses" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="expectedReturnDependsOnlyOnLegCount" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <system-out><![CDATA[Gambar tidak terbaca → tetap kosong, tidak dikarang.
+  <testcase name="theComparisonOnlyCountsMatchesWhereBothAreKnown" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="putsTheUsefulModelsFirst" classname="com.skorsnap.app.CoreTest" time="0.009"/>
+  <testcase name="theTwoHandicapFamiliesBothSurvive" classname="com.skorsnap.app.CoreTest" time="0.004"/>
+  <testcase name="theModelsOwnNumberIsNeverOverwritten" classname="com.skorsnap.app.CoreTest" time="0.009"/>
+  <testcase name="theSafeBandMatchesTheOneThePickUses" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="expectedReturnDependsOnlyOnLegCount" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <system-out><![CDATA[Di bawah 4 hasil, tidak ada yang diumpankan — tidak mengarang pola.
+
+Catatan lama terbaca: hasil taruhan tetap, rekomendasi tidak dikarang.
+Gambar tidak terbaca → tetap kosong, tidak dikarang.
 
 Total terlihat sehat: 76% lawan janji 74%
   Corner       8/10  nyata  80%  janji  76%  selisih +4 
   Over 1.5     3/6   nyata  50%  janji  74%  selisih -24 ← awasi
   Total Gol    5/5   nyata 100%  janji  72%  selisih +28 ← awasi
 Yang sudah di rentang aman tidak diutak-atik — walau ada yang lebih tinggi.
+Kelompok 'Total Gol' 50%, tapi Over 1.5 0/3 dan Under 3.5 3/3 — beda jauh.
 Pasangan berjumlah 1,0; DC tidak pernah di bawah komponennya.
 Kalimat tambahan di luar JSON tidak merusak hasil.
 4 leg @80% → 41% (1 dari 2)
@@ -68,7 +80,15 @@ Grup di prompt: [Corner, Corner Babak 1, Corner per Tim, Double Chance, Handicap
 Janji 75%, tembus 75% → Akurasi nyatamu kurang lebih sama dengan yang dijanjikan model. Artiny…
 Janji 85%, tembus 55% → Hasilnya di bawah yang dijanjikan model. Kalau bertahan sampai 100 has…
 Berpikir dibatasi 8192, sisa 24576 token untuk jawaban.
+Pasang sesuai rekomendasi → dihitung sekali, bukan dua.
 Urutan grup: [Double Chance, Total Gol, Handicap Asia]
+
+CATATAN HASIL NYATA DARI APLIKASI INI (16 taruhan sudah selesai).
+Keseluruhan: dijanjikan 75%, tembus 69%.
+Per kelompok market (hanya yang minimal 4 data):
+- Corner: dijanjikan 76%, tembus 80% dari 10 taruhan → sudah pas, pertahankan
+- Total Gol: dijanjikan 74%, tembus 50% dari 6 taruhan → TERLALU PERCAYA DIRI — turunkan peluangmu di kelompok ini sekitar 24 poin
+Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, bukan aturan mati. Jangan mengubah pembacaanmu atas statistik di gambar hanya supaya cocok dengan catatan ini.
 Corner 5,4-4,6 → Over 9.5 50%.
 
 Screenshot biasa dibiarkan utuh; hanya long capture yang dipotong.
@@ -81,7 +101,7 @@ Balasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.
   tinggi 20000 → 10 potong, tertinggi 2120 px
   tinggi 45000 → 10 potong, tertinggi 4620 px
 
-Direkomendasikan 'Over 1.5', dipasang 'Double Chance 1X' — yang dicatat yang dipasang.
+Rekomendasi 'Over 1.5' meleset, pasangan 'Double Chance 1X' tembus — dua-duanya tercatat terpisah.
 
 12 hasil  → ±22 poin (belum cukup)
 120 hasil → ±7 poin (cukup)
@@ -93,6 +113,7 @@ Daftar aman: [DC, Over 1.5, BTTS] — tertinggi di atas, yang di luar rentang di
 
 57% diganti jadi 'Double Chance 1X' 81% — dan dikabari ke pengguna.
 Kalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.
+5-0 pun belum disimpulkan: "Baru 5 laga yang bisa dibandingkan (5-0). Terlalu sedikit un…"
 
 11 dari 12: nyata 92%, dijanjikan 78%, sejatinya antara 65% dan 99% (±17 poin)
 Vonis: Baru 12 hasil. Terlalu sedikit untuk menyimpulkan apa pun — beruntung dan pintar terlihat sama di jumlah segini.
@@ -106,8 +127,11 @@ Skema mencakup 17 field, 12 di antaranya wajib.
    bayaran wajar 5.62, setelah margin 3.95
    imbal hasil harapan 70%
 
+Satu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.
+
 Tes model: 2048 token — cukup untuk berpikir lalu menjawab.
 Peluang mustahil dibuang, bukan ditampilkan.
+Hanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
 Urutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
 Handicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
 Angka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
