@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1H Corner Predictor</title>
+<style>
+  :root{
+    --bg:#f7f7f5; --panel:#fff; --ink:#1a1a18; --muted:#6b6b66; --line:#e3e3de;
+    --accent:#2d6a4f; --warn:#a15c00; --bad:#8b2f2f; --chip:#eeeeea;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#16171a; --panel:#1e2024; --ink:#e8e8e4; --muted:#9a9a94; --line:#2e3137;
+      --accent:#5fb08a; --warn:#d99a3a; --bad:#e07a7a; --chip:#282b31;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#16171a; --panel:#1e2024; --ink:#e8e8e4; --muted:#9a9a94; --line:#2e3137;
+    --accent:#5fb08a; --warn:#d99a3a; --bad:#e07a7a; --chip:#282b31;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:15px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:28px 20px 64px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 24px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+         padding:18px;margin-bottom:16px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.07em;
+            color:var(--muted);margin:0 0 14px;font-weight:600}
+  label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+  input[type=text],input[type=number],textarea,select{
+    width:100%;padding:8px 10px;background:var(--bg);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;font:inherit;font-size:14px}
+  textarea{min-height:104px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:640px){.row{grid-template-columns:1fr}}
+  button{background:var(--accent);color:#fff;border:0;border-radius:6px;
+         padding:10px 18px;font:inherit;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .drop{border:1.5px dashed var(--line);border-radius:8px;padding:26px;text-align:center;
+        color:var(--muted);cursor:pointer;font-size:13px}
+  .drop.hot{border-color:var(--accent);color:var(--accent)}
+  .files{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .verdict{font-size:26px;font-weight:700;letter-spacing:-.02em;margin:0 0 6px}
+  .v-pick{color:var(--accent)} .v-skip{color:var(--muted)} .v-need{color:var(--warn)}
+  .conf{font-variant-numeric:tabular-nums;font-size:15px;color:var(--muted)}
+  .meter{height:8px;background:var(--chip);border-radius:99px;overflow:hidden;margin:14px 0 6px}
+  .meter i{display:block;height:100%;background:var(--accent)}
+  .gate{position:relative;height:8px;margin-bottom:18px}
+  .gate span{position:absolute;top:-12px;font-size:11px;color:var(--muted);transform:translateX(-50%)}
+  .gate span::before{content:"";position:absolute;left:50%;top:14px;width:1px;height:8px;background:var(--muted)}
+  ul.reason{list-style:none;padding:0;margin:0}
+  ul.reason li{padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
+  ul.reason li:first-child{border-top:0}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;
+       padding:2px 7px;border-radius:4px;background:var(--chip);color:var(--muted);margin-right:8px}
+  .t-FAKTA{color:var(--ink)} .t-MODEL{color:var(--accent)} .t-GERBANG{color:var(--warn)}
+  .t-KEPUTUSAN{color:var(--ink);font-weight:800}
+  .prompts li{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+  .scroll{overflow-x:auto}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:70px;margin-top:6px}
+  .bars div{flex:1;background:var(--chip);border-radius:2px 2px 0 0;position:relative}
+  .bars div.hot{background:var(--accent)}
+  .bars small{position:absolute;bottom:-17px;left:0;right:0;text-align:center;
+              font-size:10px;color:var(--muted)}
+  .err{color:var(--bad);font-size:13px}
+  .note{font-size:12.5px;color:var(--muted);margin-top:10px}
+  details summary{cursor:pointer;font-size:13px;color:var(--muted)}
+  pre{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px;
+      overflow-x:auto;font-size:12px;margin:10px 0 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>1H Corner Predictor</h1>
+  <p class="sub">Sepak pojok babak pertama — hanya pasar Over/Under 4,5. Setiap PICK harus lolos empat gerbang keras.</p>
+
+  <div class="panel" id="healthPanel">
+    <h2>Status sistem</h2>
+    <div id="health" class="note">memuat…</div>
+  </div>
+
+  <div class="panel">
+    <h2>1 · Screenshot</h2>
+    <div class="drop" id="drop">Klik atau seret screenshot statistik ke sini (boleh beberapa sekaligus)</div>
+    <input type="file" id="files" accept="image/*" multiple hidden>
+    <div class="files" id="fileList"></div>
+    <label for="hint">Konteks tambahan (opsional)</label>
+    <input type="text" id="hint" placeholder="mis. tim kiri adalah tuan rumah; kartu kedua statistik kandang">
+  </div>
+
+  <div class="panel">
+    <h2>2 · Atau isi manual</h2>
+    <p class="note" style="margin-top:0">Angka manual selalu menang atas hasil pembacaan screenshot. Kosongkan yang tidak diketahui — jangan menebak.</p>
+    <div class="row">
+      <div>
+        <label>Tim tuan rumah</label><input type="text" id="hName" placeholder="Arsenal">
+        <label>Corner 1H dibuat / laga</label><input type="number" step="0.01" id="hFor">
+        <label>Corner 1H kebobolan / laga</label><input type="number" step="0.01" id="hAgainst">
+        <label>Jumlah laga</label><input type="number" id="hN">
+        <label>Riwayat corner 1H (pisahkan koma)</label><input type="text" id="hHist" placeholder="5,3,6,2,4">
+      </div>
+      <div>
+        <label>Tim tamu</label><input type="text" id="aName" placeholder="Burnley">
+        <label>Corner 1H dibuat / laga</label><input type="number" step="0.01" id="aFor">
+        <label>Corner 1H kebobolan / laga</label><input type="number" step="0.01" id="aAgainst">
+        <label>Jumlah laga</label><input type="number" id="aN">
+        <label>Riwayat corner 1H (pisahkan koma)</label><input type="text" id="aHist" placeholder="2,1,3,2,4">
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Pengaturan</h2>
+    <div class="row">
+      <div>
+        <label>Ambang PICK (%)</label><input type="number" id="threshold" value="85" min="50" max="99">
+      </div>
+      <div>
+        <label>Mode</label>
+        <select id="strict">
+          <option value="1" selected>Ketat — semua gerbang aktif (disarankan)</option>
+          <option value="0">Belajar — gerbang dilonggarkan, jangan dipakai bertaruh</option>
+        </select>
+      </div>
+    </div>
+    <label style="margin-top:14px"><input type="checkbox" id="autofetch" checked> Ambil data yang kurang secara otomatis</label>
+    <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+      <button id="run">Analisis</button>
+      <button id="clear" class="ghost" type="button">Bersihkan</button>
+    </div>
+    <div id="error" class="err" style="margin-top:10px"></div>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let picked = [];
+
+fetch('/api/health').then(r => r.json()).then(h => {
+  const ex = Object.entries(h.extractors).map(([k,v]) => `${k}: ${v ? 'siap' : 'tidak tersedia'}`).join(' · ');
+  const cal = h.calibration.fitted
+    ? `kalibrator terpasang (${h.calibration.n_samples} sampel)`
+    : '<b style="color:var(--warn)">kalibrator BELUM terpasang — semua PICK akan ditolak</b>';
+  $('health').innerHTML = `${ex}<br>${cal}` + (h.warning ? `<br><span style="color:var(--warn)">${h.warning}</span>` : '');
+}).catch(() => $('health').textContent = 'backend tidak merespons');
+
+$('drop').onclick = () => $('files').click();
+$('drop').ondragover = e => { e.preventDefault(); $('drop').classList.add('hot'); };
+$('drop').ondragleave = () => $('drop').classList.remove('hot');
+$('drop').ondrop = e => {
+  e.preventDefault(); $('drop').classList.remove('hot');
+  picked = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+  showFiles();
+};
+$('files').onchange = e => { picked = [...e.target.files]; showFiles(); };
+function showFiles(){
+  $('fileList').textContent = picked.length ? picked.map(f => f.name).join(', ') : '';
+}
+
+$('clear').onclick = () => {
+  picked = []; showFiles(); $('out').innerHTML = ''; $('error').textContent = '';
+  ['hName','hFor','hAgainst','hN','hHist','aName','aFor','aAgainst','aN','aHist','hint']
+    .forEach(id => $(id).value = '');
+};
+
+const num = id => $(id).value === '' ? null : Number($(id).value);
+const hist = id => $(id).value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+
+$('run').onclick = async () => {
+  $('error').textContent = ''; $('run').disabled = true; $('out').innerHTML = '<p class="note">menghitung…</p>';
+  try {
+    let res;
+    if (picked.length) {
+      const fd = new FormData();
+      picked.forEach(f => fd.append('images', f));
+      if ($('hint').value) fd.append('hint', $('hint').value);
+      fd.append('autofetch', $('autofetch').checked);
+      fd.append('threshold', $('threshold').value);
+      fd.append('strict', $('strict').value === '1');
+      res = await fetch('/api/analyse', { method: 'POST', body: fd });
+    } else {
+      const payload = {
+        home: { name: $('hName').value, corners_for_1h: num('hFor'), corners_against_1h: num('hAgainst'),
+                matches_sampled: num('hN'), corner_1h_history: hist('hHist') },
+        away: { name: $('aName').value, corners_for_1h: num('aFor'), corners_against_1h: num('aAgainst'),
+                matches_sampled: num('aN'), corner_1h_history: hist('aHist') },
+        confidence: 1.0,
+        autofetch: $('autofetch').checked,
+        threshold: Number($('threshold').value),
+        strict: $('strict').value === '1'
+      };
+      res = await fetch('/api/analyse-manual', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      });
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'permintaan gagal');
+    render(data);
+  } catch (e) {
+    $('out').innerHTML = ''; $('error').textContent = e.message;
+  } finally { $('run').disabled = false; }
+};
+
+function render(d) {
+  const cls = d.decision.startsWith('PICK') ? 'v-pick' : d.decision === 'NEED DATA' ? 'v-need' : 'v-skip';
+  const w = d.weights, q = d.quality;
+  const dist = d.distribution || [];
+  const maxP = Math.max(...dist, 0.0001);
+
+  const bars = dist.map((p, k) =>
+    `<div class="${k >= 5 ? 'hot' : ''}" style="height:${(p / maxP * 100).toFixed(1)}%"
+      title="${k} corner: ${(p*100).toFixed(1)}%"><small>${k}</small></div>`).join('');
+
+  const reasons = (d.reasoning || []).map(r => {
+    const m = r.match(/^([A-Z]+)\s+—\s+(.*)$/s);
+    return m ? `<li><span class="tag t-${m[1]}">${m[1]}</span>${esc(m[2])}</li>` : `<li>${esc(r)}</li>`;
+  }).join('');
+
+  const prompts = (d.prompts || []).length
+    ? `<div class="panel"><h2>Dibutuhkan dari Anda</h2><ul class="reason prompts">
+        ${d.prompts.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>` : '';
+
+  const teamRow = (side, label) => {
+    const t = w[side] || {};
+    return `<tr><td>${esc(t.name || label)}</td><td>${t.corners_for_1h ?? '—'}</td>
+      <td>${t.corners_against_1h ?? '—'}</td><td>${t.matches ?? '—'}</td>
+      <td>${t.attack_ratio_raw ?? '—'} → ${t.attack_ratio_shrunk ?? '—'}</td>
+      <td>${t.defend_ratio_raw ?? '—'} → ${t.defend_ratio_shrunk ?? '—'}</td>
+      <td>${t.mu ?? '—'}</td><td>${esc(t.provenance || '—')}</td></tr>`;
+  };
+
+  $('out').innerHTML = `
+    <div class="panel">
+      <h2>${esc(d.match)}</h2>
+      <p class="verdict ${cls}">${esc(d.decision)}</p>
+      <p class="conf">Keyakinan ${d.confidence.toFixed(1)}% · proyeksi ${d.expected_corners_1h} corner 1H · VMR ${d.vmr}</p>
+      <div class="meter"><i style="width:${Math.min(100, d.confidence)}%"></i></div>
+      <div class="gate"><span style="left:${d.threshold}%">ambang ${d.threshold}%</span></div>
+      <table><tr><th>P(Over 4,5)</th><th>P(Under 4,5)</th><th>Sampel terkecil</th><th>Keandalan sumber</th></tr>
+        <tr><td>${(d.calibrated_probability_over*100).toFixed(1)}%</td>
+            <td>${((1-d.calibrated_probability_over)*100).toFixed(1)}%</td>
+            <td>${q.min_sample} laga</td><td>${(q.mean_reliability*100).toFixed(0)}%</td></tr></table>
+      <p class="note">Sebaran corner 1H (hijau = Over 4,5 tercapai)</p>
+      <div class="bars">${bars}</div>
+      <div style="height:18px"></div>
+    </div>
+
+    ${prompts}
+
+    <div class="panel"><h2>Angka yang dipakai</h2><div class="scroll"><table>
+      <tr><th>Tim</th><th>1H dibuat</th><th>1H kebobolan</th><th>Laga</th>
+          <th>Rasio serang</th><th>Rasio bertahan</th><th>μ</th><th>Sumber</th></tr>
+      ${teamRow('home','tuan rumah')}${teamRow('away','tamu')}
+    </table></div>
+    <p class="note">μ total ${w.mu_total_used} ± ${w.mu_sigma} · VMR ${w.vmr} (${esc(w.vmr_source||'')}) ·
+      titik ${(w.p_over_point_estimate*100).toFixed(1)}% → marginal ${(w.p_over_marginalised*100).toFixed(1)}%
+      → kalibrasi ${(w.p_over_calibrated*100).toFixed(1)}% → final ${(w.p_over_final*100).toFixed(1)}%</p>
+    </div>
+
+    <div class="panel"><h2>Alasan analitis</h2><ul class="reason">${reasons}</ul></div>
+
+    <div class="panel"><h2>Audit</h2>
+      <details><summary>JSON lengkap</summary><pre>${esc(JSON.stringify(d, null, 2))}</pre></details>
+    </div>`;
+}
+
+function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+</script>
+</body>
+</html>

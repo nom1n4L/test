@@ -1,0 +1,17 @@
+# Inti mesin prediksi TIDAK butuh satu pun dari daftar ini — ia murni stdlib.
+# Jalankan `python -m corner1h.cli` dan `python -m unittest discover -s tests`
+# tanpa memasang apa pun.
+#
+# Daftar di bawah hanya untuk lapis I/O.
+
+# --- backend web ---
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9      # dibutuhkan FastAPI untuk unggahan berkas
+
+# --- pembacaan screenshot lewat Claude (disarankan) ---
+anthropic>=1.0
+
+# --- cadangan OCR lokal (opsional; butuh biner tesseract juga) ---
+# pytesseract>=0.3.10
+# pillow>=10.0
