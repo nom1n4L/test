@@ -79,7 +79,7 @@
 <body>
 <div class="wrap">
   <h1>1H Corner Predictor</h1>
-  <p class="sub">Sepak pojok babak pertama — hanya pasar Over/Under 4,5. Setiap PICK harus lolos empat gerbang keras.</p>
+  <p class="sub">Sepak pojok babak pertama — pasar Over/Under. Setiap PICK harus lolos tujuh gerbang keras.</p>
 
   <div class="panel" id="healthPanel">
     <h2>Status sistem</h2>
@@ -123,16 +123,36 @@
         <label>Ambang PICK (%)</label><input type="number" id="threshold" value="85" min="50" max="99">
       </div>
       <div>
+        <label>Garis</label>
+        <select id="line">
+          <option value="1.5">Over/Under 1,5</option>
+          <option value="2.5">Over/Under 2,5</option>
+          <option value="3.5">Over/Under 3,5</option>
+          <option value="4.5" selected>Over/Under 4,5</option>
+          <option value="5.5">Over/Under 5,5</option>
+          <option value="6.5">Over/Under 6,5</option>
+          <option value="7.5">Over/Under 7,5</option>
+        </select>
+      </div>
+    </div>
+    <div class="row" style="margin-top:4px">
+      <div>
         <label>Mode</label>
         <select id="strict">
           <option value="1" selected>Ketat — semua gerbang aktif (disarankan)</option>
           <option value="0">Belajar — gerbang dilonggarkan, jangan dipakai bertaruh</option>
         </select>
       </div>
+      <div>
+        <label>Odds bandar (opsional) — <code>garis:over/under</code>, pisahkan koma</label>
+        <input type="text" id="odds" placeholder="4.5:2.90/1.40, 5.5:4.60/1.18">
+      </div>
     </div>
+    <p class="note">Odds mengubah peringkat sisir garis dari "paling aman" menjadi "harganya paling salah". Tanpa odds, garis terjauh selalu menang — dan bayarannya paling kecil.</p>
     <label style="margin-top:14px"><input type="checkbox" id="autofetch" checked> Ambil data yang kurang secara otomatis</label>
     <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
       <button id="run">Analisis</button>
+      <button id="scan" class="ghost" type="button">Sisir semua garis</button>
       <button id="clear" class="ghost" type="button">Bersihkan</button>
     </div>
     <div id="error" class="err" style="margin-top:10px"></div>
@@ -175,6 +195,86 @@ $('clear').onclick = () => {
 const num = id => $(id).value === '' ? null : Number($(id).value);
 const hist = id => $(id).value.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
 
+// "4.5:2.90/1.40, 5.5:4.60/1.18" -> {4.5:{over:2.90,under:1.40}, ...}
+function parseOdds() {
+  const out = {};
+  for (const chunk of $('odds').value.split(',')) {
+    const m = chunk.trim().match(/^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)?\s*\/\s*(\d+(?:\.\d+)?)?$/);
+    if (!m) continue;
+    const sides = {};
+    if (m[2]) sides.over = Number(m[2]);
+    if (m[3]) sides.under = Number(m[3]);
+    if (Object.keys(sides).length) out[m[1]] = sides;
+  }
+  return out;
+}
+
+function manualPayload() {
+  return {
+    home: { name: $('hName').value, corners_for_1h: num('hFor'), corners_against_1h: num('hAgainst'),
+            matches_sampled: num('hN'), corner_1h_history: hist('hHist') },
+    away: { name: $('aName').value, corners_for_1h: num('aFor'), corners_against_1h: num('aAgainst'),
+            matches_sampled: num('aN'), corner_1h_history: hist('aHist') },
+    confidence: 1.0,
+    odds: parseOdds(),
+    autofetch: $('autofetch').checked,
+    threshold: Number($('threshold').value),
+    line: Number($('line').value),
+    strict: $('strict').value === '1'
+  };
+}
+
+$('scan').onclick = async () => {
+  $('error').textContent = ''; $('scan').disabled = true;
+  $('out').innerHTML = '<p class="note">menyisir semua garis…</p>';
+  try {
+    const res = await fetch('/api/scan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(manualPayload())
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'permintaan gagal');
+    renderScan(data);
+  } catch (e) { $('out').innerHTML = ''; $('error').textContent = e.message; }
+  finally { $('scan').disabled = false; }
+};
+
+function renderScan(d) {
+  const byValue = d.ranked_by === 'expected_value';
+  const rows = d.lines.map(v => {
+    const pick = v.decision.startsWith('PICK');
+    const ev = v.expected_value === null || v.expected_value === undefined
+      ? '—' : (v.expected_value >= 0 ? '+' : '') + (v.expected_value * 100).toFixed(1) + '%';
+    return `<tr>
+      <td><b>${v.line}</b></td>
+      <td>${v.confidence.toFixed(1)}%</td>
+      <td>${(v.weights.vmr_swing * 100).toFixed(1)}%</td>
+      ${byValue ? `<td>${v.price ? v.price.toFixed(2) : '—'}</td><td>${ev}</td>` : ''}
+      <td class="${pick ? 'v-pick' : 'v-skip'}"><b>${esc(v.decision)}</b></td></tr>`;
+  }).join('');
+
+  const best = d.best_pick
+    ? `<p class="verdict v-pick">${esc(d.best_pick.decision)}</p>
+       <p class="conf">keyakinan ${d.best_pick.confidence.toFixed(1)}%</p>`
+    : `<p class="verdict v-skip">TIDAK ADA GARIS YANG LOLOS</p>
+       <p class="conf">Itu jawaban yang sah, bukan kegagalan.</p>`;
+
+  $('out').innerHTML = `
+    <div class="panel">
+      <h2>${esc(d.match)} — sisir semua garis</h2>
+      ${best}
+      <p class="note">Proyeksi ${d.expected_corners_1h} corner 1H · VMR ${d.vmr} (${esc(d.vmr_source || '')})
+        · diurutkan berdasarkan ${byValue ? 'nilai harapan' : 'keyakinan'}</p>
+      <div class="scroll"><table>
+        <tr><th>Garis</th><th>Keyakinan</th><th>Sensitivitas bentuk</th>
+        ${byValue ? '<th>Harga</th><th>Nilai harapan</th>' : ''}<th>Vonis</th></tr>
+        ${rows}
+      </table></div>
+      ${byValue ? '' : '<p class="note">Tanpa odds, urutan ini hanya soal keamanan — garis terjauh selalu menang, dan bayarannya paling kecil. Masukkan harga bandar untuk peringkat berbasis nilai.</p>'}
+      <p class="note"><b>Sensitivitas bentuk</b> = seberapa jauh jawabannya bergeser kalau sebaran corner ditebak salah. Di atas 6% tanpa riwayat corner per laga, PICK ditolak.</p>
+    </div>`;
+}
+
 $('run').onclick = async () => {
   $('error').textContent = ''; $('run').disabled = true; $('out').innerHTML = '<p class="note">menghitung…</p>';
   try {
@@ -185,21 +285,13 @@ $('run').onclick = async () => {
       if ($('hint').value) fd.append('hint', $('hint').value);
       fd.append('autofetch', $('autofetch').checked);
       fd.append('threshold', $('threshold').value);
+      fd.append('line', $('line').value);
       fd.append('strict', $('strict').value === '1');
       res = await fetch('/api/analyse', { method: 'POST', body: fd });
     } else {
-      const payload = {
-        home: { name: $('hName').value, corners_for_1h: num('hFor'), corners_against_1h: num('hAgainst'),
-                matches_sampled: num('hN'), corner_1h_history: hist('hHist') },
-        away: { name: $('aName').value, corners_for_1h: num('aFor'), corners_against_1h: num('aAgainst'),
-                matches_sampled: num('aN'), corner_1h_history: hist('aHist') },
-        confidence: 1.0,
-        autofetch: $('autofetch').checked,
-        threshold: Number($('threshold').value),
-        strict: $('strict').value === '1'
-      };
       res = await fetch('/api/analyse-manual', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(manualPayload())
       });
     }
     const data = await res.json();

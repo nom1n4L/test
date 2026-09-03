@@ -34,7 +34,7 @@ Alur perhitungan (setiap langkah bisa diaudit lewat ``Verdict.weights``):
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field as dc_field
+from dataclasses import dataclass, field as dc_field, replace
 from statistics import mean, pvariance
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -50,11 +50,18 @@ from .models import (
     Verdict,
 )
 
-__all__ = ["EngineConfig", "CornerEngine", "TeamProjection"]
+__all__ = ["EngineConfig", "CornerEngine", "TeamProjection", "OFFERED_LINES", "count_for_line"]
 
-LINE = 4.5
-#: Over 4.5 berarti minimal 5 corner di babak pertama.
-OVER_THRESHOLD_COUNT = 5
+#: Garis yang lazim ditawarkan bandar untuk corner babak pertama.
+OFFERED_LINES: Tuple[float, ...] = (1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5)
+
+
+def count_for_line(line: float) -> int:
+    """Berapa corner minimal yang dibutuhkan agar Over tercapai.
+
+    Garis selalu setengah, jadi Over 4,5 berarti >= 5 dan Over 1,5 berarti >= 2.
+    """
+    return int(math.floor(line)) + 1
 
 
 def _missing(value: Optional[float]) -> bool:
@@ -73,6 +80,23 @@ class EngineConfig:
 
     #: Ambang "PICK atau SKIP" dalam persen.
     threshold: float = 85.0
+
+    #: Garis yang dinilai. Semua garis memakai mesin yang sama; yang berubah
+    #: hanya titik potong pada sebaran yang itu-itu juga.
+    line: float = 4.5
+
+    #: Garis yang disisir oleh ``scan_lines``.
+    offered_lines: Tuple[float, ...] = OFFERED_LINES
+
+    #: Ayunan maksimum P(over) yang boleh disebabkan ketidakpastian VMR sebelum
+    #: PICK ditolak, ketika VMR-nya hanya default dan bukan hasil pengukuran.
+    #:
+    #: Ini penjaga khusus untuk garis pinggir. Garis di dekat mu hampir tidak
+    #: peduli pada bentuk ekor sebaran; garis jauh di tepi sangat peduli. Dengan
+    #: hanya satu garis (4,5) masalah ini tidak pernah muncul, tapi begitu garis
+    #: 1,5 dan 7,5 ikut dinilai, menebak VMR bisa menggeser keyakinan sampai
+    #: belasan poin — cukup untuk mengarang PICK dari udara.
+    max_vmr_swing: float = 0.06
 
     #: Rata-rata corner 1H per tim di liga tak dikenal (total 1H ~4,9).
     league_corners_1h_per_team: float = 2.45
@@ -312,7 +336,7 @@ class CornerEngine:
             var += (proj.mu * vmr) / n
         return math.sqrt(var + self.cfg.model_form_sigma ** 2)
 
-    def _marginalise(self, mu: float, sigma: float, vmr: float) -> float:
+    def _marginalise(self, mu: float, sigma: float, vmr: float, count: int) -> float:
         """P(over 4.5) yang dirata-ratakan atas ketidakpastian mu.
 
         Kisi Gauss 5 titik pada mu +- {0, 1, 2} sigma dengan bobot normal.
@@ -326,8 +350,19 @@ class CornerEngine:
         acc = 0.0
         for z, w in zip(nodes, raw_w):
             mu_z = max(lo, min(hi, mu + z * sigma))
-            acc += (w / total_w) * prob_at_least(OVER_THRESHOLD_COUNT, mu_z, vmr)
+            acc += (w / total_w) * prob_at_least(count, mu_z, vmr)
         return acc
+
+    def _vmr_swing(self, mu: float, sigma: float, count: int) -> float:
+        """Seberapa jauh probabilitas bergeser kalau VMR-nya salah tebak.
+
+        Dihitung pada rentang VMR yang dianggap mungkin. Nilai besar berarti
+        jawabannya lebih ditentukan asumsi bentuk sebaran daripada oleh data.
+        """
+        lo, hi = self.cfg.vmr_bounds
+        return abs(
+            self._marginalise(mu, sigma, lo, count) - self._marginalise(mu, sigma, hi, count)
+        )
 
     # ----------------------------------------------------------------- utama
 
@@ -387,9 +422,11 @@ class CornerEngine:
         vmr, vmr_empirical = self._empirical_vmr(match)
         sigma = self._mu_sigma(projections, vmr)
 
-        p_point = prob_at_least(OVER_THRESHOLD_COUNT, mu_clamped, vmr)
-        p_marginal = self._marginalise(mu_clamped, sigma, vmr)
+        count = count_for_line(cfg.line)
+        p_point = prob_at_least(count, mu_clamped, vmr)
+        p_marginal = self._marginalise(mu_clamped, sigma, vmr, count)
         p_calibrated = cfg.calibrator.apply(p_marginal)
+        vmr_swing = self._vmr_swing(mu_clamped, sigma, count)
 
         quality = self._assess(match, projections, weights)
 
@@ -403,7 +440,8 @@ class CornerEngine:
         lean_over = p_final >= 0.5
 
         decision, gate_notes, prompts = self._decide(
-            confidence, lean_over, quality, projections, mu_raw=mu
+            confidence, lean_over, quality, projections,
+            mu_raw=mu, vmr_swing=vmr_swing, vmr_empirical=vmr_empirical,
         )
 
         weights_out: Dict[str, Any] = {
@@ -417,6 +455,8 @@ class CornerEngine:
             "mu_sigma": round(sigma, 3),
             "vmr": round(vmr, 3),
             "vmr_source": "empiris dari riwayat" if vmr_empirical else "default konservatif",
+            "vmr_swing": round(vmr_swing, 4),
+            "line": cfg.line,
             "p_over_point_estimate": round(p_point, 4),
             "p_over_marginalised": round(p_marginal, 4),
             "p_over_calibrated": round(p_calibrated, 4),
@@ -431,6 +471,7 @@ class CornerEngine:
 
         verdict = Verdict(
             match=f"{home_p.name} vs {away_p.name}",
+            line=cfg.line,
             decision=decision,
             confidence=confidence,
             raw_probability_over=p_marginal,
@@ -443,8 +484,47 @@ class CornerEngine:
             distribution=pmf_table(mu_clamped, vmr, max_k=12),
             prompts=prompts,
         )
+        self._attach_price(verdict, match, p_final, lean_over)
         verdict.reasoning = build_reasoning(verdict, projections, weights_out, gate_notes)
         return verdict
+
+    @staticmethod
+    def _attach_price(verdict: Verdict, match: MatchInput, p_final: float, lean_over: bool) -> None:
+        """Tempelkan harga bandar dan nilai harapan, kalau odds-nya dimasukkan."""
+        prices = match.odds.get(verdict.line)
+        if not prices:
+            return
+        side = "over" if lean_over else "under"
+        price = prices.get(side)
+        if not price or price <= 1.0:
+            return
+        p_side = p_final if lean_over else 1.0 - p_final
+        verdict.price = float(price)
+        verdict.expected_value = p_side * float(price) - 1.0
+
+    def scan_lines(self, match: MatchInput) -> List[Verdict]:
+        """Nilai setiap garis yang ditawarkan, urut dari keyakinan tertinggi.
+
+        Ini bukan pengujian berganda dalam arti statistik yang biasa: semua garis
+        adalah fungsi deterministik dari mu dan VMR yang sama, jadi kalau mu
+        benar, semuanya benar serentak. Bahayanya berbeda — menyisir garis
+        cenderung mendarat di tepi sebaran, tempat jawabannya paling ditentukan
+        asumsi bentuk. Gerbang sensitivitas VMR yang menangani itu, dan ia
+        dievaluasi ulang untuk setiap garis.
+        """
+        results: List[Verdict] = []
+        for line in self.cfg.offered_lines:
+            cfg = replace(self.cfg, line=line)
+            results.append(CornerEngine(cfg).predict(match))
+        # Dengan odds, urutkan berdasarkan nilai harapan: pertanyaannya berubah
+        # dari "mana yang paling aman" (yang selalu dimenangkan garis terjauh)
+        # menjadi "mana yang harganya paling salah". Tanpa odds, keyakinan yang
+        # dipakai — dan pemanggilnya perlu tahu keterbatasan itu.
+        if any(v.expected_value is not None for v in results):
+            results.sort(key=lambda v: (v.expected_value is not None, v.expected_value or 0.0), reverse=True)
+        else:
+            results.sort(key=lambda v: v.confidence, reverse=True)
+        return results
 
     # -------------------------------------------------------------- gerbang
 
@@ -456,6 +536,8 @@ class CornerEngine:
         projections: List[TeamProjection],
         *,
         mu_raw: float,
+        vmr_swing: float,
+        vmr_empirical: bool,
     ) -> Tuple[Decision, List[str], List[str]]:
         """Terapkan gerbang keras. Semua gerbang berlaku *setelah* angka jadi,
         dan setiap gerbang yang gagal dicatat supaya alasannya bisa dibaca."""
@@ -507,6 +589,24 @@ class CornerEngine:
             passed = False
         else:
             gates.append(f"LULUS: proyeksi {mu_raw:.2f} corner 1H berada di rentang wajar")
+
+        if vmr_swing > cfg.max_vmr_swing and not vmr_empirical:
+            gates.append(
+                f"GAGAL: pada garis {cfg.line} jawabannya bergantung {vmr_swing:.1%} pada tebakan "
+                f"bentuk sebaran (batas {cfg.max_vmr_swing:.0%}), sementara VMR belum diukur"
+            )
+            prompts.append(
+                f"Garis {cfg.line} terletak di tepi sebaran, jadi keyakinannya sangat bergantung "
+                f"pada seberapa menyebar corner tim-tim ini — bukan hanya rata-ratanya. Kirim "
+                f"daftar corner babak pertama per laga (mis. 5, 3, 6, 2, 4) untuk kedua tim; itu "
+                f"mengubah tebakan menjadi pengukuran."
+            )
+            passed = False
+        else:
+            gates.append(
+                f"LULUS: sensitivitas bentuk sebaran {vmr_swing:.1%} "
+                + ("(VMR diukur dari riwayat)" if vmr_empirical else f"di bawah batas {cfg.max_vmr_swing:.0%}")
+            )
 
         if cfg.require_fitted_calibration and not cfg.calibrator.fitted:
             gates.append(

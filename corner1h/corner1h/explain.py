@@ -94,8 +94,9 @@ def build_reasoning(
         f"({weights['vmr_source']}), bukan Poisson: corner datang berkelompok, jadi ekornya lebih tebal "
         f"dan klaim keyakinan jadi lebih rendah — itu memang yang benar."
     )
+    line_txt = _fmt(verdict.line, 1)
     lines.append(
-        f"MODEL — Estimasi titik P(over 4,5) = {_fmt(weights['p_over_point_estimate'] * 100, 1)}%. "
+        f"MODEL — Estimasi titik P(over {line_txt}) = {_fmt(weights['p_over_point_estimate'] * 100, 1)}%. "
         f"Setelah dirata-ratakan atas ketidakpastian mu (galat baku ±{_fmt(weights['mu_sigma'])} corner), "
         f"angkanya menjadi {_fmt(weights['p_over_marginalised'] * 100, 1)}%."
     )
@@ -136,7 +137,7 @@ def build_reasoning(
     else:
         side = "OVER" if verdict.decision is Decision.PICK_OVER else "UNDER"
         lines.append(
-            f"KEPUTUSAN — PICK {side} 4,5 pada keyakinan {_fmt(verdict.confidence, 1)}%. "
+            f"KEPUTUSAN — PICK {side} {line_txt} pada keyakinan {_fmt(verdict.confidence, 1)}%. "
             f"Semua gerbang lulus. Ini tetap probabilitas, bukan kepastian."
         )
 
@@ -150,14 +151,14 @@ def render_text(verdict: Verdict) -> str:
     out: List[str] = [
         bar,
         f"  {d.match}",
-        f"  PASAR: Sepak pojok babak pertama, garis 4,5",
+        f"  PASAR: Sepak pojok babak pertama, garis {_fmt(d.line, 1)}",
         bar,
         "",
-        f"  VONIS        : [ {d.decision.value} ]",
+        f"  VONIS        : [ {d.decision.label(d.line)} ]",
         f"  KEYAKINAN    : {_fmt(d.confidence, 1)}%  (ambang {_fmt(d.threshold, 0)}%)",
         f"  PROYEKSI 1H  : {_fmt(d.expected_corners_1h)} corner (VMR {_fmt(d.vmr)})",
-        f"  P(OVER 4,5)  : {_fmt(d.calibrated_probability_over * 100, 1)}%",
-        f"  P(UNDER 4,5) : {_fmt((1 - d.calibrated_probability_over) * 100, 1)}%",
+        f"  P(OVER {_fmt(d.line, 1)})  : {_fmt(d.calibrated_probability_over * 100, 1)}%",
+        f"  P(UNDER {_fmt(d.line, 1)}) : {_fmt((1 - d.calibrated_probability_over) * 100, 1)}%",
         "",
         "  ALASAN ANALITIS",
         "  " + "-" * 64,

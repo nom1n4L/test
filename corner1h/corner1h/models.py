@@ -156,6 +156,15 @@ class MatchInput:
     #: Riwayat corner 1H head-to-head, kalau tersedia.
     h2h_corner_1h: List[int] = field(default_factory=list)
 
+    #: Harga bandar per garis, kalau Anda memasukkannya:
+    #: ``{4.5: {"over": 1.90, "under": 1.90}}``. Format desimal.
+    #:
+    #: Tanpa odds, menyisir garis selalu berujung di garis paling pinggir —
+    #: keyakinan naik terus saat garis menjauh dari mu, sampai jawabannya
+    #: menjadi benar tapi tak berguna. Odds mengubah pertanyaannya dari
+    #: "mana yang paling aman" menjadi "mana yang harganya salah".
+    odds: Dict[float, Dict[str, float]] = field(default_factory=dict)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "home": self.home.to_dict(),
@@ -167,6 +176,7 @@ class MatchInput:
             ),
             "league_1h_share": self.league_1h_share.to_dict() if self.league_1h_share else None,
             "h2h_corner_1h": list(self.h2h_corner_1h),
+            "odds": {str(k): v for k, v in self.odds.items()},
         }
 
 
@@ -199,10 +209,19 @@ class DataQuality:
 
 
 class Decision(str, enum.Enum):
-    PICK_OVER = "PICK OVER 4.5"
-    PICK_UNDER = "PICK UNDER 4.5"
+    """Vonis. Label garisnya ditambahkan saat dirender, bukan dipatri di sini,
+    supaya satu enum melayani semua garis."""
+
+    PICK_OVER = "PICK OVER"
+    PICK_UNDER = "PICK UNDER"
     SKIP = "SKIP MATCH"
     NEED_DATA = "NEED DATA"
+
+    def label(self, line: float) -> str:
+        """Vonis lengkap dengan garisnya, mis. 'PICK UNDER 5.5'."""
+        if self in (Decision.PICK_OVER, Decision.PICK_UNDER):
+            return f"{self.value} {line}"
+        return self.value
 
 
 @dataclass
@@ -210,6 +229,8 @@ class Verdict:
     """Keluaran akhir mesin."""
 
     match: str
+    #: Garis yang dinilai (mis. 4.5 untuk Over/Under 4,5).
+    line: float
     decision: Decision
     confidence: float                      #: 0..100, sudah dikalibrasi & dihukum
     raw_probability_over: float            #: P(over 4.5) mentah dari sebaran
@@ -223,10 +244,19 @@ class Verdict:
     distribution: List[float] = field(default_factory=list)
     prompts: List[str] = field(default_factory=list)   #: pertanyaan untuk pengguna
 
+    #: Harga bandar untuk sisi yang dipilih, kalau dimasukkan.
+    price: Optional[float] = None
+    #: Nilai harapan per satuan taruhan: p x harga - 1. Positif berarti harga
+    #: bandar lebih murah daripada peluang menurut model — dan itu hanya
+    #: sebaik modelnya, jadi bacalah bersama keyakinan, bukan menggantikannya.
+    expected_value: Optional[float] = None
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "match": self.match,
-            "decision": self.decision.value,
+            "line": self.line,
+            "market": f"1H corner Over/Under {self.line}",
+            "decision": self.decision.label(self.line),
             "confidence": round(self.confidence, 2),
             "raw_probability_over": round(self.raw_probability_over, 4),
             "calibrated_probability_over": round(self.calibrated_probability_over, 4),
@@ -238,4 +268,6 @@ class Verdict:
             "weights": self.weights,
             "distribution": [round(p, 5) for p in self.distribution],
             "prompts": self.prompts,
+            "price": self.price,
+            "expected_value": round(self.expected_value, 4) if self.expected_value is not None else None,
         }

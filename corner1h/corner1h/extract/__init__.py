@@ -80,6 +80,20 @@ def build_match_input(
     if base is not None:
         match.league_corners_1h_per_team = Field(float(base), provenance, confidence=conf)
 
+    odds_raw = raw.get("odds") or {}
+    if isinstance(odds_raw, dict):
+        for line_key, sides in odds_raw.items():
+            line_val = parse_number(line_key)
+            if line_val is None or not isinstance(sides, dict):
+                continue
+            parsed = {
+                side: float(v)
+                for side in ("over", "under")
+                if (v := parse_number(sides.get(side))) is not None
+            }
+            if parsed:
+                match.odds[float(line_val)] = parsed
+
     h2h = raw.get("h2h_corner_1h") or []
     match.h2h_corner_1h = [int(x) for x in h2h if isinstance(x, (int, float))]
 

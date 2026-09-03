@@ -19,6 +19,9 @@ __all__ = ["AnalysisResult", "analyse"]
 @dataclass
 class AnalysisResult:
     verdict: Verdict
+    #: Masukan yang benar-benar dipakai — dibutuhkan untuk menyisir garis lain
+    #: tanpa mengulang ekstraksi dan pengambilan data.
+    match_input: Optional[MatchInput] = None
     extractor: Optional[str] = None
     extraction_notes: List[str] = field(default_factory=list)
     resolution: Optional[ResolutionReport] = None
@@ -78,6 +81,7 @@ def analyse(
     verdict = CornerEngine(config).predict(match)
     return AnalysisResult(
         verdict=verdict,
+        match_input=match,
         extractor=extractor,
         extraction_notes=notes,
         resolution=resolution,

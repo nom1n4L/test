@@ -24,7 +24,7 @@ except ImportError as exc:  # pragma: no cover - bergantung lingkungan
     ) from exc
 
 from .calibration import Calibrator
-from .engine import EngineConfig
+from .engine import CornerEngine, EngineConfig
 from .extract import build_match_input
 from .models import Provenance
 from .pipeline import analyse
@@ -44,10 +44,16 @@ app = FastAPI(
 )
 
 
-def _config(threshold: Optional[float] = None, strict: bool = True) -> EngineConfig:
+def _config(
+    threshold: Optional[float] = None,
+    strict: bool = True,
+    line: Optional[float] = None,
+) -> EngineConfig:
     cfg = EngineConfig(calibrator=Calibrator.load(CALIBRATION_PATH))
     if threshold is not None:
         cfg.threshold = float(threshold)
+    if line is not None:
+        cfg.line = float(line)
     if not strict:
         # Mode belajar: gerbang keras dilonggarkan supaya pengguna bisa melihat
         # angka mentahnya. Tidak pernah jadi default.
@@ -83,6 +89,7 @@ async def analyse_endpoint(
     autofetch: bool = Form(default=True),
     threshold: Optional[float] = Form(default=None),
     strict: bool = Form(default=True),
+    line: float = Form(default=4.5),
 ) -> JSONResponse:
     """Analisis dari unggahan screenshot."""
     tmpdir = tempfile.mkdtemp(prefix="corner1h-")
@@ -109,7 +116,7 @@ async def analyse_endpoint(
             images=paths,
             hint=hint,
             autofetch=autofetch,
-            config=_config(threshold, strict),
+            config=_config(threshold, strict, line),
         )
         return JSONResponse(result.to_dict())
     finally:
@@ -132,10 +139,46 @@ def analyse_manual(payload: Dict[str, Any]) -> JSONResponse:
     result = analyse(
         manual=match,
         autofetch=bool(payload.get("autofetch", True)),
-        config=_config(payload.get("threshold"), bool(payload.get("strict", True))),
+        config=_config(
+            payload.get("threshold"),
+            bool(payload.get("strict", True)),
+            payload.get("line"),
+        ),
     )
     result.extraction_notes.extend(notes)
     return JSONResponse(result.to_dict())
+
+
+@app.post("/api/scan")
+def scan(payload: Dict[str, Any]) -> JSONResponse:
+    """Nilai setiap garis yang ditawarkan untuk satu pertandingan.
+
+    Menerima payload yang sama dengan ``/api/analyse-manual``. Kalau ``odds``
+    disertakan, hasilnya diurutkan berdasarkan nilai harapan; kalau tidak,
+    berdasarkan keyakinan — dan pemanggilnya perlu tahu bahwa urutan tanpa odds
+    selalu dimenangkan garis terjauh, yang bayarannya paling kecil.
+    """
+    try:
+        match, notes = build_match_input(payload, Provenance.MANUAL)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"payload tidak valid: {exc}") from exc
+
+    cfg = _config(payload.get("threshold"), bool(payload.get("strict", True)))
+    verdicts = CornerEngine(cfg).scan_lines(match)
+    picks = [v for v in verdicts if v.decision.value.startswith("PICK")]
+    return JSONResponse(
+        {
+            "match": verdicts[0].match if verdicts else "",
+            "expected_corners_1h": round(verdicts[0].expected_corners_1h, 3) if verdicts else None,
+            "vmr": round(verdicts[0].vmr, 3) if verdicts else None,
+            "vmr_source": verdicts[0].weights.get("vmr_source") if verdicts else None,
+            "ranked_by": "expected_value" if any(v.expected_value is not None for v in verdicts)
+                         else "confidence",
+            "lines": [v.to_dict() for v in verdicts],
+            "best_pick": picks[0].to_dict() if picks else None,
+            "notes": notes,
+        }
+    )
 
 
 @app.get("/")
