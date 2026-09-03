@@ -351,6 +351,8 @@ fun AddScreen(
     onPick: () -> Unit,
     onRemove: (Int) -> Unit,
     onAnalyse: (String) -> Unit,
+    /** What the previous pass said it still needed, when this is a second look. */
+    wanted: List<String> = emptyList(),
 ) {
     var note by remember { mutableStateOf("") }
 
@@ -362,7 +364,26 @@ fun AddScreen(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Card(title = "Jenis Analisis") {
+        if (wanted.isNotEmpty()) {
+            Card(
+                title = "Data yang Diminta",
+                subtitle = "Ini yang katanya bisa mengubah jawabannya. Kirim yang ketemu " +
+                    "saja — kalau tidak ada, dia tetap harus memutuskan dengan yang ada.",
+            ) {
+                wanted.forEach {
+                    Row(Modifier.padding(bottom = 5.dp)) {
+                        Text("• ", style = MaterialTheme.typography.bodySmall, color = Sky)
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (wanted.isEmpty()) Card(title = "Jenis Analisis") {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Mode.entries.forEach { option ->
                     Surface(
@@ -516,6 +537,7 @@ fun DetailScreen(
     onMark: (Lens, Outcome) -> Unit,
     onMarkMarket: (MarketOption, Outcome) -> Unit,
     onBacked: (String) -> Unit,
+    onAddMore: () -> Unit,
     onDelete: () -> Unit,
 ) {
     LazyColumn(
@@ -548,6 +570,10 @@ fun DetailScreen(
                     }
                 }
             }
+        }
+
+        if (match.verdict.isNotBlank()) {
+            item { VerdictCard(match, onAddMore) }
         }
 
         item {
@@ -1081,6 +1107,83 @@ private fun OneMarketCard(match: MatchPrediction, onMark: (MarketOption, Outcome
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * The answer, first and in one sentence.
+ *
+ * Everything below this card is the argument; this is the conclusion, and it was
+ * missing. A page that ends on considerations leaves the reader to draw their own
+ * verdict from a screen full of caveats, which is exactly the state this app was
+ * supposed to save them from.
+ */
+@Composable
+private fun VerdictCard(match: MatchPrediction, onAddMore: () -> Unit) {
+    val colour = when {
+        match.wantsMore -> Sky
+        match.standDown -> Amber
+        else -> Green
+    }
+    val heading = when {
+        match.wantsMore -> "Butuh Data Dulu"
+        match.standDown -> "Lewatkan Laga Ini"
+        else -> "Kesimpulan"
+    }
+    Surface(
+        color = colour.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Text(heading, style = MaterialTheme.typography.labelSmall, color = colour)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                match.verdict,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (match.needMore.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Yang dia butuhkan:",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colour,
+                )
+                Spacer(Modifier.height(4.dp))
+                match.needMore.forEach {
+                    Row(Modifier.padding(bottom = 4.dp)) {
+                        Text("• ", style = MaterialTheme.typography.bodySmall, color = colour)
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Button(
+                onClick = onAddMore,
+                colors = ButtonDefaults.buttonColors(containerColor = colour),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    if (match.needMore.isEmpty()) "Tambah data & analisis ulang"
+                    else "Kirim data ini & analisis ulang",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            if (match.needMore.isEmpty() && !match.wantsMore) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Datanya sudah dianggap cukup — tombol di atas cuma kalau kamu " +
+                        "punya statistik tambahan yang mau dicoba.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 

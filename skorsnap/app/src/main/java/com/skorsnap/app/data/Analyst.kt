@@ -93,6 +93,7 @@ class Analyst(private val apiKey: String) {
         mode: Mode = Mode.MATCH,
         history: List<MatchPrediction> = emptyList(),
         slips: List<SavedSlip> = emptyList(),
+        previous: MatchPrediction? = null,
     ): MatchPrediction = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
         if (images.isEmpty()) throw AnalystException("Belum ada gambar.")
@@ -117,6 +118,10 @@ class Analyst(private val apiKey: String) {
         Coach.brief(history, slips).takeIf { it.isNotBlank() }?.let {
             parts.put(JSONObject().put("text", it))
         }
+        // A second look at the same match, with the data it asked for. Handing back
+        // its own previous reading is what makes this a revision rather than a
+        // fresh guess that happens to have more pictures.
+        previous?.let { parts.put(JSONObject().put("text", revisionNote(it))) }
 
         val body = JSONObject()
             .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
@@ -184,6 +189,35 @@ class Analyst(private val apiKey: String) {
             pick = best.name,
             pickProb = best.prob,
             pickCorrected = true,
+        )
+    }
+
+    /**
+     * What the model said last time, and what it is being asked to do about it.
+     *
+     * Stated as a revision so the second answer is allowed to contradict the first.
+     * A model shown its own conclusion tends to defend it; being told outright that
+     * changing its mind is the point is what stops that.
+     */
+    private fun revisionNote(p: MatchPrediction): String = buildString {
+        append("ANALISIS ULANG. Ini pembacaanmu sendiri sebelumnya untuk laga yang sama:\n")
+        if (p.firstRead.isNotBlank()) append("- Kesan awal: ${p.firstRead}\n")
+        p.risks.forEach { append("- Keraguan: $it\n") }
+        if (p.adjustment.isNotBlank()) append("- Setelah digeser: ${p.adjustment}\n")
+        if (p.pick.isNotBlank()) {
+            append("- Kesimpulan lama: ${p.pick} di ${Math.round(p.pickProb * 100)}%\n")
+        }
+        if (p.needMore.isNotEmpty()) {
+            append("- Data yang kamu minta: ${p.needMore.joinToString("; ")}\n")
+        }
+        append(
+            "\nGambar di atas berisi data tambahan. Baca ulang dari awal dengan data " +
+                "lama DAN baru digabung. Kalau data baru mengubah arah jawabanmu, ubah — " +
+                "berubah pikiran karena data baru itu justru yang benar, bukan " +
+                "kelemahan. Kalau data baru ternyata tidak mengubah apa pun, katakan " +
+                "begitu di \"verdict\" dan naikkan keyakinanmu. Kalau data yang kamu " +
+                "minta masih belum ada juga, jangan minta hal yang sama dua kali — " +
+                "putuskan dengan yang ada, dan pilih \"lewatkan\" kalau memang tidak layak."
         )
     }
 
@@ -418,6 +452,9 @@ class Analyst(private val apiKey: String) {
             xgAway = json.optDouble("xg_away", 0.0),
             markets = markets.sortedByDescending { it.prob },
             risks = strings("risks"),
+            needMore = strings("need_more"),
+            action = json.optString("action"),
+            verdict = json.optString("verdict"),
             firstRead = json.optString("first_read"),
             riskSide = json.optString("risk_side"),
             adjustment = json.optString("adjustment"),
@@ -609,6 +646,9 @@ Aturan pengisian:
                     .put("pick_prob", num())
                     .put("confidence", str())
                     .put("confidence_why", str())
+                    .put("need_more", strArray())
+                    .put("action", str())
+                    .put("verdict", str())
             )
             .put(
                 "propertyOrdering",
@@ -618,6 +658,7 @@ Aturan pengisian:
                     .put("prob_home").put("prob_draw").put("prob_away")
                     .put("xg_home").put("xg_away").put("markets")
                     .put("pick").put("pick_prob").put("confidence").put("confidence_why")
+                    .put("need_more").put("action").put("verdict")
             )
             .put(
                 "required",
@@ -625,6 +666,7 @@ Aturan pengisian:
                     .put("first_read").put("risks").put("risk_side").put("adjustment")
                     .put("stats_missing").put("prob_home").put("prob_draw").put("prob_away")
                     .put("markets").put("pick").put("pick_prob").put("confidence")
+                    .put("action").put("verdict")
             )
 
         private fun str() = JSONObject().put("type", "STRING")
@@ -829,7 +871,31 @@ CARA BERPIKIR — ini yang membedakan tebakan dari analisis:
     - Kalau lawan yang membentuk rata-rata itu jauh lebih lemah daripada lawan hari
       ini, rata-rata itu terlalu bagus dan harus ditarik turun.
 
-14. TAPI JANGAN MENGARANG ANGKA DARI INGATAN. Kamu boleh menalar "ini laga piala
+15. TUTUP DENGAN KEPUTUSAN, BUKAN DENGAN PERTIMBANGAN. Setelah semua di atas,
+    jangan biarkan pembaca menebak sendiri kesimpulannya. Isi tiga field terakhir:
+
+    - "action" : tulis PERSIS salah satu dari tiga kata ini —
+        "pasang"     : ada satu sisi yang layak dipasang sekarang.
+        "lewatkan"   : datanya cukup, tapi tidak ada sisi yang layak. Ini jawaban
+                       yang sah dan sering benar. Jangan memaksakan taruhan.
+        "butuh data" : ada data yang, kalau ada, kemungkinan besar mengubah arah
+                       jawabanmu. Pakai ini HANYA kalau data itu memang menentukan.
+    - "need_more" : kalau "butuh data", sebutkan DATA APA PERSISNYA yang kamu
+                    butuhkan, sekonkret mungkin, supaya pengguna bisa mencarinya di
+                    aplikasi statistiknya. Contoh bagus: "rata-rata corner babak 1
+                    León khusus laga tandang", "susunan pemain kedua tim". Contoh
+                    buruk: "data lebih lengkap". Kalau datanya sudah cukup, biarkan
+                    kosong.
+    - "verdict" : SATU sampai DUA kalimat, bahasa sehari-hari, yang langsung
+                  menjawab "jadi pasang apa?". Sebutkan sisinya, persentasenya, dan
+                  kalau lewatkan katakan kenapa. Jangan mengulang pertimbangan yang
+                  sudah kamu tulis di atas — ini kesimpulan, bukan ringkasan.
+                  Contoh: "Pasang Under 4.5 di 62%. Tempo awal laga gugur dan León
+                  yang bertahan dalam membuat Over terlalu mahal untuk harga
+                  segitu." Atau: "Lewatkan. Setelah digeser tidak ada sisi yang
+                  sampai 55%, jadi tidak ada yang layak dipasang di laga ini."
+
+16. TAPI JANGAN MENGARANG ANGKA DARI INGATAN. Kamu boleh menalar "ini laga piala
     jadi awalnya cenderung hati-hati". Kamu TIDAK boleh menulis peringkat FIFA,
     rekor pertemuan, skor sejarah, atau posisi klasemen dari ingatanmu — pengetahuan
     sepak bolamu sudah kedaluwarsa dan liga kecil paling sering kamu salah ingat.

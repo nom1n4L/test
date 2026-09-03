@@ -95,6 +95,17 @@ data class MatchPrediction(
      * 72%, and lost. Splitting the read from the adjustment makes a non-adjustment
      * visible on the screen instead of hidden inside one confident percentage.
      */
+    /**
+     * The closing decision, so the analysis ends with an answer rather than with
+     * more considerations.
+     *
+     * "pasang", "lewatkan", or "butuh data" — and where it is the last, [needMore]
+     * names exactly what would settle it, so the user can go and fetch that rather
+     * than guess what the model wanted.
+     */
+    val action: String = "",
+    val verdict: String = "",
+    val needMore: List<String> = emptyList(),
     val firstRead: String = "",
     val riskSide: String = "",
     val adjustment: String = "",
@@ -148,6 +159,11 @@ data class MatchPrediction(
             probAway -> "$away menang"
             else -> "Seri"
         }
+
+    val wantsMore: Boolean
+        get() = action.contains("butuh", true) || needMore.isNotEmpty()
+
+    val standDown: Boolean get() = action.equals("lewatkan", true)
 
     val thin: Boolean get() = confidence.equals("rendah", true) || statsMissing.size > 3
 

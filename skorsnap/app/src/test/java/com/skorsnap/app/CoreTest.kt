@@ -1399,6 +1399,84 @@ class CoreTest {
         println("Kesan awal 72% → digeser → ${m.riskSide} → dipakai ${Math.round(m.pickProb * 100)}%.")
     }
 
+    // ------------------------------------------------ kesimpulan & analisis ulang
+
+    /**
+     * The page used to end on considerations, leaving the reader to draw the verdict
+     * themselves from a screen full of caveats — the opposite of what the app is for.
+     */
+    @Test
+    fun theAnswerIsWrittenLastSoItAccountsForEverythingAbove() {
+        val order = Analyst.RESPONSE_SCHEMA.optJSONArray("propertyOrdering")!!
+        val at = (0 until order.length()).associateBy({ order.optString(it) }, { it })
+        listOf("action", "verdict").forEach { field ->
+            listOf("first_read", "risks", "adjustment", "markets", "pick").forEach { earlier ->
+                assert(at[field]!! > at[earlier]!!) { "$field ditulis sebelum $earlier" }
+            }
+        }
+        val required = Analyst.RESPONSE_SCHEMA.optJSONArray("required")!!
+        val names = (0 until required.length()).map { required.optString(it) }
+        assert("action" in names && "verdict" in names) { "kesimpulan boleh dikosongkan" }
+        println()
+        println("Kesimpulan ditulis paling akhir, setelah semua pertimbangan — dan wajib ada.")
+    }
+
+    @Test
+    fun theThreeWayDecisionIsSpelledOut() {
+        val p = Analyst.SYSTEM_PROMPT
+        listOf("\"pasang\"", "\"lewatkan\"", "\"butuh data\"").forEach {
+            assert(p.contains(it)) { "pilihan $it tidak dijelaskan" }
+        }
+        assert(p.contains("Ini jawaban")) { "lewatkan tidak ditegaskan sebagai jawaban sah" }
+        assert(p.contains("sekonkret mungkin")) { "permintaan data boleh kabur" }
+        println("Tiga keputusan jelas, dan 'lewatkan' ditegaskan sebagai jawaban yang sah.")
+    }
+
+    @Test
+    fun aMatchThatWantsMoreDataSaysSo() {
+        val asking = match(0.6).copy(
+            action = "butuh data",
+            needMore = listOf("rata-rata corner babak 1 León khusus tandang"),
+        )
+        assert(asking.wantsMore && !asking.standDown)
+
+        val skipping = match(0.6).copy(action = "lewatkan")
+        assert(skipping.standDown && !skipping.wantsMore) { "lewatkan disalahartikan jadi butuh data" }
+
+        val betting = match(0.6).copy(action = "pasang", verdict = "Pasang Under 4.5 di 62%.")
+        assert(!betting.wantsMore && !betting.standDown)
+        println("Tiga keadaan terbaca terpisah: pasang, lewatkan, butuh data.")
+    }
+
+    /**
+     * A model shown its own conclusion tends to defend it, so the revision note has
+     * to say outright that changing its mind is the point.
+     */
+    @Test
+    fun theRevisionInvitesTheModelToChangeItsMind() {
+        val p = Analyst.SYSTEM_PROMPT
+        assert(p.isNotBlank())
+        val note = Analyst("k").let { analyst ->
+            val m = match(0.72).copy(
+                firstRead = "kesan awal 76%",
+                risks = listOf("laga piala"),
+                adjustment = "digeser ke 68%",
+                pick = "Corner babak 1 Over 4.5",
+                needMore = listOf("corner 1H León tandang"),
+            )
+            // Same text the model receives on a second pass.
+            analyst.javaClass.getDeclaredMethod("revisionNote", MatchPrediction::class.java)
+                .apply { isAccessible = true }
+                .invoke(analyst, m) as String
+        }
+        assert(note.contains("kesan awal 76%")) { "pembacaan lama tidak diserahkan kembali" }
+        assert(note.contains("corner 1H León tandang")) { "permintaan data lama hilang" }
+        assert(note.contains("berubah pikiran")) { "tidak diizinkan berubah pikiran" }
+        assert(note.contains("jangan minta hal yang sama dua kali")) { "bisa memutar terus" }
+        println()
+        println("Catatan analisis ulang membawa pembacaan lama dan izin untuk berubah pikiran.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

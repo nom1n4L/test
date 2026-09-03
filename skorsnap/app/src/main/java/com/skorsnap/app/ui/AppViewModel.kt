@@ -27,6 +27,7 @@ sealed interface Screen {
     data class Detail(val id: String) : Screen
     data object Slip : Screen
     data object History : Screen
+    data class AddMore(val id: String) : Screen
     data object Report : Screen
     data object Settings : Screen
 }
@@ -237,6 +238,49 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (e: Analyst.AnalystException) {
                 _message.value = "Gagal: ${e.message}"
+            } catch (e: Exception) {
+                _message.value = "Gagal: ${e.message}"
+            }
+            _busy.value = false
+        }
+    }
+
+    /**
+     * A second pass over the same match with extra screenshots.
+     *
+     * Replaces the analysis in place, keeping the match's id and every verdict
+     * already recorded against it: the markets are the same markets, and a result
+     * the user marked is a fact about the world, not about this reading.
+     */
+    fun reanalyse(id: String, note: String) {
+        if (_busy.value) return
+        val previous = _matches.value.firstOrNull { it.id == id } ?: return
+        val images = _staged.value
+        if (images.isEmpty()) {
+            _message.value = "Tambahkan dulu gambarnya."
+            return
+        }
+        viewModelScope.launch {
+            _busy.value = true
+            _message.value = null
+            try {
+                val analyst = Analyst(store.apiKey)
+                val fresh = analyst.analyse(
+                    images, note, store.model, previous.mode,
+                    _matches.value, _slips.value, previous,
+                ).copy(
+                    id = previous.id,
+                    model = store.model,
+                    marketOutcomes = previous.marketOutcomes,
+                    backed = previous.backed,
+                )
+                _lastUsage.value = analyst.lastUsage
+                val updated = _matches.value.map { if (it.id == id) fresh else it }
+                _matches.value = updated
+                store.save(updated)
+                _staged.value = emptyList()
+                _screen.value = Screen.Detail(id)
+                _message.value = "Analisis diperbarui dengan data tambahan."
             } catch (e: Exception) {
                 _message.value = "Gagal: ${e.message}"
             }

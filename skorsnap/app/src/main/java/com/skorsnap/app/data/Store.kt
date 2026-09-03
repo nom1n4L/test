@@ -110,6 +110,9 @@ class Store(context: Context) {
         put("stats_seen", JSONArray(m.statsSeen))
         put("stats_missing", JSONArray(m.statsMissing))
         put("risks", JSONArray(m.risks))
+        put("need_more", JSONArray(m.needMore))
+        put("action", m.action)
+        put("verdict", m.verdict)
         put("first_read", m.firstRead)
         put("risk_side", m.riskSide)
         put("adjustment", m.adjustment)
@@ -174,6 +177,9 @@ class Store(context: Context) {
             statsSeen = strings("stats_seen"),
             statsMissing = strings("stats_missing"),
             risks = strings("risks"),
+            needMore = strings("need_more"),
+            action = o.optString("action"),
+            verdict = o.optString("verdict"),
             firstRead = o.optString("first_read"),
             riskSide = o.optString("risk_side"),
             adjustment = o.optString("adjustment"),

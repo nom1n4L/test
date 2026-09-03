@@ -100,6 +100,23 @@ fun App(vm: AppViewModel) {
                     onRemove = vm::removeStaged,
                     onAnalyse = vm::analyse,
                 )
+                // Same screen, different destination: the images join an existing
+                // analysis instead of starting a new one, so the mode is fixed to
+                // whatever that match already is.
+                is Screen.AddMore -> AddScreen(
+                    staged = staged,
+                    busy = busy,
+                    mode = matches.firstOrNull { it.id == s.id }?.mode ?: mode,
+                    onMode = {},
+                    onPick = {
+                        picker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    onRemove = vm::removeStaged,
+                    onAnalyse = { note -> vm.reanalyse(s.id, note) },
+                    wanted = matches.firstOrNull { it.id == s.id }?.needMore ?: emptyList(),
+                )
                 is Screen.Detail -> {
                     // Looked up in the observed list, not fetched from the view
                     // model. vm.matchOf() read the flow's value directly, which
@@ -122,6 +139,7 @@ fun App(vm: AppViewModel) {
                                 vm.markMarket(s.id, match.keyOf(option), outcome)
                             },
                             onBacked = { vm.setBacked(s.id, it) },
+                            onAddMore = { vm.go(Screen.AddMore(s.id)) },
                             onDelete = { vm.remove(s.id) },
                         )
                     }
@@ -183,6 +201,7 @@ private fun TopBar(screen: Screen, vm: AppViewModel) {
                     when (screen) {
                         is Screen.Home -> "Skorsnap"
                         is Screen.Add -> "Tambah Pertandingan"
+                        is Screen.AddMore -> "Tambah Data"
                         is Screen.Detail -> "Analisa"
                         is Screen.Slip -> "Parlay"
                         is Screen.History -> "Riwayat"
