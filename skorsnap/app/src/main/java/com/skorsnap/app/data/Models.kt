@@ -86,6 +86,18 @@ data class MatchPrediction(
      * bare percentage they have no way to judge.
      */
     val risks: List<String> = emptyList(),
+    /**
+     * The reasoning chain, in the order it has to happen.
+     *
+     * The doubts were being written after the numbers and changing nothing — a
+     * match reading "cup tie, opening 15 minutes usually cautious" and "away
+     * average padded against bottom sides" still came out recommending Over at
+     * 72%, and lost. Splitting the read from the adjustment makes a non-adjustment
+     * visible on the screen instead of hidden inside one confident percentage.
+     */
+    val firstRead: String = "",
+    val riskSide: String = "",
+    val adjustment: String = "",
     val probHome: Double,
     val probDraw: Double,
     val probAway: Double,

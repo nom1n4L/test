@@ -621,32 +621,8 @@ fun DetailScreen(
 
         item { OutcomeCard(match, onMark, onBacked) }
 
-        if (match.risks.isNotEmpty()) {
-            item {
-                Card(
-                    title = "Kenapa Ini Bisa Salah",
-                    subtitle = "Alasan yang model temukan sendiri untuk meragukan angkanya.",
-                ) {
-                    match.risks.forEach { risk ->
-                        Row(Modifier.padding(bottom = 6.dp)) {
-                            Text("• ", style = MaterialTheme.typography.bodySmall, color = Amber)
-                            Text(
-                                risk,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    if (match.confidenceWhy.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            match.confidenceWhy,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Amber,
-                        )
-                    }
-                }
-            }
+        if (match.risks.isNotEmpty() || match.adjustment.isNotBlank()) {
+            item { ReasoningCard(match) }
         }
 
         item { StatsReadCard(match) }
@@ -1106,6 +1082,76 @@ private fun OneMarketCard(match: MatchPrediction, onMark: (MarketOption, Outcome
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+}
+
+/**
+ * The reasoning chain: raw read, doubts, which way they push, final number.
+ *
+ * Laid out as steps rather than prose because the failure worth catching is a
+ * missing step — doubts written down and then ignored, the final number identical
+ * to the first read. Side by side that is obvious in a glance; buried in a
+ * paragraph it is not, which is how a 72% Over survived two reasons to go Under.
+ */
+@Composable
+private fun ReasoningCard(match: MatchPrediction) {
+    Card(
+        title = "Cara Dia Sampai ke Angka Itu",
+        subtitle = "Baca dari atas ke bawah. Kalau angka akhirnya sama dengan kesan " +
+            "awal padahal ada dua keraguan, berarti keraguannya tidak dipakai.",
+    ) {
+        if (match.firstRead.isNotBlank()) {
+            Step("1. Kata statistiknya saja", match.firstRead, Sky)
+            Spacer(Modifier.height(10.dp))
+        }
+        if (match.risks.isNotEmpty()) {
+            Text(
+                "2. Yang bikin ragu",
+                style = MaterialTheme.typography.labelSmall,
+                color = Amber,
+            )
+            Spacer(Modifier.height(4.dp))
+            match.risks.forEach { risk ->
+                Row(Modifier.padding(bottom = 4.dp)) {
+                    Text("• ", style = MaterialTheme.typography.bodySmall, color = Amber)
+                    Text(
+                        risk,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            if (match.riskSide.isNotBlank()) {
+                Text(
+                    "Keduanya mendorong ke: ${match.riskSide}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Amber,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+        if (match.adjustment.isNotBlank()) {
+            Step("3. Angka setelah digeser", match.adjustment, Green)
+        }
+        if (match.confidenceWhy.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Yang paling mungkin mengubah jawaban ini: ${match.confidenceWhy}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun Step(label: String, body: String, colour: Color) {
+    Text(label, style = MaterialTheme.typography.labelSmall, color = colour)
+    Spacer(Modifier.height(4.dp))
+    Text(
+        body,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 /** A compact tembus/meleset chip for a row inside a list. */

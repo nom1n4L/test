@@ -1317,6 +1317,88 @@ class CoreTest {
         println("Berpikir ${Analyst.THINKING_BUDGET} token, sisa $room untuk jawabannya.")
     }
 
+    // ------------------------------------------------ keraguan harus menggerakkan angka
+
+    /**
+     * The failure this addresses: the model wrote "cup tie, cautious opening" and
+     * "away average padded against bottom sides", then recommended Over 4.5 at 72%
+     * anyway — the same number the raw stats gave. The doubts were decoration.
+     *
+     * Structured output is generated in the order the schema declares, so the
+     * doubts are now declared before the probabilities that should move because of
+     * them. If that ordering is lost, the fix is lost with it.
+     */
+    @Test
+    fun theDoubtsAreWrittenBeforeTheNumbersTheyShouldMove() {
+        val order = Analyst.RESPONSE_SCHEMA.optJSONArray("propertyOrdering")!!
+        val at = (0 until order.length()).associateBy({ order.optString(it) }, { it })
+        listOf("first_read", "risks", "risk_side", "adjustment").forEach { field ->
+            assert(at.containsKey(field)) { "$field tidak ada di urutan" }
+            listOf("prob_home", "markets", "pick", "pick_prob").forEach { later ->
+                assert(at[field]!! < at[later]!!) { "$field ditulis setelah $later" }
+            }
+        }
+        println()
+        println("Urutan: ${(0 until order.length()).joinToString(" → ") { order.optString(it) }.take(120)}…")
+    }
+
+    @Test
+    fun theChainIsRequiredNotOptional() {
+        val required = Analyst.RESPONSE_SCHEMA.optJSONArray("required")!!
+        val names = (0 until required.length()).map { required.optString(it) }
+        listOf("first_read", "risks", "risk_side", "adjustment").forEach {
+            assert(it in names) { "$it boleh dikosongkan — keraguannya jadi opsional" }
+        }
+        println("Empat langkah penalaran wajib diisi, bukan opsional.")
+    }
+
+    @Test
+    fun theHardRulesAboutMovingTheNumberAreStated() {
+        val p = Analyst.SYSTEM_PROMPT
+        assert(p.contains("minimal 8 poin")) { "tidak ada kewajiban menggeser angka" }
+        assert(p.contains("di bawah 55%")) { "tidak ada aturan membatalkan rekomendasi" }
+        assert(p.contains("SETELAH digeser")) { "tidak ditegaskan angka mana yang dipakai" }
+        println("Aturan keras ada: geser minimal 8 poin, batal kalau turun di bawah 55%.")
+    }
+
+    /**
+     * The user asked for strength gaps and competition type to count. They are
+     * reasoning, not data — so they are allowed, while inventing numbers from
+     * memory stays banned.
+     */
+    @Test
+    fun structuralReasoningIsAllowedButInventedNumbersAreNot() {
+        val p = Analyst.SYSTEM_PROMPT
+        assert(p.contains("Jenis kompetisi")) { "jenis kompetisi tidak dipertimbangkan" }
+        assert(p.contains("Jurang kekuatan")) { "beda kekuatan tim tidak dipertimbangkan" }
+        assert(p.contains("peringkat FIFA")) { "tidak ada larangan mengarang peringkat" }
+        assert(p.contains("rekor pertemuan")) { "tidak ada larangan mengarang rekor" }
+        println("Boleh menalar soal piala dan jurang kekuatan; dilarang mengarang peringkat FIFA.")
+    }
+
+    @Test
+    fun theChainSurvivesTheRoundTrip() {
+        val json = """
+        {"home":"Sabah","away":"Selangor","readable":true,"stats_seen":["corner 1H"],
+         "stats_missing":[],
+         "first_read":"Corner 1H gabungan 5,88 → kesan awal Over 4.5 sekitar 72%.",
+         "risks":["laga piala sistem gugur, awal cenderung tertutup",
+                  "rata-rata tandang dikumpulkan melawan papan bawah"],
+         "risk_side":"Under 4.5",
+         "adjustment":"Digeser 14 poin ke 58%, jadi Over 4.5 tidak layak dipasang.",
+         "prob_home":0.4,"prob_draw":0.3,"prob_away":0.3,"xg_home":2.6,"xg_away":2.2,
+         "markets":[{"name":"Corner babak 1 Under 4.5","prob":0.58,"why":"tempo awal","group":"Corner Babak 1"}],
+         "pick":"Corner babak 1 Under 4.5","pick_prob":0.58,"confidence":"sedang",
+         "confidence_why":"susunan pemain belum ada"}
+        """.trimIndent()
+        val m = Analyst("k").parse(json)
+        assert(m.firstRead.contains("72%")) { "kesan awal hilang" }
+        assert(m.riskSide == "Under 4.5") { "arah risiko hilang: ${m.riskSide}" }
+        assert(m.adjustment.contains("58%")) { "hasil geseran hilang" }
+        println()
+        println("Kesan awal 72% → digeser → ${m.riskSide} → dipakai ${Math.round(m.pickProb * 100)}%.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

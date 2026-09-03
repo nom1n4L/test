@@ -19291,23 +19291,26 @@ com.skorsnap.app.data.MarketOption:
     public static synthetic com.skorsnap.app.data.MarketOption copy$default(com.skorsnap.app.data.MarketOption,java.lang.String,double,java.lang.String,java.lang.String,boolean,int,java.lang.Object)
 com.skorsnap.app.data.MatchPrediction:
     public final java.lang.String component1()
-    public final double component10()
-    public final double component11()
-    public final double component12()
+    public final java.lang.String component10()
+    public final java.lang.String component11()
+    public final java.lang.String component12()
     public final double component13()
     public final double component14()
-    public final java.util.List component15()
-    public final java.lang.String component16()
+    public final double component15()
+    public final double component16()
     public final double component17()
-    public final java.lang.String component18()
+    public final java.util.List component18()
     public final java.lang.String component19()
     public final java.lang.String component2()
-    public final com.skorsnap.app.data.Mode component20()
+    public final double component20()
     public final java.lang.String component21()
     public final java.lang.String component22()
-    public final boolean component23()
-    public final java.util.Map component24()
+    public final com.skorsnap.app.data.Mode component23()
+    public final java.lang.String component24()
     public final java.lang.String component25()
+    public final boolean component26()
+    public final java.util.Map component27()
+    public final java.lang.String component28()
     public final java.lang.String component3()
     public final java.lang.String component4()
     public final boolean component5()
@@ -40560,11 +40563,13 @@ com.skorsnap.app.data.MatchPrediction:
     public static final int $stable
     static void <clinit>()
     public static com.skorsnap.app.data.MatchPrediction copy()
+    public static java.lang.String getAdjustment()
     public static java.lang.String getAway()
     public static java.lang.String getBacked()
     public static java.lang.String getConfidence()
     public static java.lang.String getConfidenceWhy()
     public final boolean getDivergent()
+    public static java.lang.String getFirstRead()
     public static java.lang.String getHome()
     public static java.lang.String getId()
     public static java.lang.String getLeague()
@@ -40582,6 +40587,7 @@ com.skorsnap.app.data.MatchPrediction:
     public static double getProbHome()
     public static java.lang.String getProblem()
     public static boolean getReadable()
+    public static java.lang.String getRiskSide()
     public static java.util.List getRisks()
     public static java.util.List getStatsMissing()
     public static java.util.List getStatsSeen()
@@ -40886,8 +40892,6 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$6:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$7:
     public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$8$1:
-    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$8:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$9:
@@ -40959,6 +40963,8 @@ com.skorsnap.app.ui.ScreensKt$OutcomeCard$1$3:
     public final void invoke$89()
 com.skorsnap.app.ui.ScreensKt$OutcomeCard$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$ReasoningCard$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$1$1$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$11$1$1:
@@ -41011,21 +41017,21 @@ com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$8:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$9:
     public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$4:
     public final void invoke$19()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$5
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$6:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$5
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$6:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$7:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$5 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$7:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$5 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$142$lambda$141$$inlined$items$default$8:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$144$lambda$143$$inlined$items$default$8:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SafeListCard$2:
     public final void invoke$2()
@@ -41077,13 +41083,13 @@ com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$8:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$9:
     public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$96$lambda$95$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$96$lambda$95$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$98$lambda$97$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$98$lambda$97$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$96$lambda$95$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$96$lambda$95$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$98$lambda$97$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$98$lambda$97$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$96$lambda$95$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$98$lambda$97$$inlined$items$default$4:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SortChip$1:
     public final void invoke$2()
@@ -41100,11 +41106,11 @@ com.skorsnap.app.ui.ScreensKt$Verdict$1:
 com.skorsnap.app.ui.ScreensKt:
     public static final boolean MarketGroup$lambda$46(androidx.compose.runtime.MutableState)
     public static final boolean MarketsCard$lambda$39(androidx.compose.runtime.MutableState)
-    public static final boolean StatsReadCard$lambda$72(androidx.compose.runtime.MutableState)
-    public static final boolean access$LegRow$lambda$99(androidx.compose.runtime.MutableState)
+    public static final boolean StatsReadCard$lambda$74(androidx.compose.runtime.MutableState)
+    public static final boolean access$LegRow$lambda$101(androidx.compose.runtime.MutableState)
     public static final void access$MarketsCard$lambda$40(androidx.compose.runtime.MutableState,boolean)
     public static final boolean access$OutcomeCard$lambda$54(androidx.compose.runtime.MutableState)
-    public static final boolean access$SettingsScreen$lambda$119(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$121(androidx.compose.runtime.MutableState)
 kotlin.DeprecationLevel:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
     public static final enum kotlin.DeprecationLevel ERROR

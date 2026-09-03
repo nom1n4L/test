@@ -418,6 +418,9 @@ class Analyst(private val apiKey: String) {
             xgAway = json.optDouble("xg_away", 0.0),
             markets = markets.sortedByDescending { it.prob },
             risks = strings("risks"),
+            firstRead = json.optString("first_read"),
+            riskSide = json.optString("risk_side"),
+            adjustment = json.optString("adjustment"),
             pick = json.optString("pick"),
             pickProb = json.optDouble("pick_prob", 0.0),
             confidence = json.optString("confidence", "sedang"),
@@ -576,6 +579,10 @@ Aturan pengisian:
                     .put("problem", str())
                     .put("stats_seen", strArray())
                     .put("stats_missing", strArray())
+                    .put("first_read", str())
+                    .put("risks", strArray())
+                    .put("risk_side", str())
+                    .put("adjustment", str())
                     .put("prob_home", num())
                     .put("prob_draw", num())
                     .put("prob_away", num())
@@ -602,11 +609,20 @@ Aturan pengisian:
                     .put("pick_prob", num())
                     .put("confidence", str())
                     .put("confidence_why", str())
-                    .put("risks", strArray())
+            )
+            .put(
+                "propertyOrdering",
+                JSONArray().put("home").put("away").put("league").put("readable")
+                    .put("problem").put("stats_seen").put("stats_missing")
+                    .put("first_read").put("risks").put("risk_side").put("adjustment")
+                    .put("prob_home").put("prob_draw").put("prob_away")
+                    .put("xg_home").put("xg_away").put("markets")
+                    .put("pick").put("pick_prob").put("confidence").put("confidence_why")
             )
             .put(
                 "required",
                 JSONArray().put("home").put("away").put("readable").put("stats_seen")
+                    .put("first_read").put("risks").put("risk_side").put("adjustment")
                     .put("stats_missing").put("prob_home").put("prob_draw").put("prob_away")
                     .put("markets").put("pick").put("pick_prob").put("confidence")
             )
@@ -775,13 +791,51 @@ CARA BERPIKIR — ini yang membedakan tebakan dari analisis:
    angka menunjukkan sesuatu tapi tidak ada mekanisme masuk akal yang menjelaskannya,
    itu tanda kebetulan, bukan tanda pola.
 
-10. LAWAN ANGKA ITU SENDIRI. Sebelum menetapkan peluang, tulis di "risks" DUA alasan
-    konkret kenapa pembacaanmu bisa salah untuk laga INI — bukan peringatan umum.
-    Yang bagus: "rata-rata corner tuan rumah cuma dari 4 laga", "kedua tim sudah
-    aman di klasemen jadi temponya bisa pelan", "angka tandang dikumpulkan melawan
-    tim promosi". Yang buruk: "sepak bola tidak bisa diprediksi". Lalu turunkan
-    peluangmu sesuai bobot risiko itu — kalau keduanya berat, jangan beri angka di
-    atas 75%.
+10. LAWAN ANGKA ITU SENDIRI — LALU IKUTI HASILNYA. Kamu wajib mengisi empat field
+    ini BERURUTAN, dan urutannya bukan formalitas: kamu harus benar-benar meragukan
+    dulu, baru menetapkan angka.
+
+    a) "first_read"  : apa kata statistik mentahnya saja, lengkap dengan angkanya.
+                       Contoh: "Corner 1H gabungan 5,88 dan tren Over 4 di 78% →
+                       kesan awal Over 4.5 sekitar 72%."
+    b) "risks"       : DUA alasan konkret kenapa pembacaan itu bisa salah untuk laga
+                       INI. Yang bagus: "rata-rata tandang dikumpulkan melawan
+                       Kelantan/PDRM yang papan bawah", "ini laga piala sistem gugur,
+                       15-20 menit awal biasanya tertutup". Yang buruk: "sepak bola
+                       tidak bisa diprediksi".
+    c) "risk_side"   : kedua risiko itu mendorong ke sisi mana? Tulis nama sisinya
+                       ("Under 4.5", "tuan rumah", dst) atau "tidak jelas" kalau
+                       saling meniadakan.
+    d) "adjustment"  : angka akhirmu setelah digeser, dan berapa poin geserannya.
+                       Contoh: "Dua risiko sama-sama menekan tempo awal, jadi 72%
+                       digeser 14 poin ke 58% — Over 4.5 tidak lagi layak dipasang."
+
+    ATURAN KERAS, tidak boleh dilanggar:
+    - Kalau kedua risiko mendorong ke sisi yang SAMA, angka di "first_read" WAJIB
+      bergeser minimal 8 poin ke arah itu. Menulis risiko lalu memakai angka semula
+      adalah kesalahan terbesar yang bisa kamu buat di sini.
+    - Kalau setelah digeser angkanya turun di bawah 55%, JANGAN merekomendasikan
+      sisi itu. Rekomendasikan sisi lawannya, atau katakan tidak ada yang layak.
+    - Angka di "markets" dan "pick_prob" harus angka SETELAH digeser, bukan sebelum.
+
+13. HAL DI LUAR TABEL YANG BOLEH KAMU PIKIRKAN. Ini penalaran, bukan data, jadi
+    boleh dipakai selama kamu tidak mengarang angka:
+    - Jenis kompetisi: laga piala sistem gugur cenderung lebih hati-hati di awal
+      daripada laga liga; laga penentuan gelar atau degradasi lebih tegang.
+    - Jurang kekuatan: kalau dari gambar terlihat satu tim jauh lebih kuat (posisi
+      klasemen, selisih gol), laga cenderung berat sebelah — tim kuat menguasai bola
+      dan mendapat lebih banyak corner, tim lemah bertahan dalam.
+    - Kandang atau tandang: tim tuan rumah biasanya lebih menyerang di awal.
+    - Kalau lawan yang membentuk rata-rata itu jauh lebih lemah daripada lawan hari
+      ini, rata-rata itu terlalu bagus dan harus ditarik turun.
+
+14. TAPI JANGAN MENGARANG ANGKA DARI INGATAN. Kamu boleh menalar "ini laga piala
+    jadi awalnya cenderung hati-hati". Kamu TIDAK boleh menulis peringkat FIFA,
+    rekor pertemuan, skor sejarah, atau posisi klasemen dari ingatanmu — pengetahuan
+    sepak bolamu sudah kedaluwarsa dan liga kecil paling sering kamu salah ingat.
+    Angka hanya boleh datang dari gambar. Kalau sebuah pertimbangan datang dari
+    penalaran umum dan bukan dari gambar, katakan begitu di "risks" atau
+    "adjustment" — jangan diselipkan ke "stats_seen" seolah-olah terbaca di sana.
 
 11. PATOKAN NORMAL. Sebelum menyimpang jauh dari angka wajar ini, pastikan alasanmu
     kuat dan ada di gambar, lalu tulis alasannya di "why":
