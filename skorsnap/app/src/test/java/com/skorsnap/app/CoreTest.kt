@@ -1257,6 +1257,66 @@ class CoreTest {
         println("Prompt menegaskan babak pertama, dan menyuruh mengaku kalau datanya tidak ada.")
     }
 
+    // ------------------------------------------------ cara berpikir
+
+    /**
+     * The prompt teaches a shrinkage rule with worked examples. If the arithmetic in
+     * those examples is wrong the model learns the wrong rule, and nothing at
+     * runtime would ever catch it.
+     */
+    @Test
+    fun theShrinkageExamplesInThePromptAreArithmeticallyRight() {
+        fun shrunk(k: Int, n: Int) = Math.round((k + 2.0) / (n + 4.0) * 100).toInt()
+        val worked = listOf(Triple(5, 5, 78), Triple(8, 10, 71), Triple(3, 4, 63))
+        worked.forEach { (k, n, expected) ->
+            assert(shrunk(k, n) == expected) { "$k dari $n seharusnya $expected%, dapat ${shrunk(k, n)}%" }
+            assert(Analyst.SYSTEM_PROMPT.contains("($k+2)/($n+4)")) {
+                "contoh $k dari $n tidak ada di prompt"
+            }
+        }
+        println()
+        worked.forEach { (k, n, _) -> println("$k dari $n laga → ${shrunk(k, n)}%, bukan ${k * 100 / n}%") }
+    }
+
+    /** The rule only helps if it is actually in the instructions the model receives. */
+    @Test
+    fun theThinkingRulesReachTheModel() {
+        val p = Analyst.SYSTEM_PROMPT
+        listOf(
+            "ANGKA KECIL BUKAN ANGKA PASTI",
+            "TANYAKAN LAWANNYA SIAPA",
+            "PIKIRKAN SEBABNYA",
+            "LAWAN ANGKA ITU SENDIRI",
+            "PATOKAN NORMAL",
+        ).forEach { assert(p.contains(it)) { "aturan hilang: $it" } }
+        assert(p.contains("\"risks\"")) { "model tidak disuruh menulis alasan keraguan" }
+        println("Lima aturan penalaran ada di instruksi yang benar-benar dikirim.")
+    }
+
+    @Test
+    fun theDoubtsSurviveTheRoundTrip() {
+        val json = """
+        {"home":"A","away":"B","readable":true,"stats_seen":["corner 1H"],"stats_missing":[],
+         "prob_home":0.4,"prob_draw":0.3,"prob_away":0.3,"xg_home":2.6,"xg_away":2.2,
+         "markets":[{"name":"Corner babak 1 Over 4.5","prob":0.62,"why":"tempo tinggi","group":"Corner Babak 1"}],
+         "risks":["rata-rata cuma dari 4 laga","angka dikumpulkan melawan tim promosi"],
+         "pick":"Corner babak 1 Over 4.5","pick_prob":0.62,"confidence":"sedang",
+         "confidence_why":"susunan pemain belum ada"}
+        """.trimIndent()
+        val m = Analyst("k").parse(json)
+        assert(m.risks.size == 2) { "alasan keraguan hilang: ${m.risks}" }
+        assert(m.risks.first().contains("4 laga"))
+        println("Dua alasan keraguan terbaca dan siap ditampilkan: ${m.risks}")
+    }
+
+    @Test
+    fun theBiggerThinkingBudgetStillLeavesRoomForTheAnswer() {
+        val room = Analyst.MAX_OUTPUT_TOKENS - Analyst.THINKING_BUDGET
+        assert(Analyst.THINKING_BUDGET >= 16384) { "ruang berpikir tidak dinaikkan" }
+        assert(room >= 30000) { "sisa untuk JSON cuma $room token" }
+        println("Berpikir ${Analyst.THINKING_BUDGET} token, sisa $room untuk jawabannya.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

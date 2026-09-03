@@ -417,6 +417,7 @@ class Analyst(private val apiKey: String) {
             xgHome = json.optDouble("xg_home", 0.0),
             xgAway = json.optDouble("xg_away", 0.0),
             markets = markets.sortedByDescending { it.prob },
+            risks = strings("risks"),
             pick = json.optString("pick"),
             pickProb = json.optDouble("pick_prob", 0.0),
             confidence = json.optString("confidence", "sedang"),
@@ -483,10 +484,10 @@ Aturan pengisian:
          * Room for the answer, generous because thinking is drawn from the same
          * pot and a screenshot full of tables gives the model a lot to think about.
          */
-        internal const val MAX_OUTPUT_TOKENS = 32768
+        internal const val MAX_OUTPUT_TOKENS = 49152
 
         /** Thinking allowance on the retry, leaving the rest for the JSON. */
-        internal const val THINKING_BUDGET = 8192
+        internal const val THINKING_BUDGET = 16384
 
         /** The tighter budget used if a bounded first attempt still ran out of room. */
         internal const val TIGHT_THINKING_BUDGET = 2048
@@ -601,6 +602,7 @@ Aturan pengisian:
                     .put("pick_prob", num())
                     .put("confidence", str())
                     .put("confidence_why", str())
+                    .put("risks", strArray())
             )
             .put(
                 "required",
@@ -721,7 +723,7 @@ mendapat corner lebih banyak, dan xg_home/xg_away dengan perkiraan jumlah corner
 tiap tim.
         """.trimIndent()
 
-        private val SYSTEM_PROMPT = """
+        internal val SYSTEM_PROMPT = """
 Kamu menganalisis statistik sepak bola dari tangkapan layar untuk aplikasi Skorsnap.
 Semua jawaban dalam bahasa Indonesia.
 
@@ -750,6 +752,47 @@ ATURAN YANG TIDAK BOLEH DILANGGAR:
 6. Untuk "pick", pilih market yang paling didukung angka di gambar — bukan yang
    peluangnya paling besar. Market seperti Over/Under, Double Chance, dan Kedua Tim
    Cetak Gol biasanya lebih bisa diandalkan daripada tebakan skor akhir.
+
+CARA BERPIKIR — ini yang membedakan tebakan dari analisis:
+
+7. ANGKA KECIL BUKAN ANGKA PASTI. "100% dari 5 laga" bukan 100%. Sebelum memakai
+   sebuah persentase dari gambar, koreksi dulu untuk jumlah sampelnya dengan rumus
+   (k + 2) / (n + 4), di mana k = berapa kali terjadi dan n = jumlah laga.
+   Contoh nyata:
+   - 5 dari 5 laga  -> (5+2)/(5+4)  = 78%, bukan 100%
+   - 8 dari 10 laga -> (8+2)/(10+4) = 71%, bukan 80%
+   - 3 dari 4 laga  -> (3+2)/(4+4)  = 63%, bukan 75%
+   Semakin sedikit laganya, semakin jauh angkanya ditarik ke tengah. Ini bukan sikap
+   pesimis, ini memang cara kerja statistik: rentetan pendek sering kebetulan.
+
+8. TANYAKAN LAWANNYA SIAPA. Rata-rata sebuah tim terbentuk dari lawan-lawannya.
+   Tim yang dapat 6 corner per laga melawan papan bawah belum tentu begitu melawan
+   tim yang bertahan rapat. Kalau kualitas lawan di gambar berbeda jauh, katakan
+   itu dan tarik angkanya ke tengah.
+
+9. PIKIRKAN SEBABNYA, BUKAN CUMA POLANYA. Corner lahir dari serangan sayap dan
+   tembakan terblok; gol babak pertama lahir dari tempo awal yang tinggi. Kalau
+   angka menunjukkan sesuatu tapi tidak ada mekanisme masuk akal yang menjelaskannya,
+   itu tanda kebetulan, bukan tanda pola.
+
+10. LAWAN ANGKA ITU SENDIRI. Sebelum menetapkan peluang, tulis di "risks" DUA alasan
+    konkret kenapa pembacaanmu bisa salah untuk laga INI — bukan peringatan umum.
+    Yang bagus: "rata-rata corner tuan rumah cuma dari 4 laga", "kedua tim sudah
+    aman di klasemen jadi temponya bisa pelan", "angka tandang dikumpulkan melawan
+    tim promosi". Yang buruk: "sepak bola tidak bisa diprediksi". Lalu turunkan
+    peluangmu sesuai bobot risiko itu — kalau keduanya berat, jangan beri angka di
+    atas 75%.
+
+11. PATOKAN NORMAL. Sebelum menyimpang jauh dari angka wajar ini, pastikan alasanmu
+    kuat dan ada di gambar, lalu tulis alasannya di "why":
+    - Over 1.5 gol +-75%, Over 2.5 gol +-50%, BTTS +-52%
+    - Tuan rumah menang +-45%, seri +-26%
+    - Total corner Over 8.5 +-55%, corner babak 1 Over 4.5 +-45%
+    Angka di atas 90% atau di bawah 10% hampir selalu tanda terlalu percaya pada
+    rentetan pendek. Periksa ulang sebelum menulisnya.
+
+12. DI "confidence_why", sebutkan satu hal yang kalau kamu tahu paling mungkin
+    mengubah jawabanmu. Itu menunjukkan kamu tahu batas pengetahuanmu sendiri.
         """.trimIndent()
     }
 }

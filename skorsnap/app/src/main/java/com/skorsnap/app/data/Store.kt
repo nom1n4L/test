@@ -109,6 +109,7 @@ class Store(context: Context) {
         put("problem", m.problem)
         put("stats_seen", JSONArray(m.statsSeen))
         put("stats_missing", JSONArray(m.statsMissing))
+        put("risks", JSONArray(m.risks))
         put("prob_home", m.probHome)
         put("prob_draw", m.probDraw)
         put("prob_away", m.probAway)
@@ -169,6 +170,7 @@ class Store(context: Context) {
             problem = o.optString("problem"),
             statsSeen = strings("stats_seen"),
             statsMissing = strings("stats_missing"),
+            risks = strings("risks"),
             probHome = o.optDouble("prob_home", 0.0),
             probDraw = o.optDouble("prob_draw", 0.0),
             probAway = o.optDouble("prob_away", 0.0),

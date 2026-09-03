@@ -78,6 +78,14 @@ data class MatchPrediction(
     val problem: String,
     val statsSeen: List<String>,
     val statsMissing: List<String>,
+    /**
+     * Two concrete reasons this reading could be wrong, in the model's own words.
+     *
+     * Asked to argue against itself before committing to a number, a model produces
+     * a more careful number — and the user gets to see the argument rather than a
+     * bare percentage they have no way to judge.
+     */
+    val risks: List<String> = emptyList(),
     val probHome: Double,
     val probDraw: Double,
     val probAway: Double,

@@ -621,6 +621,34 @@ fun DetailScreen(
 
         item { OutcomeCard(match, onMark, onBacked) }
 
+        if (match.risks.isNotEmpty()) {
+            item {
+                Card(
+                    title = "Kenapa Ini Bisa Salah",
+                    subtitle = "Alasan yang model temukan sendiri untuk meragukan angkanya.",
+                ) {
+                    match.risks.forEach { risk ->
+                        Row(Modifier.padding(bottom = 6.dp)) {
+                            Text("• ", style = MaterialTheme.typography.bodySmall, color = Amber)
+                            Text(
+                                risk,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (match.confidenceWhy.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            match.confidenceWhy,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Amber,
+                        )
+                    }
+                }
+            }
+        }
+
         item { StatsReadCard(match) }
 
         item {

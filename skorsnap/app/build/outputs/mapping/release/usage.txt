@@ -19295,25 +19295,26 @@ com.skorsnap.app.data.MatchPrediction:
     public final double component11()
     public final double component12()
     public final double component13()
-    public final java.util.List component14()
-    public final java.lang.String component15()
-    public final double component16()
-    public final java.lang.String component17()
+    public final double component14()
+    public final java.util.List component15()
+    public final java.lang.String component16()
+    public final double component17()
     public final java.lang.String component18()
-    public final com.skorsnap.app.data.Mode component19()
+    public final java.lang.String component19()
     public final java.lang.String component2()
-    public final java.lang.String component20()
+    public final com.skorsnap.app.data.Mode component20()
     public final java.lang.String component21()
-    public final boolean component22()
-    public final java.util.Map component23()
-    public final java.lang.String component24()
+    public final java.lang.String component22()
+    public final boolean component23()
+    public final java.util.Map component24()
+    public final java.lang.String component25()
     public final java.lang.String component3()
     public final java.lang.String component4()
     public final boolean component5()
     public final java.lang.String component6()
     public final java.util.List component7()
     public final java.util.List component8()
-    public final double component9()
+    public final java.util.List component9()
     public final java.lang.String getPredictedResult()
     public final java.lang.String getRaw()
 com.skorsnap.app.data.Migration:
@@ -40452,9 +40453,9 @@ com.skorsnap.app.MainActivity:
 com.skorsnap.app.data.Analyst$AnalystException:
     static void <clinit>()
 com.skorsnap.app.data.Analyst$Companion:
-    public static final org.json.JSONObject access$strArray(com.skorsnap.app.data.Analyst$Companion)
     public static java.util.List getMODELS()
     public static org.json.JSONObject getRESPONSE_SCHEMA$app_release()
+    public static java.lang.String getSYSTEM_PROMPT$app_release()
     public static org.json.JSONObject num()
     public static org.json.JSONObject strArray()
 com.skorsnap.app.data.Analyst$Model:
@@ -40581,6 +40582,7 @@ com.skorsnap.app.data.MatchPrediction:
     public static double getProbHome()
     public static java.lang.String getProblem()
     public static boolean getReadable()
+    public static java.util.List getRisks()
     public static java.util.List getStatsMissing()
     public static java.util.List getStatsSeen()
     public static double getXgAway()
@@ -40864,6 +40866,8 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$1$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$1$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$10:
+    public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$1:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$2$1:
@@ -40882,6 +40886,8 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$6:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$7:
     public final void invoke$88()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$8$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$8:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$1$1$9:
