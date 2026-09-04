@@ -40519,6 +40519,7 @@ com.skorsnap.app.data.Coach:
     static void <clinit>()
     public static java.lang.String parlayLine()
     public static java.util.ArrayList shots(java.util.List)
+    public static java.lang.String sideBias()
     public static java.lang.String summary()
 com.skorsnap.app.data.Comparison:
     public static final int $stable

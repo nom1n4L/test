@@ -69,7 +69,7 @@ object Coach {
                 }
                 lines.add(
                     "- ${group}: dijanjikan ${pct(promised)}, tembus ${pct(actual)} " +
-                        "dari ${list.size} taruhan → $verdict"
+                        "dari ${list.size} taruhan → $verdict" + sideBias(list)
                 )
             }
 
@@ -111,6 +111,47 @@ object Coach {
                 "akan mulai terisi."
         }
         return text
+    }
+
+    /**
+     * Names a one-sided habit, which a hit rate on its own cannot show.
+     *
+     * The record that prompted this: twelve of thirteen first-half corner picks were
+     * Under, and Under 4.5 went nought from five. A group summary would report
+     * "overconfident, come down 45 points" and the model would dutifully price Under
+     * at 55% instead of 70% — still Under, still wrong. The useful instruction is
+     * not "be less sure", it is "you keep choosing the same side and that side keeps
+     * losing; look at the other one".
+     */
+    private fun sideBias(list: List<Mark>): String {
+        fun side(name: String) = when {
+            name.contains("Under", true) -> "Under"
+            name.contains("Over", true) -> "Over"
+            else -> null
+        }
+        val sided = list.mapNotNull { m -> side(m.market)?.let { it to m.won } }
+        if (sided.size < MIN_SAMPLE) return ""
+
+        val counts = sided.groupBy { it.first }
+        if (counts.size < 1) return ""
+        val (dominant, picks) = counts.maxByOrNull { it.value.size } ?: return ""
+        val share = picks.size.toDouble() / sided.size
+        if (share < 0.7) return ""
+
+        val won = picks.count { it.second }
+        val rate = won.toDouble() / picks.size
+        if (rate > 0.45) return ""
+
+        val other = if (dominant == "Under") "Over" else "Under"
+        // Under losing means the real totals ran higher than estimated; Over losing
+        // means the opposite. Saying which way to move is the whole point.
+        val direction = if (dominant == "Under") "terlalu rendah" else "terlalu tinggi"
+        val fix = if (dominant == "Under") "naikkan" else "turunkan"
+        return " ‼ PERHATIAN: ${picks.size} dari ${sided.size} pilihanmu di kelompok ini " +
+            "arahnya $dominant, dan $dominant cuma tembus $won dari ${picks.size}. " +
+            "Ini bukan soal terlalu percaya diri, ini soal salah arah — perkiraan " +
+            "jumlahmu $direction. Untuk laga berikutnya, $fix perkiraan jumlahmu dan " +
+            "periksa sisi $other lebih dulu sebelum memilih $dominant lagi."
     }
 
     /**

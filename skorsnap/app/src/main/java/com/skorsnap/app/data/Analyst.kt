@@ -793,8 +793,15 @@ corner satu laga penuh, katakan itu di "stats_missing", turunkan "confidence" ja
 "rendah", dan perkirakan babak pertama sekitar 45% dari total laga penuh — jangan
 berpura-pura punya data babak pertama.
 
+SEBELUM memilih sisi, tulis dulu di "first_read" perkiraan corner GABUNGAN kedua
+tim di babak pertama sebagai satu angka. Baru bandingkan dengan garis 4.5.
+Catatan penting: rata-rata liga untuk corner babak 1 gabungan sekitar 4,5 sampai
+5,0 — jadi Over 4.5 itu lemparan koin, bukan taruhan Under yang nyaman. Under 4.5
+hanya masuk akal kalau perkiraan gabunganmu di bawah 4,0.
+
 Isi xg_home dan xg_away dengan perkiraan jumlah corner BABAK PERTAMA tiap tim
-(biasanya 2 sampai 4 per tim, bukan angka satu laga penuh).
+(biasanya 2 sampai 3 per tim; jumlah keduanya harus masuk akal dibanding rata-rata
+liga 4,5-5,0, bukan angka satu laga penuh).
 Isi prob_home/prob_draw/prob_away dengan peluang siapa yang dapat corner lebih
 banyak di babak 1.
         """.trimIndent()
@@ -885,11 +892,17 @@ CARA BERPIKIR — ini yang membedakan tebakan dari analisis:
     a) "first_read"  : apa kata statistik mentahnya saja, lengkap dengan angkanya.
                        Contoh: "Corner 1H gabungan 5,88 dan tren Over 4 di 78% →
                        kesan awal Over 4.5 sekitar 72%."
-    b) "risks"       : DUA alasan konkret kenapa pembacaan itu bisa salah untuk laga
-                       INI. Yang bagus: "rata-rata tandang dikumpulkan melawan
-                       Kelantan/PDRM yang papan bawah", "ini laga piala sistem gugur,
-                       15-20 menit awal biasanya tertutup". Yang buruk: "sepak bola
-                       tidak bisa diprediksi".
+    b) "risks"       : DUA alasan konkret, dan WAJIB SATU KE MASING-MASING ARAH:
+                       - satu alasan kenapa angkanya bisa KETINGGIAN
+                       - satu alasan kenapa angkanya bisa KERENDAHAN
+                       Aturan dua arah ini bukan formalitas. Kalau kamu hanya mencari
+                       alasan untuk ragu, di pasaran total (corner/gol) alasan itu
+                       hampir selalu mengarah ke Under — tempo lambat, tim bertahan,
+                       laga piala. Hasilnya kamu menebak Under terus dan salah terus.
+                       Alasan ke arah atas selalu ada juga: tim tertinggal akan
+                       menyerang, laga terbuka, sayap aktif, set piece, kiper buang
+                       bola, tekanan tinggi bikin banyak corner beruntun.
+                       Yang buruk: "sepak bola tidak bisa diprediksi".
     c) "risk_side"   : kedua risiko itu mendorong ke sisi mana? Tulis nama sisinya
                        ("Under 4.5", "tuan rumah", dst) atau "tidak jelas" kalau
                        saling meniadakan.
@@ -898,9 +911,12 @@ CARA BERPIKIR — ini yang membedakan tebakan dari analisis:
                        digeser 14 poin ke 58% — Over 4.5 tidak lagi layak dipasang."
 
     ATURAN KERAS, tidak boleh dilanggar:
-    - Kalau kedua risiko mendorong ke sisi yang SAMA, angka di "first_read" WAJIB
-      bergeser minimal 8 poin ke arah itu. Menulis risiko lalu memakai angka semula
-      adalah kesalahan terbesar yang bisa kamu buat di sini.
+    - Timbang kedua arah, lalu putuskan mana yang lebih berat. Kalau yang satu jelas
+      lebih berat, angka di "first_read" WAJIB bergeser minimal 8 poin ke arah itu.
+      Kalau keduanya seimbang, tulis "tidak jelas" di "risk_side", biarkan angkanya,
+      dan turunkan keyakinanmu.
+    - Menulis risiko lalu memakai angka semula tanpa penjelasan adalah kesalahan
+      terbesar yang bisa kamu buat di sini.
     - Kalau setelah digeser angkanya turun di bawah 55%, JANGAN merekomendasikan
       sisi itu. Rekomendasikan sisi lawannya, atau katakan tidak ada yang layak.
     - Angka di "markets" dan "pick_prob" harus angka SETELAH digeser, bukan sebelum.
@@ -952,9 +968,34 @@ CARA BERPIKIR — ini yang membedakan tebakan dari analisis:
     kuat dan ada di gambar, lalu tulis alasannya di "why":
     - Over 1.5 gol +-75%, Over 2.5 gol +-50%, BTTS +-52%
     - Tuan rumah menang +-45%, seri +-26%
-    - Total corner Over 8.5 +-55%, corner babak 1 Over 4.5 +-45%
+    - Total corner satu laga penuh Over 8.5 +-60%, Over 9.5 +-50%
     Angka di atas 90% atau di bawah 10% hampir selalu tanda terlalu percaya pada
     rentetan pendek. Periksa ulang sebelum menulisnya.
+
+11b. CORNER BABAK PERTAMA — BACA INI SEBELUM MEMILIH UNDER. Patokan lamaku di sini
+    SALAH dan sudah terbukti salah dari catatan nyata: dulu tertulis Over 4.5
+    sekitar 45%, seolah Under yang unggul. Kenyataannya tidak.
+    - Rata-rata corner satu laga penuh di sebagian besar liga sekitar 10 sampai 11.
+      Babak pertama kira-kira 45% dari itu, jadi sekitar 4,5 sampai 5,0 corner.
+    - Artinya "Over 4.5 corner babak 1" itu LEMPARAN KOIN, sekitar 50%, bukan taruhan
+      Under yang nyaman. Under 4.5 hanya unggul kalau kedua tim benar-benar rendah
+      (perkiraan gabungan di bawah 4,0) dan itu jarang.
+    - "Under 5.5" perlu 5 corner atau kurang. Dengan rata-rata 4,7 dan sebaran corner
+      yang lebar, itu cuma sekitar 55-60% — bukan 75%.
+    - Hitung dulu perkiraan gabungan babak pertama secara eksplisit sebelum memilih
+      sisi. Kalau perkiraanmu 5,0 atau lebih, JANGAN memilih Under 4.5.
+    - Corner datang bergerombol: satu serangan bisa menghasilkan tiga corner
+      beruntun. Sebaran yang lebar ini membuat Under lebih sering meleset daripada
+      yang diperkirakan orang.
+    - Tabel ini dihitung dari sebaran yang dipakai aplikasi. Pakai sebagai patokan:
+        perkiraan gabungan 1H   Over 4.5   Over 5.5
+              4,0                 37%        23%
+              4,5                 46%        31%
+              4,7                 49%        34%
+              5,0                 54%        38%
+              5,5                 61%        46%
+              6,0                 68%        53%
+      Kalau angkamu jauh dari tabel ini untuk perkiraan yang sama, kamu salah hitung.
 
 12. DI "confidence_why", sebutkan satu hal yang kalau kamu tahu paling mungkin
     mengubah jawabanmu. Itu menunjukkan kamu tahu batas pengetahuanmu sendiri.

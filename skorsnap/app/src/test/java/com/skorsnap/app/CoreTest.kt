@@ -1571,6 +1571,110 @@ class CoreTest {
             .format(m["Total gol 2-3"]!!.percent, m["Total gol 2-4"]!!.percent, m["Over 1.5"]!!.percent))
     }
 
+    // ------------------------------------------------ bias satu arah
+
+    /**
+     * The record that forced this: twelve of thirteen first-half corner picks were
+     * Under, Under 4.5 went nought from five, and the group summary alone would have
+     * said only "come down 45 points" — leaving the model pricing Under at 55%
+     * instead of 70%, still Under, still wrong.
+     */
+    @Test
+    fun aOneSidedLosingHabitIsNamedNotJustCalledOverconfident() {
+        fun bet(name: String, won: Boolean) = match(0.70).copy(
+            markets = listOf(MarketOption(name, 0.70, "", "Corner Babak 1")),
+            pick = name,
+        ).marking(name to verdict(won))
+
+        val record = List(5) { bet("Corner babak 1 Under 4.5", false) } +
+            List(4) { bet("Corner babak 1 Under 5.5", false) } +
+            List(3) { bet("Corner babak 1 Under 5.5", true) } +
+            List(1) { bet("Corner babak 1 Over 4.5", false) }
+
+        val brief = Coach.brief(record)
+        assert(brief.contains("PERHATIAN")) { "kebiasaan satu arah tidak ditandai:\n$brief" }
+        assert(brief.contains("arahnya Under")) { "arah yang salah tidak disebut" }
+        assert(brief.contains("terlalu rendah")) { "tidak bilang perkiraannya kerendahan" }
+        assert(brief.contains("periksa sisi Over")) { "tidak menyuruh melihat sisi lawan" }
+        println()
+        println(brief.lines().first { it.contains("PERHATIAN") }.take(220))
+    }
+
+    /** The same warning has to point the other way when Over is the losing habit. */
+    @Test
+    fun theWarningPointsTheRightWayForEitherSide() {
+        fun bet(name: String, won: Boolean) = match(0.70).copy(
+            markets = listOf(MarketOption(name, 0.70, "", "Total Gol")),
+            pick = name,
+        ).marking(name to verdict(won))
+        val record = List(8) { bet("Over 2.5", false) } + List(2) { bet("Over 2.5", true) }
+        val brief = Coach.brief(record)
+        assert(brief.contains("arahnya Over")) { "arah tidak terbaca" }
+        assert(brief.contains("terlalu tinggi")) { "seharusnya bilang perkiraannya ketinggian" }
+        assert(brief.contains("periksa sisi Under"))
+        println("Kalau Over yang kalah terus, dia disuruh menurunkan perkiraan — bukan menaikkan.")
+    }
+
+    /** A side that is merely unlucky, or a balanced record, must not be flagged. */
+    @Test
+    fun aBalancedOrWinningRecordIsLeftAlone() {
+        fun bet(name: String, won: Boolean) = match(0.70).copy(
+            markets = listOf(MarketOption(name, 0.70, "", "Corner")),
+            pick = name,
+        ).marking(name to verdict(won))
+
+        val mixed = List(5) { bet("Total corner Over 8.5", false) } +
+            List(5) { bet("Total corner Under 8.5", false) }
+        assert(!Coach.brief(mixed).contains("PERHATIAN")) { "dua arah seimbang malah ditandai" }
+
+        val winning = List(7) { bet("Total corner Over 8.5", true) } +
+            List(3) { bet("Total corner Over 8.5", false) }
+        assert(!Coach.brief(winning).contains("PERHATIAN")) { "sisi yang menang ikut ditandai" }
+        println("Catatan seimbang atau menang tidak ikut ditandai — cuma kebiasaan yang merugi.")
+    }
+
+    // ------------------------------------------------ patokan corner yang salah
+
+    /**
+     * The old anchor said first-half Over 4.5 was about 45%, which made Under look
+     * like the default. Checked against the app's own distribution it is a coin
+     * flip, and the record agreed with the maths rather than with the anchor.
+     */
+    @Test
+    fun theFirstHalfCornerAnchorMatchesTheAppsOwnMaths() {
+        val cases = listOf(4.0 to 37, 4.7 to 49, 5.0 to 54, 6.0 to 68)
+        cases.forEach { (combined, expected) ->
+            val over = Grid.firstHalfCornerMarkets(combined / 2, combined / 2)
+                .first { it.name.contains("Over") }
+            assert(abs(over.percent - expected) <= 1) {
+                "gabungan $combined seharusnya sekitar $expected%, hitungan ${over.percent}%"
+            }
+            assert(Analyst.SYSTEM_PROMPT.contains("$expected%")) {
+                "tabel di prompt tidak memuat $expected%"
+            }
+        }
+        println()
+        println("Tabel patokan di prompt cocok dengan sebaran yang dipakai aplikasi.")
+    }
+
+    @Test
+    fun theOldWrongAnchorIsGone() {
+        val p = Analyst.SYSTEM_PROMPT
+        assert(!p.contains("corner babak 1 Over 4.5 +-45%")) { "patokan lama yang salah masih ada" }
+        assert(p.contains("LEMPARAN KOIN")) { "tidak ditegaskan ini lemparan koin" }
+        assert(p.contains("JANGAN memilih Under 4.5")) { "tidak ada rem untuk Under 4.5" }
+        println("Patokan lama yang bikin condong ke Under sudah dicabut.")
+    }
+
+    @Test
+    fun doubtsMustBeRaisedInBothDirections() {
+        val p = Analyst.SYSTEM_PROMPT
+        assert(p.contains("KETINGGIAN")) { "tidak diminta alasan arah atas" }
+        assert(p.contains("KERENDAHAN")) { "tidak diminta alasan arah bawah" }
+        assert(p.contains("menebak Under terus")) { "jebakan satu arah tidak dijelaskan" }
+        println("Keraguan wajib dua arah — itu yang dulu bikin 12 dari 13 pilihan jadi Under.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},
