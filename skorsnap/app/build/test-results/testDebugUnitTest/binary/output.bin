@@ -172,9 +172,11 @@
 gQKalau semua harga di bawah minimal, tidak ada yang ditukar — bukan asal ganti.
 hQCatatan seimbang atau menang tidak ikut ditandai — cuma kebiasaan yang merugi.
 iVTidak ada teks yang menyisipkan %% lalu memanggil format() — pola yang bikin crash.
-jJTiga keputusan jelas, dan 'lewatkan' ditegaskan sebagai jawaban yang sah.
-l`Harga terbaca: Match Winner: Home=1.96, Match Winner: Draw=3.1, Goals Over/Under: Over 2.5=2.25
-m
-m,3 leg aman    : tembus 72.1%, harapan 83.9%
-m,3 leg berisiko: tembus 17.2%, harapan 83.9%
-m'=> peluang beda jauh, harapan identik.
+j
+jPAkun disuspend → pesannya menjelaskan langkah, bukan menampilkan JSON mentah.
+kJTiga keputusan jelas, dan 'lewatkan' ditegaskan sebagai jawaban yang sah.
+m`Harga terbaca: Match Winner: Home=1.96, Match Winner: Draw=3.1, Goals Over/Under: Over 2.5=2.25
+n
+n,3 leg aman    : tembus 72.1%, harapan 83.9%
+n,3 leg berisiko: tembus 17.2%, harapan 83.9%
+n'=> peluang beda jauh, harapan identik.

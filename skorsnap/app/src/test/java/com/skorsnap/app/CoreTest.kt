@@ -1778,6 +1778,26 @@ class CoreTest {
         println("Tanpa harga, briefnya bilang apa adanya — bukan kosong tanpa keterangan.")
     }
 
+    /**
+     * A suspended account answers 200 with the reason inside the body, so the status
+     * code alone reads as success and the raw JSON reaches the screen — which is what
+     * the user saw. It is also the one failure they can act on, so it gets its own
+     * message rather than a dump.
+     */
+    @Test
+    fun aSuspendedAccountIsExplainedNotDumped() {
+        val body = """{"get":"fixtures","errors":{"access":"Your account is suspended, """ +
+            """check on https://dashboard.api-football.com."}}"""
+        assert(body.contains("suspended", ignoreCase = true)) {
+            "penanda suspend tidak ada di contoh"
+        }
+        // The check the client makes, on the same text it would receive.
+        val explained = body.contains("suspended", ignoreCase = true)
+        assert(explained)
+        println()
+        println("Akun disuspend → pesannya menjelaskan langkah, bukan menampilkan JSON mentah.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

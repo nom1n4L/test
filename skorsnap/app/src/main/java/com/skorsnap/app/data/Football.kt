@@ -204,6 +204,18 @@ class Football(private val apiKey: String) {
             conn.getHeaderField("x-ratelimit-requests-remaining")?.let { lastRemaining = it }
             val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
                 ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            // A suspended account answers 200 with the reason in the body, so the
+            // status code alone would report success and the screen would show raw
+            // JSON. It is also the one failure the user can actually act on.
+            if (text.contains("suspended", ignoreCase = true)) {
+                throw FootballException(
+                    "Akun API-Football-mu sedang disuspend, bukan kuncinya yang salah. " +
+                        "Buka dashboard.api-football.com dan pakai tombol Chat di pojok " +
+                        "kanan bawah untuk minta diaktifkan lagi — sebutkan ini dipakai " +
+                        "untuk aplikasi pribadi, satu pengguna. Sementara itu aplikasi " +
+                        "tetap jalan penuh lewat screenshot."
+                )
+            }
             if (code == 401 || code == 403) {
                 throw FootballException("Kunci API-Football ditolak (HTTP $code).")
             }
