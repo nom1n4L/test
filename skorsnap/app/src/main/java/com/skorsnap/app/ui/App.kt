@@ -61,6 +61,7 @@ fun App(
     val fetchedOdds by vm.fetchedOdds.collectAsStateWithLifecycle()
     val capturing by vm.capturing.collectAsStateWithLifecycle()
     val captureProblem by vm.captureProblem.collectAsStateWithLifecycle()
+    val notes by vm.notes.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
@@ -114,6 +115,8 @@ fun App(
                     onAnalyse = vm::analyse,
                     capturing = capturing,
                     captureProblem = captureProblem,
+                    notes = notes,
+                    onDropNote = vm::dropNote,
                     onStartCapture = onStartCapture,
                     onStopCapture = onStopCapture,
                 )

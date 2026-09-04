@@ -22,6 +22,37 @@ object CaptureBus {
     private val _shots = MutableStateFlow<List<ByteArray>>(emptyList())
     val shots: StateFlow<List<ByteArray>> = _shots.asStateFlow()
 
+    /**
+     * Screens already read into text, one entry per capture.
+     *
+     * Held as text rather than as images because an image is billed again on every
+     * analysis that includes it. Read once, the same page costs a few hundred
+     * tokens instead of tens of thousands, and the user can see what was read
+     * before anything is predicted from it.
+     */
+    private val _notes = MutableStateFlow<List<String>>(emptyList())
+    val notes: StateFlow<List<String>> = _notes.asStateFlow()
+
+    /** True while a capture is being transcribed, so the button can show it. */
+    private val _reading = MutableStateFlow(false)
+    val reading: StateFlow<Boolean> = _reading.asStateFlow()
+
+    fun addNote(text: String) {
+        _notes.value = _notes.value + text
+    }
+
+    fun setReading(value: Boolean) {
+        _reading.value = value
+    }
+
+    fun clearNotes() {
+        _notes.value = emptyList()
+    }
+
+    fun dropNote(index: Int) {
+        _notes.value = _notes.value.filterIndexed { i, _ -> i != index }
+    }
+
     /** True while the floating button is on screen, so the app can show its state. */
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()

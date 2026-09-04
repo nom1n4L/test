@@ -206,6 +206,55 @@ class Analyst(private val apiKey: String) {
     }
 
     /**
+     * Turns one captured screen into plain text, immediately.
+     *
+     * The difference this makes is the whole point of it: a screen held as an image
+     * is billed again on every analysis that includes it, and twelve of them is
+     * most of a match's cost. Read once into text, it is a few hundred tokens that
+     * can be reused, corrected, and read by the user before anything is predicted.
+     *
+     * Deliberately not asked to judge anything. It transcribes; the analysis that
+     * follows does the thinking, and keeping those apart means a misread number can
+     * be spotted as a misread number rather than hiding inside a conclusion.
+     */
+    suspend fun extract(image: ByteArray, model: String = DEFAULT_MODEL): String =
+        withContext(Dispatchers.IO) {
+            val parts = JSONArray()
+            Images.forUpload(image).forEach { bytes ->
+                parts.put(
+                    JSONObject().put(
+                        "inline_data",
+                        JSONObject()
+                            .put("mime_type", mimeTypeOf(bytes))
+                            .put("data", Base64.getEncoder().encodeToString(bytes))
+                    )
+                )
+            }
+            parts.put(JSONObject().put("text", EXTRACT_PROMPT))
+
+            val body = JSONObject()
+                .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+                .put(
+                    "generationConfig",
+                    JSONObject()
+                        .put("temperature", 0.0)
+                        .put("maxOutputTokens", EXTRACT_OUTPUT_TOKENS)
+                        // No reasoning budget: this is transcription, and thinking
+                        // tokens here would cost more than the text is worth.
+                        .put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
+                )
+            runCatching { post(model, body.toString()) }
+                .getOrElse {
+                    // Some models refuse a zero thinking budget outright.
+                    val relaxed = JSONObject(body.toString()).also { retry ->
+                        retry.getJSONObject("generationConfig").remove("thinkingConfig")
+                    }
+                    post(model, relaxed.toString())
+                }
+                .trim()
+        }
+
+    /**
      * How low a probability this user wants to be pointed at.
      *
      * Separated from the honesty rules on purpose. The probabilities themselves must
@@ -570,6 +619,36 @@ Aturan pengisian:
          * pot and a screenshot full of tables gives the model a lot to think about.
          */
         internal const val MAX_OUTPUT_TOKENS = 49152
+
+        /** Room for one screen's worth of transcribed numbers. */
+        internal const val EXTRACT_OUTPUT_TOKENS = 3072
+
+        /**
+         * The transcription instruction.
+         *
+         * Says what to do with things it cannot read, because the failure that
+         * matters is a confidently wrong number: "1,42" read as "4,2" produces an
+         * analysis nobody can tell is broken. A gap is recoverable, a wrong digit
+         * is not.
+         */
+        internal val EXTRACT_PROMPT = """
+Salin semua angka dan statistik sepak bola yang terlihat di layar ini menjadi teks.
+JANGAN menganalisis, JANGAN memprediksi, JANGAN menyimpulkan apa pun. Tugasmu cuma
+menyalin apa adanya.
+
+Aturan:
+- Tulis nama tim, nama liga, dan tanggal kalau terlihat.
+- Tulis tiap statistik satu baris: nama statistik, nilainya untuk tiap tim.
+  Contoh: "Rata-rata corner babak 1: Sabah 3,22 | Selangor 4,00"
+- Sebutkan satuan dan konteksnya kalau ada di layar: per laga, kandang, tandang,
+  babak 1, dari berapa laga.
+- Angka yang buram, terpotong, atau kamu ragu: JANGAN ditebak. Tulis di baris
+  terpisah diawali "TIDAK JELAS:" lalu sebutkan statistik apa. Salah satu digit
+  lebih berbahaya daripada tidak ada angkanya.
+- Kalau layar ini bukan statistik sepak bola (menu, iklan, layar utama), balas
+  persis satu kata: KOSONG
+- Jangan menambahkan pengetahuanmu sendiri. Hanya yang ada di layar.
+        """.trimIndent()
 
         /** Thinking allowance on the retry, leaving the rest for the JSON. */
         internal const val THINKING_BUDGET = 16384

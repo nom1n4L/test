@@ -26,6 +26,12 @@ import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
 import com.skorsnap.app.MainActivity
+import com.skorsnap.app.data.Analyst
+import com.skorsnap.app.data.Store
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 import kotlin.math.abs
 
@@ -70,7 +76,7 @@ class CaptureService : Service() {
                 bubble?.visibility = View.VISIBLE
                 when {
                     !recording -> Unit
-                    CaptureBus.shots.value.size >= Frames.MAX_FRAMES -> {
+                    CaptureBus.notes.value.size + CaptureBus.shots.value.size >= Frames.MAX_FRAMES -> {
                         recording = false
                         CaptureBus.report(
                             "Sudah ${Frames.MAX_FRAMES} layar terkumpul — perekaman " +
@@ -86,6 +92,7 @@ class CaptureService : Service() {
     }
     private lateinit var windows: WindowManager
     private val main = Handler(Looper.getMainLooper())
+    private val scope = CoroutineScope(SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -193,13 +200,56 @@ class CaptureService : Service() {
             val out = ByteArrayOutputStream()
             shot.compress(Bitmap.CompressFormat.JPEG, 92, out)
             shot.recycle()
-            CaptureBus.add(out.toByteArray())
-            refreshLabel()
-            if (!recording) CaptureBus.report(null)
+            read(out.toByteArray())
         } catch (e: Exception) {
             CaptureBus.report("Gagal menangkap layar: ${e.message}")
         } finally {
             image.close()
+        }
+    }
+
+    /**
+     * Reads one captured screen into text and keeps the text, not the image.
+     *
+     * The image is discarded once transcribed. Holding twelve screens as pictures
+     * and sending them all at analysis time was the expensive shape: each one is
+     * billed again on every analysis it appears in, where the same page as text is
+     * a few hundred tokens that can be reused and checked by eye.
+     */
+    private fun read(image: ByteArray) {
+        val key = Store(this).apiKey
+        if (key.isBlank()) {
+            // No key to transcribe with, so keep the picture rather than lose the
+            // screen the user just captured.
+            CaptureBus.add(image)
+            CaptureBus.report("Kunci Gemini belum diisi — layarnya disimpan sebagai gambar.")
+            refreshLabel()
+            return
+        }
+        CaptureBus.setReading(true)
+        refreshLabel()
+        scope.launch {
+            val text = runCatching { Analyst(key).extract(image, Store(this@CaptureService).model) }
+                .getOrElse {
+                    CaptureBus.add(image)
+                    CaptureBus.report("Gagal membaca layar (${it.message}) — disimpan sebagai gambar.")
+                    CaptureBus.setReading(false)
+                    refreshLabel()
+                    return@launch
+                }
+            CaptureBus.setReading(false)
+            // A menu, an advert or a home screen is not a statistics page; keeping
+            // it would spend tokens at analysis time on nothing.
+            if (text.equals("KOSONG", ignoreCase = true) || text.isBlank()) {
+                CaptureBus.report("Layar itu bukan statistik — dilewati.")
+            } else {
+                CaptureBus.addNote(text)
+                CaptureBus.report(
+                    "${CaptureBus.notes.value.size} halaman terbaca. Lanjut ke halaman " +
+                        "berikutnya, atau kembali ke Skorsnap dan tekan Analisis."
+                )
+            }
+            refreshLabel()
         }
     }
 
@@ -235,22 +285,34 @@ class CaptureService : Service() {
         var downY = 0f
         var startX = 0
         var startY = 0
+        var longPressed = false
+        val longPress = Runnable {
+            longPressed = true
+            toggleRecording()
+        }
         holder.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     downX = event.rawX; downY = event.rawY
                     startX = params.x; startY = params.y
+                    longPressed = false
+                    main.postDelayed(longPress, 550)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (abs(event.rawX - downX) > 12 || abs(event.rawY - downY) > 12) {
+                        main.removeCallbacks(longPress)
+                    }
                     params.x = startX + (event.rawX - downX).toInt()
                     params.y = startY + (event.rawY - downY).toInt()
                     windows.updateViewLayout(holder, params)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
+                    main.removeCallbacks(longPress)
                     val moved = abs(event.rawX - downX) > 12 || abs(event.rawY - downY) > 12
-                    if (!moved) toggleRecording()
+                    if (!moved && !longPressed) captureOnce()
+                    longPressed = false
                     true
                 }
                 else -> false
@@ -287,10 +349,27 @@ class CaptureService : Service() {
         refreshLabel()
     }
 
+    /** One screen, read now. The gesture the user asked for. */
+    private fun captureOnce() {
+        if (recording) {
+            toggleRecording()
+            return
+        }
+        bubble?.visibility = View.INVISIBLE
+        main.postDelayed({
+            grab()
+            bubble?.visibility = View.VISIBLE
+        }, HIDE_MS)
+    }
+
     private fun refreshLabel() {
-        val count = CaptureBus.shots.value.size
+        val pages = CaptureBus.notes.value.size + CaptureBus.shots.value.size
         // Never touches visibility: the sampler owns that, and it must stay tappable.
-        label?.text = if (recording) "⏺ $count" else "▶ $count"
+        label?.text = when {
+            CaptureBus.reading.value -> "⏳ $pages"
+            recording -> "⏺ $pages"
+            else -> "📷 $pages"
+        }
     }
 
     private fun notification(): Notification {
@@ -328,6 +407,7 @@ class CaptureService : Service() {
     }
 
     override fun onDestroy() {
+        scope.coroutineContext[Job]?.cancel()
         recording = false
         main.removeCallbacks(sampler)
         bubble?.let { runCatching { windows.removeView(it) } }

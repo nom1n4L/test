@@ -377,6 +377,8 @@ fun AddScreen(
     wanted: List<String> = emptyList(),
     capturing: Boolean = false,
     captureProblem: String? = null,
+    notes: List<String> = emptyList(),
+    onDropNote: (Int) -> Unit = {},
     onStartCapture: () -> Unit = {},
     onStopCapture: () -> Unit = {},
 ) {
@@ -449,14 +451,14 @@ fun AddScreen(
         }
 
         Card(
-            title = "Rekam Layar Sambil Scroll",
+            title = "Baca Layar Langsung",
             subtitle = if (capturing) {
-                "Tombol melayang sudah aktif. Buka aplikasi statistikmu, tekan tombolnya " +
-                    "sekali untuk mulai merekam, scroll pelan-pelan, lalu tekan lagi kalau " +
-                    "sudah. Layar yang berubah diambil sendiri."
+                "Tombol melayang aktif. Buka aplikasi statistikmu, tekan tombolnya di tiap " +
+                    "halaman — angkanya langsung dibaca jadi teks di situ juga. Tahan " +
+                    "tombolnya kalau mau otomatis sambil scroll."
             } else {
-                "Tanpa screenshot sama sekali. Nyalakan sekali, lalu rekam sambil scroll " +
-                    "di aplikasi mana pun."
+                "Tanpa screenshot sama sekali. Tiap layar langsung dibaca jadi teks, jadi " +
+                    "yang menumpuk cuma angkanya — bukan gambarnya."
             },
         ) {
             Button(
@@ -477,15 +479,60 @@ fun AddScreen(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "Tombolnya: ▶ berarti siap, ⏺ berarti sedang merekam — angkanya jumlah " +
-                    "layar yang sudah terkumpul. Berhenti sendiri di 12 layar supaya tidak " +
-                    "boros token.\n\nAndroid minta dua izin: tampil di atas aplikasi lain, " +
-                    "dan rekam layar. Selama aktif ada notifikasi permanen — itu memang " +
-                    "harus ada, supaya jelas kapan layarmu bisa terekam. Gambarnya tetap " +
-                    "di HP sampai kamu tekan Analisis.",
+                "Tombolnya: 📷 siap, ⏳ sedang membaca, ⏺ otomatis merekam. Angkanya " +
+                    "jumlah halaman yang sudah terbaca.\n\nTekan sekali = baca satu " +
+                    "halaman. Tahan = otomatis sambil scroll. Berhenti sendiri di 12 " +
+                    "halaman.\n\nAndroid minta dua izin: tampil di atas aplikasi lain, " +
+                    "dan rekam layar. Selama aktif ada notifikasi permanen — supaya jelas " +
+                    "kapan layarmu bisa terbaca.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        if (notes.isNotEmpty()) {
+            Card(
+                title = "Sudah Terbaca (${notes.size} halaman)",
+                subtitle = "Ini yang akan dianalisis. Periksa dulu — kalau ada angka yang " +
+                    "salah baca, buang halamannya dan ulangi.",
+            ) {
+                notes.forEachIndexed { index, page ->
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    ) {
+                        Column(Modifier.padding(11.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    "Halaman ${index + 1}",
+                                    Modifier.weight(1f),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Sky,
+                                )
+                                TextButton(onClick = { onDropNote(index) }) {
+                                    Text(
+                                        "Buang",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Rose,
+                                    )
+                                }
+                            }
+                            Text(
+                                page,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+                Text(
+                    "Teks ini jauh lebih murah daripada gambarnya: sekitar 300 token per " +
+                        "halaman, dibanding puluhan ribu kalau dikirim sebagai gambar.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Green,
+                )
+            }
         }
 
         Card(

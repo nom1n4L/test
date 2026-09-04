@@ -12,8 +12,8 @@ android {
         applicationId = "com.skorsnap.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 30
-        versionName = "5.1"
+        versionCode = 31
+        versionName = "5.2"
         vectorDrawables.useSupportLibrary = true
     }
 

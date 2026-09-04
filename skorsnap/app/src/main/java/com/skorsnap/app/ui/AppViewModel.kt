@@ -68,6 +68,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val captureProblem: StateFlow<String?> = CaptureBus.problem
 
+    /** Screens already read into text, waiting to be analysed. */
+    val notes: StateFlow<List<String>> = CaptureBus.notes
+
+    fun dropNote(index: Int) = CaptureBus.dropNote(index)
+
+    fun clearNotes() = CaptureBus.clearNotes()
+
     init {
         // Screenshots taken by the floating button join the staging area exactly as
         // picked images do, so every path below this — band splitting, analysis,
@@ -350,9 +357,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun analyse(note: String) {
         if (_busy.value) return
         val images = _staged.value
-        if (images.isEmpty()) {
-            _message.value = "Tambahkan dulu gambarnya."
+        val pages = CaptureBus.notes.value
+        if (images.isEmpty() && pages.isEmpty()) {
+            _message.value = "Belum ada layar terbaca atau gambar."
             return
+        }
+        // Pages already transcribed go in as text. They cost a few hundred tokens
+        // each where the same screens as images cost tens of thousands, and they
+        // are the numbers the user could already see and check.
+        val read = if (pages.isEmpty()) "" else buildString {
+            append("STATISTIK YANG SUDAH DIBACA DARI LAYAR PENGGUNA ")
+            append("(${pages.size} halaman). Angka di sini hasil salinan langsung dari ")
+            append("aplikasi statistiknya — perlakukan seperti angka yang kamu baca sendiri ")
+            append("dari gambar. Baris berawalan \"TIDAK JELAS\" berarti angkanya tidak ")
+            append("terbaca; masukkan ke stats_missing, jangan ditebak.\n\n")
+            pages.forEachIndexed { i, page -> append("--- Halaman ${i + 1} ---\n$page\n\n") }
         }
         viewModelScope.launch {
             _busy.value = true
@@ -362,7 +381,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val result = analyst
                     .analyse(
                         images, note, store.model, _mode.value,
-                        _matches.value, _slips.value, null, _appetite.value,
+                        _matches.value, _slips.value, null, _appetite.value, read,
                     )
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
@@ -370,6 +389,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _matches.value = updated
                 store.save(updated)
                 _staged.value = emptyList()
+                CaptureBus.clearNotes()
                 _screen.value = Screen.Detail(result.id)
                 if (!result.readable) {
                     _message.value = "Gambar terbaca sebagian: ${result.problem}"

@@ -1863,6 +1863,55 @@ class CoreTest {
         println("Ukuran layar aneh tidak bikin crash — ditangani, bukan diasumsikan.")
     }
 
+    // ------------------------------------------------ baca layar jadi teks
+
+    /**
+     * The reason this exists: a screen held as an image is billed again on every
+     * analysis it appears in. Read once into text, the same page is a rounding
+     * error, and the user can check the numbers before anything is predicted.
+     */
+    @Test
+    fun aPageAsTextCostsAFractionOfThePageAsAnImage() {
+        val page = """
+        Sabah vs Selangor — Malaysia Super League
+        Rata-rata corner babak 1: Sabah 3,22 | Selangor 4,00
+        Over 4 corner babak 1: Sabah 67% (dari 9 laga) | Selangor 88% (dari 8 laga)
+        Tembakan per laga: Sabah 12,4 | Selangor 15,1
+        TIDAK JELAS: rata-rata corner tandang Selangor
+        """.trimIndent()
+        val roughTokens = page.length / 4
+        assert(roughTokens < 200) { "teks halaman terlalu besar: $roughTokens token" }
+        println()
+        println("Satu halaman ≈ $roughTokens token sebagai teks, ~30.000 sebagai gambar.")
+        println("12 halaman: ${roughTokens * 12} token, bukan ~360.000.")
+    }
+
+    /**
+     * Transcription and judgement are kept apart on purpose: a misread number
+     * should be visible as a misread number, not hidden inside a conclusion.
+     */
+    @Test
+    fun theReaderIsToldToCopyNotToThink() {
+        val p = Analyst.EXTRACT_PROMPT
+        assert(p.contains("JANGAN menganalisis")) { "pembaca boleh ikut menyimpulkan" }
+        assert(p.contains("TIDAK JELAS")) { "tidak ada cara menandai angka yang ragu" }
+        assert(p.contains("JANGAN ditebak")) { "angka buram boleh ditebak" }
+        assert(p.contains("KOSONG")) { "tidak bisa menolak layar yang bukan statistik" }
+        println("Pembaca menyalin saja; angka ragu ditandai, layar bukan statistik ditolak.")
+    }
+
+    @Test
+    fun theReaderGetsNoThinkingBudgetAndModestRoom() {
+        assert(Analyst.EXTRACT_OUTPUT_TOKENS in 1024..8192) {
+            "jatah salinan tidak masuk akal: ${Analyst.EXTRACT_OUTPUT_TOKENS}"
+        }
+        assert(Analyst.EXTRACT_OUTPUT_TOKENS < Analyst.MAX_OUTPUT_TOKENS) {
+            "menyalin dikasih jatah sebesar menganalisis"
+        }
+        println("Menyalin ${Analyst.EXTRACT_OUTPUT_TOKENS} token, menganalisis " +
+            "${Analyst.MAX_OUTPUT_TOKENS} — dipisah karena bebannya beda.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},
