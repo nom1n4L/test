@@ -1,5 +1,7 @@
 package com.skorsnap.app.data
 
+import kotlin.math.roundToInt
+
 /** Which set of markets an analysis was asked for. */
 enum class Mode(val label: String, val short: String) {
     MATCH("Analisis Match", "Match"),
@@ -178,6 +180,16 @@ data class MatchPrediction(
      * is both an Asian and a European handicap and they settle differently.
      */
     val marketOutcomes: Map<String, Outcome> = emptyMap(),
+    /**
+     * Bookmaker prices read off the screenshots, keyed the same way as
+     * [marketOutcomes].
+     *
+     * Here rather than only in the parlay screen because typing them in by hand was
+     * the single most-complained-about part of the app: the price is already on the
+     * screen the user photographed, and asking them to retype it is asking them to
+     * do the app's job. Empty when no price screen was among the images.
+     */
+    val prices: Map<String, Double> = emptyMap(),
     val raw: String = "",
 ) {
     val title: String get() = if (home.isBlank()) "Pertandingan" else "$home vs $away"
@@ -205,6 +217,18 @@ data class MatchPrediction(
     val backedMarket: String get() = backed.ifBlank { pick }
 
     fun keyOf(option: MarketOption): String = "${option.group}|${option.name}"
+
+    /** What the bookmaker pays for this market, if it was on one of the screens. */
+    fun priceOf(option: MarketOption): Double? = prices[keyOf(option)]
+
+    /**
+     * How much better than break-even the bookmaker's price is, as a percentage.
+     *
+     * Positive is an edge, negative means the price does not cover the probability.
+     * Null when no price was read, which is not the same as a price of zero.
+     */
+    fun edgeOf(option: MarketOption): Int? =
+        priceOf(option)?.let { ((it * option.prob - 1.0) * 100).roundToInt() }
 
     /** The same key for a market known only by name, as pick and backed are. */
     fun keyOf(name: String): String =

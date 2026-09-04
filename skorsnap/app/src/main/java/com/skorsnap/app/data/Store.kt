@@ -140,6 +140,7 @@ class Store(context: Context) {
             "market_outcomes",
             JSONObject().apply { m.marketOutcomes.forEach { (k, v) -> put(k, v.name) } }
         )
+        put("prices", JSONObject().apply { m.prices.forEach { (k, v) -> put(k, v) } })
         put("mode", m.mode.name)
         put("backed", m.backed)
         put("model", m.model)
@@ -205,6 +206,13 @@ class Store(context: Context) {
             confidence = o.optString("confidence", "sedang"),
             confidenceWhy = o.optString("confidence_why"),
             marketOutcomes = Migration.marketOutcomes(o, markets),
+            // Absent from anything saved before prices were read off the screen, so
+            // an older file simply has none rather than failing to load.
+            prices = o.optJSONObject("prices")?.let { saved ->
+                saved.keys().asSequence().mapNotNull { k ->
+                    saved.optDouble(k, 0.0).takeIf { it > 1.0 }?.let { k to it }
+                }.toMap()
+            }.orEmpty(),
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
             backed = o.optString("backed"),
             model = o.optString("model"),

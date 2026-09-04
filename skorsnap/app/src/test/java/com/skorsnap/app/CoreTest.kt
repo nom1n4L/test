@@ -20,6 +20,7 @@ import com.skorsnap.app.data.Leg
 import com.skorsnap.app.data.Odds
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.priceLabel
+import com.skorsnap.app.data.twoDecimals
 import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.Strategy
@@ -1933,6 +1934,82 @@ class CoreTest {
         assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
         println()
         entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    // ------------------------------------------------ harga dari gambar
+
+    /**
+     * The point of the whole feature: a bookmaker screen among the screenshots means
+     * the prices are already in the analysis and nobody has to type them.
+     */
+    @Test
+    fun pricesSeenOnScreenLandOnTheirMarkets() {
+        val reply = """
+        {
+          "home": "Sabah", "away": "Selangor", "readable": true,
+          "stats_seen": ["x"], "stats_missing": [],
+          "first_read": "a", "risks": ["a", "b"], "risk_side": "over", "adjustment": "a",
+          "prob_home": 0.4, "prob_draw": 0.3, "prob_away": 0.3,
+          "xg_home": 1.3, "xg_away": 1.1,
+          "markets": [
+            {"name": "Over 2.5", "prob": 0.52, "why": "w", "group": "Total Gol"},
+            {"name": "Under 2.5", "prob": 0.48, "why": "w", "group": "Total Gol"}
+          ],
+          "pick": "Over 2.5", "pick_prob": 0.52, "confidence": "sedang",
+          "action": "pasang", "verdict": "v",
+          "odds": [
+            {"market": "Over 2.5", "price": 2.05},
+            {"market": "Under 2.5", "price": 1.72},
+            {"market": "Kartu merah", "price": 8.0}
+          ]
+        }
+        """.trimIndent()
+        val m = Analyst("dummy").parse(reply)
+        assert(m.prices["Total Gol|Over 2.5"] == 2.05) { "harga tidak nempel: ${m.prices}" }
+        assert(m.prices["Total Gol|Under 2.5"] == 1.72)
+        assert(m.prices.size == 2) { "harga untuk market yang tidak ada ikut disimpan: ${m.prices}" }
+
+        val over = m.markets.first { it.name == "Over 2.5" }
+        // 2.05 at 0.52 pays 6.6% over break-even; 1.72 at 0.48 is 17.4% under.
+        assert(m.edgeOf(over) == 7) { "selisih untung salah: ${m.edgeOf(over)}" }
+        assert(m.edgeOf(m.markets.first { it.name == "Under 2.5" }) == -17)
+        println("Over 2.5 dibayar ${m.priceOf(over)}, impas ${twoDecimals(over.breakEven)}, untung ${m.edgeOf(over)}%")
+    }
+
+    /** No price screen means no prices — not a zero, which would read as a real one. */
+    @Test
+    fun noPriceScreenLeavesTheMarketsUnpriced() {
+        val m = Analyst("dummy").parse(
+            """{"home":"A","away":"B","readable":true,"stats_seen":[],"stats_missing":[],
+            "prob_home":0.4,"prob_draw":0.3,"prob_away":0.3,"xg_home":1.0,"xg_away":1.0,
+            "markets":[{"name":"Over 2.5","prob":0.5,"why":"w","group":"Total Gol"}],
+            "pick":"Over 2.5","pick_prob":0.5,"confidence":"sedang","action":"pasang","verdict":"v"}"""
+        )
+        assert(m.prices.isEmpty())
+        assert(m.priceOf(m.markets.first()) == null) { "harga kosong tidak boleh jadi 0" }
+        assert(m.edgeOf(m.markets.first()) == null) { "tanpa harga tidak ada untung/rugi" }
+    }
+
+    /**
+     * The ordering that keeps the edge figure honest.
+     *
+     * Structured output is generated field by field in the declared order, so a
+     * model that writes the bookmaker's price before its own probability will
+     * anchor to it — and then "untung 7%" is the app comparing a number with
+     * itself. The odds must be transcribed after the answer is already fixed.
+     */
+    @Test
+    fun oddsAreReadAfterTheProbabilitiesAreCommitted() {
+        val order = Analyst.RESPONSE_SCHEMA.getJSONArray("propertyOrdering")
+        val fields = (0 until order.length()).map { order.getString(it) }
+        assert("odds" in fields) { "odds tidak ada di urutan: $fields" }
+        listOf("prob_home", "prob_away", "markets", "pick", "pick_prob", "verdict").forEach {
+            assert(fields.indexOf(it) < fields.indexOf("odds")) {
+                "$it ditulis setelah odds — modelnya akan menyalin harga bandar"
+            }
+        }
+        assert(fields.last() == "odds") { "odds harus paling akhir, dapat ${fields.last()}" }
+        println("Urutan jawaban: harga bandar dibaca terakhir, setelah peluangnya terkunci.")
     }
 
     /**

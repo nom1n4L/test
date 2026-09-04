@@ -530,6 +530,20 @@ class Analyst(private val apiKey: String) {
             }
         }
 
+        // Prices the model saw on a bookmaker screen, kept by the label it read them
+        // under. Matching them to markets is Odds' job, not the parser's.
+        val seen = ArrayList<Odds.Entry>()
+        json.optJSONArray("odds")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val label = o.optString("market")
+                val price = o.optDouble("price", 0.0)
+                if (label.isNotBlank() && price > 1.0 && price <= 1000) {
+                    seen.add(Odds.Entry(label, price))
+                }
+            }
+        }
+
         return MatchPrediction(
             id = java.util.UUID.randomUUID().toString(),
             home = json.optString("home"),
@@ -556,6 +570,7 @@ class Analyst(private val apiKey: String) {
             pickProb = json.optDouble("pick_prob", 0.0),
             confidence = json.optString("confidence", "sedang"),
             confidenceWhy = json.optString("confidence_why"),
+            prices = Odds.match(seen, markets).pairs,
             raw = text,
         )
     }
@@ -574,6 +589,12 @@ class Analyst(private val apiKey: String) {
         append(
             """
 Aturan pengisian:
+- "odds": kalau di antara gambar ada layar bandar (Melbet, 1xBet, Pinnacle, dan
+  sejenisnya), salin SEMUA harga yang terlihat ke sini: "market" ditulis persis
+  seperti nama market di daftar di atas, "price" angkanya. Kalau tidak ada layar
+  harga sama sekali, isi array kosong. JANGAN mengarang harga, dan JANGAN memakai
+  harga itu untuk menggeser peluangmu — peluangmu sudah ditulis sebelum bagian ini,
+  dan memang begitu urutannya supaya kamu tidak sekadar menyalin bandar.
 - prob_home + prob_draw + prob_away harus berjumlah 1,0.
 - Semua "prob" adalah peluang antara 0 dan 1, bukan persen. 0,72 berarti 72%.
 - Isi "markets" LENGKAP. Setiap market di daftar di atas wajib ada; satu pun jangan
@@ -645,8 +666,12 @@ Aturan:
 - Angka yang buram, terpotong, atau kamu ragu: JANGAN ditebak. Tulis di baris
   terpisah diawali "TIDAK JELAS:" lalu sebutkan statistik apa. Salah satu digit
   lebih berbahaya daripada tidak ada angkanya.
-- Kalau layar ini bukan statistik sepak bola (menu, iklan, layar utama), balas
-  persis satu kata: KOSONG
+- Kalau ini layar bandar taruhan (Melbet, 1xBet, dan sejenisnya), salin daftar
+  harganya: satu market satu baris, diawali "ODDS:", nama marketnya, lalu harganya
+  di akhir baris. Contoh: "ODDS: Over 2.5 = 1,85". Ini yang paling sering dilewat,
+  padahal tanpa harga pengguna harus mengetiknya sendiri satu per satu.
+- Kalau layar ini bukan statistik sepak bola dan bukan daftar harga (menu, iklan,
+  layar utama), balas persis satu kata: KOSONG
 - Jangan menambahkan pengetahuanmu sendiri. Hanya yang ada di layar.
         """.trimIndent()
 
@@ -773,6 +798,21 @@ Aturan:
                     .put("need_more", strArray())
                     .put("action", str())
                     .put("verdict", str())
+                    // Prices seen on screen, transcribed rather than judged. Ordered
+                    // last below for a reason worth stating: a model that writes the
+                    // bookmaker's price before its own probability will copy it, and
+                    // then every "untung 7%" the app prints is comparing a number
+                    // with itself. The odds are read only after the answer is fixed.
+                    .put(
+                        "odds",
+                        JSONObject().put("type", "ARRAY").put(
+                            "items",
+                            JSONObject().put("type", "OBJECT").put(
+                                "properties",
+                                JSONObject().put("market", str()).put("price", num()),
+                            ).put("required", JSONArray().put("market").put("price")),
+                        ),
+                    )
             )
             .put(
                 "propertyOrdering",
@@ -782,7 +822,7 @@ Aturan:
                     .put("prob_home").put("prob_draw").put("prob_away")
                     .put("xg_home").put("xg_away").put("markets")
                     .put("pick").put("pick_prob").put("confidence").put("confidence_why")
-                    .put("need_more").put("action").put("verdict")
+                    .put("need_more").put("action").put("verdict").put("odds")
             )
             .put(
                 "required",

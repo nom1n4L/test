@@ -15,8 +15,17 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -86,6 +95,10 @@ fun App(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = { TopBar(screen, vm) },
+        // Every destination used to be a text link buried partway down the home
+        // list, so the app looked like one screen with some footnotes and people
+        // could not find the parlay or the report at all. Four tabs, always visible.
+        bottomBar = { BottomBar(screen, selected.size, matches.count { it.settled }, vm) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (val s = screen) {
@@ -97,8 +110,6 @@ fun App(
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onToggle = vm::toggle,
                     onSlip = { vm.go(Screen.Slip) },
-                    onReport = { vm.go(Screen.Report) },
-                    onHistory = { vm.go(Screen.History) },
                     onBrowse = { vm.go(Screen.Browse) },
                     onSettings = { vm.go(Screen.Settings) },
                 )
@@ -217,6 +228,63 @@ fun App(
             }
         }
     }
+}
+
+/** The four places worth going, and a badge on the two that carry a count. */
+private val TABS = listOf(
+    Screen.Home to "Analisa",
+    Screen.Slip to "Parlay",
+    Screen.Report to "Rapor",
+    Screen.History to "Riwayat",
+)
+
+@Composable
+private fun BottomBar(screen: Screen, selected: Int, settled: Int, vm: AppViewModel) {
+    // Hidden on the screens you are in the middle of something on: adding images or
+    // reading one match is a task, and a row of tabs there is an invitation to lose
+    // your place.
+    if (screen is Screen.Add || screen is Screen.AddMore || screen is Screen.Settings) return
+    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+        TABS.forEach { (destination, label) ->
+            val here = screen::class == destination::class
+            NavigationBarItem(
+                selected = here,
+                onClick = { vm.go(destination) },
+                icon = {
+                    val badge = when (destination) {
+                        is Screen.Slip -> selected
+                        is Screen.Report -> settled
+                        else -> 0
+                    }
+                    if (badge > 0) {
+                        BadgedBox(badge = { Badge { Text("$badge") } }) { TabIcon(destination) }
+                    } else {
+                        TabIcon(destination)
+                    }
+                },
+                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun TabIcon(destination: Screen) {
+    Icon(
+        when (destination) {
+            is Screen.Slip -> Icons.Filled.Layers
+            is Screen.Report -> Icons.Filled.Assessment
+            is Screen.History -> Icons.Filled.History
+            else -> Icons.Filled.Insights
+        },
+        contentDescription = null,
+    )
 }
 
 @Composable

@@ -12,8 +12,8 @@ android {
         applicationId = "com.skorsnap.app"
         minSdk = 24
         targetSdk = 34
-        versionCode = 33
-        versionName = "5.4"
+        versionCode = 34
+        versionName = "6.0"
         vectorDrawables.useSupportLibrary = true
     }
 
@@ -60,6 +60,10 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.material3:material3")
+    // The full icon set rather than the handful in the core artifact. It costs a
+    // few hundred KB after shrinking, and the alternative is naming four
+    // destinations with icons that mean something else.
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material:material-icons-core")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")

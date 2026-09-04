@@ -182,6 +182,19 @@
       externalAnnotations="annotations.zip"
       proguardRules="proguard.txt"/>
   <library
+      name="androidx.compose.material:material-icons-extended-android:1.7.5@aar"
+      jars="/root/.gradle/caches/8.14.3/transforms/b36f01a0fd41aafb3a19ae569810393c/transformed/material-icons-extended-release/jars/classes.jar"
+      resolved="androidx.compose.material:material-icons-extended-android:1.7.5"
+      folder="/root/.gradle/caches/8.14.3/transforms/b36f01a0fd41aafb3a19ae569810393c/transformed/material-icons-extended-release"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
       name="androidx.compose.material:material-icons-core-android:1.7.5@aar"
       jars="/root/.gradle/caches/8.14.3/transforms/66cce9365ab31a0935c43a271f6a9863/transformed/material-icons-core-release/jars/classes.jar"
       resolved="androidx.compose.material:material-icons-core-android:1.7.5"

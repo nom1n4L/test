@@ -1,18 +1,20 @@
-Marking id:pooling_container_listener_holder_tag:2131034174 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:view_tree_view_model_store_owner:2131034198 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:view_tree_lifecycle_owner:2131034195 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:wrapped_composition_tag:2131034199 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:androidx_compose_ui_view_composition_context:2131034150 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking string:m3c_snackbar_dismiss:2131296313 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:view_tree_on_back_pressed_dispatcher_owner:2131034196 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking id:hide_in_inspector_tag:2131034161 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking id:pooling_container_listener_holder_tag:2131034174 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:is_pooling_container_tag:2131034166 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:androidx_startup:2131296256 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking id:inspection_slot_table_set:2131034165 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_on_apply_window_listener:2131034182 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_window_insets_animation_callback:2131034190 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking string:default_error_message:2131296267 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:view_tree_saved_state_registry_owner:2131034197 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:compose_view_saveable_id_tag:2131034154 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking id:consume_window_insets_tag:2131034155 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_unhandled_key_event_manager:2131034188 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking id:tag_unhandled_key_listeners:2131034189 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:accessibility_custom_action_0:2131034113 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:accessibility_custom_action_1:2131034114 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:accessibility_custom_action_2:2131034125 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
@@ -53,12 +55,10 @@ Marking string:not_selected:2131296330 reachable: referenced from /home/user/tes
 Marking string:template_percent:2131296340 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:in_progress:2131296270 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:state_empty:2131296334 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking id:hide_in_inspector_tag:2131034161 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking string:default_error_message:2131296267 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking id:tag_unhandled_key_listeners:2131034189 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:hide_graphics_layer_in_inspector_tag:2131034159 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:report_drawn:2131034175 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:default_popup_window_title:2131296268 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking id:consume_window_insets_tag:2131034155 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_screen_reader_focusable:2131034185 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_accessibility_heading:2131034180 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_accessibility_pane_title:2131034181 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
@@ -66,7 +66,7 @@ Marking id:tag_state_description:2131034186 reachable: referenced from /home/use
 Marking id:tag_accessibility_clickable_spans:2131034179 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:accessibility_action_clickable_span:2131034112 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_accessibility_actions:2131034178 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking id:inspection_slot_table_set:2131034165 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking string:m3c_snackbar_dismiss:2131296313 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:tab:2131296339 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:switch_role:2131296338 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 @attr/alpha : reachable=false

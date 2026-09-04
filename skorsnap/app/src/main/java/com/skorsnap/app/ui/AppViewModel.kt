@@ -188,6 +188,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     league = fixture.where,
                 )
                 _lastUsage.value = analyst.lastUsage
+                seedOdds(result)
                 val updated = _matches.value + result
                 _matches.value = updated
                 store.save(updated)
@@ -396,6 +397,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
+                seedOdds(result)
                 val updated = _matches.value + result
                 _matches.value = updated
                 store.save(updated)
@@ -434,16 +436,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _message.value = null
             try {
                 val analyst = Analyst(store.apiKey)
-                val fresh = analyst.analyse(
+                val reread = analyst.analyse(
                     images, note, store.model, previous.mode,
                     _matches.value, _slips.value, previous, _appetite.value,
-                ).copy(
+                )
+                val fresh = reread.copy(
                     id = previous.id,
                     model = store.model,
                     marketOutcomes = previous.marketOutcomes,
                     backed = previous.backed,
+                    // Prices already read stay read: a second pass over stats
+                    // screens should not throw away a bookmaker screen from the
+                    // first pass, and a fresh reading of the same price wins.
+                    prices = previous.prices + reread.prices,
                 )
                 _lastUsage.value = analyst.lastUsage
+                seedOdds(fresh)
                 val updated = _matches.value.map { if (it.id == id) fresh else it }
                 _matches.value = updated
                 store.save(updated)
@@ -599,6 +607,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * The swap is only useful when several markets have prices — with one entered
      * there is nothing to swap to — so this is what makes the feature work at all.
      */
+    /**
+     * Carries prices read off the screenshots into the parlay without being asked.
+     *
+     * The prices are already in the analysis; leaving them there and making the user
+     * retype them into the parlay was the app doing half a job. Prices typed by hand
+     * are left alone — a value the user entered themselves outranks one the model
+     * read off a picture.
+     */
+    private fun seedOdds(match: MatchPrediction) {
+        if (match.prices.isEmpty()) return
+        val fresh = match.prices.mapKeys { "${match.id}|${it.key.substringAfter('|')}" }
+        _legOdds.value = fresh + _legOdds.value
+        _oddsReport.value = _oddsReport.value + (match.id to
+            "${match.prices.size} harga dibaca langsung dari gambar — tidak perlu diketik.\n")
+    }
+
     fun applyOdds(matchId: String, text: String) {
         val match = _matches.value.firstOrNull { it.id == matchId } ?: return
         val entries = Odds.parse(text)

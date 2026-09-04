@@ -115,8 +115,6 @@ fun HomeScreen(
     onOpen: (String) -> Unit,
     onToggle: (String) -> Unit,
     onSlip: () -> Unit,
-    onReport: () -> Unit,
-    onHistory: () -> Unit,
     onBrowse: () -> Unit,
     onSettings: () -> Unit,
 ) {
@@ -184,12 +182,12 @@ fun HomeScreen(
                     Text(
                         if (done > 0) {
                             "Semua pertandingan sudah ada hasilnya.\n\n" +
-                                "Yang sudah selesai pindah ke Riwayat. Tambah pertandingan " +
+                                "Yang sudah selesai ada di tab Riwayat. Tambah pertandingan " +
                                 "baru dengan tombol di atas."
                         } else "Belum ada pertandingan.\n\n" +
-                            "Buka aplikasi statistikmu, screenshot halaman pertandingan, " +
-                            "lalu tekan tombol di atas. Boleh beberapa gambar untuk satu " +
-                            "pertandingan.",
+                            "Screenshot halaman statistiknya, dan kalau ada, layar harga " +
+                            "dari Melbet sekalian. Harganya ikut dibaca, jadi tidak perlu " +
+                            "diketik lagi.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
@@ -197,7 +195,6 @@ fun HomeScreen(
                     )
                 }
             }
-            if (done > 0) item { HistoryLink(done, onHistory) }
             return@LazyColumn
         }
 
@@ -217,16 +214,8 @@ fun HomeScreen(
             MatchRow(match, match.id in selected, onOpen, onToggle)
         }
 
-        if (done > 0) item { HistoryLink(done, onHistory) }
-
         item {
             Spacer(Modifier.height(6.dp))
-            TextButton(onClick = onReport) {
-                Text(
-                    if (done == 0) "Rapor akurasi" else "Rapor akurasi ($done hasil)",
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
             Text(
                 "Centang pertandingan untuk menyusunnya jadi parlay. Tandai hasilnya " +
                     "di halaman tiap pertandingan setelah selesai main.",
@@ -237,31 +226,6 @@ fun HomeScreen(
     }
 }
 
-@Composable
-private fun HistoryLink(count: Int, onHistory: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onHistory),
-    ) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Riwayat", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    "$count pertandingan yang sudah ada hasilnya",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Text("→", style = MaterialTheme.typography.titleMedium, color = Sky)
-        }
-    }
-}
-
-/**
- * Matches that have been played, kept out of the way but not thrown away: the
- * verdicts here are the record everything else is measured against.
- */
 @Composable
 fun HistoryScreen(matches: List<MatchPrediction>, onOpen: (String) -> Unit) {
     val done = remember(matches) { matches.filter { it.settled }.reversed() }
@@ -450,51 +414,87 @@ fun AddScreen(
             )
         }
 
+        // One card for both ways in, because they are alternatives and presenting
+        // them as two separate walls of instructions made the screen look like it
+        // wanted both.
         Card(
-            title = "Baca Layar Langsung",
-            subtitle = if (capturing) {
-                "Tombol melayang aktif. Buka aplikasi statistikmu, tekan tombolnya di tiap " +
-                    "halaman — angkanya langsung dibaca jadi teks di situ juga. Tahan " +
-                    "tombolnya kalau mau otomatis sambil scroll."
-            } else {
-                "Tanpa screenshot sama sekali. Tiap layar langsung dibaca jadi teks, jadi " +
-                    "yang menumpuk cuma angkanya — bukan gambarnya."
-            },
+            title = "Ambil Data",
+            subtitle = "Screenshot-nya boleh beberapa. Kalau ada layar harga dari " +
+                "Melbet, ikutkan saja — harganya ikut dibaca dan tidak perlu " +
+                "diketik lagi di parlay.",
         ) {
-            Button(
-                onClick = { if (capturing) onStopCapture() else onStartCapture() },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (capturing) Rose else Green
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    if (capturing) "Matikan tombol tangkap" else "Nyalakan tangkap layar",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onPick,
+                    colors = ButtonDefaults.buttonColors(containerColor = Sky),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        if (staged.isEmpty()) "Pilih gambar" else "Tambah gambar",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Button(
+                    onClick = { if (capturing) onStopCapture() else onStartCapture() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (capturing) Rose else Green
+                    ),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        if (capturing) "Matikan tangkap" else "Tangkap layar",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
             }
             captureProblem?.let {
                 Spacer(Modifier.height(8.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = Amber)
             }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "Tombolnya: 📷 siap, ⏳ sedang membaca, ⏺ otomatis merekam. Angkanya " +
-                    "jumlah halaman yang sudah terbaca.\n\nTekan sekali = baca satu " +
-                    "halaman. Tahan = otomatis sambil scroll. Berhenti sendiri di 12 " +
-                    "halaman.\n\nAndroid minta dua izin: tampil di atas aplikasi lain, " +
-                    "dan rekam layar. Selama aktif ada notifikasi permanen — supaya jelas " +
-                    "kapan layarmu bisa terbaca.",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            val bands = remember(staged) { staged.sumOf { Images.forUpload(it).size } }
+            if (bands > staged.size) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Ada long capture di sini. Gambarnya dipotong jadi $bands bagian " +
+                        "beresolusi penuh supaya angkanya tetap terbaca jelas.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Sky,
+                )
+            }
+            // The instructions are three paragraphs long and were on screen every
+            // time, which is what made a two-button screen feel heavy. Folded away
+            // once, still one tap from here.
+            var how by remember { mutableStateOf(false) }
+            Spacer(Modifier.height(6.dp))
+            TextButton(onClick = { how = !how }) {
+                Text(
+                    if (how) "Tutup petunjuk" else "Cara pakai",
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            AnimatedVisibility(how) {
+                Text(
+                    "Pilih gambar: screenshot biasa dari aplikasi statistikmu. Makin " +
+                        "lengkap — form terakhir, rata-rata gol, head-to-head, klasemen — " +
+                        "makin baik hasilnya.\n\nTangkap layar: tombol melayang, tanpa " +
+                        "screenshot sama sekali. Tekan sekali di tiap halaman untuk " +
+                        "membacanya jadi teks; tahan untuk otomatis sambil scroll, " +
+                        "berhenti sendiri di 12 halaman. Tombolnya: 📷 siap, ⏳ sedang " +
+                        "membaca, ⏺ merekam.\n\nCara kedua jauh lebih murah — sekitar " +
+                        "300 token per halaman, dibanding puluhan ribu kalau dikirim " +
+                        "sebagai gambar. Android akan minta dua izin: tampil di atas " +
+                        "aplikasi lain, dan rekam layar.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         if (notes.isNotEmpty()) {
             Card(
                 title = "Sudah Terbaca (${notes.size} halaman)",
-                subtitle = "Ini yang akan dianalisis. Periksa dulu — kalau ada angka yang " +
-                    "salah baca, buang halamannya dan ulangi.",
+                subtitle = "Periksa dulu — kalau ada angka yang salah baca, buang " +
+                    "halamannya dan ulangi.",
             ) {
                 notes.forEachIndexed { index, page ->
                     Surface(
@@ -526,44 +526,6 @@ fun AddScreen(
                         }
                     }
                 }
-                Text(
-                    "Teks ini jauh lebih murah daripada gambarnya: sekitar 300 token per " +
-                        "halaman, dibanding puluhan ribu kalau dikirim sebagai gambar.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Green,
-                )
-            }
-        }
-
-        Card(
-            title = "Screenshot Statistik",
-            subtitle = "Boleh lebih dari satu gambar untuk satu pertandingan.",
-        ) {
-            Text(
-                "Makin lengkap yang terlihat, makin baik hasilnya: form terakhir, rata-rata " +
-                    "gol, head-to-head, tabel klasemen. Yang tidak ada di gambar tidak akan " +
-                    "dipakai — dan akan disebutkan apa saja yang kurang.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = onPick,
-                colors = ButtonDefaults.buttonColors(containerColor = Sky),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (staged.isEmpty()) "Pilih Gambar" else "Tambah Gambar Lagi")
-            }
-            val bands = remember(staged) { staged.sumOf { Images.forUpload(it).size } }
-            if (bands > staged.size) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    "Ada long capture di sini. Gambarnya dipotong jadi $bands bagian " +
-                        "beresolusi penuh supaya angkanya tetap terbaca jelas — tidak " +
-                        "dikecilkan.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Sky,
-                )
             }
         }
 
@@ -607,7 +569,14 @@ fun AddScreen(
                     }
                 }
             }
+        }
 
+        // Shown for captured pages too, not only for picked images. The analysis
+        // has always accepted pages on their own, but the button lived inside the
+        // images branch — so anyone who used the capture button read a dozen
+        // screens and then found no way to analyse them.
+        val ready = staged.size + notes.size
+        if (ready > 0) {
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
@@ -632,10 +601,17 @@ fun AddScreen(
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
                         Spacer(Modifier.width(10.dp))
-                        Text("Membaca gambar…")
+                        Text("Membaca…")
                     }
                 } else {
-                    Text("Analisa ${staged.size} Gambar", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        when {
+                            staged.isEmpty() -> "Analisa $ready halaman"
+                            notes.isEmpty() -> "Analisa $ready gambar"
+                            else -> "Analisa ${staged.size} gambar + ${notes.size} halaman"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
                 }
             }
         }
@@ -839,6 +815,8 @@ private fun SafeListCard(
         title = "Pilihan Aman (${safe.size})",
         subtitle = "Peluang tertinggi di atas. Semua di rentang " +
             "${Math.round(appetite.floor * 100)}-92%. " +
+            (if (match.prices.isEmpty()) "" else "Kotak hijau/merah harga bandar " +
+                "yang terbaca dari gambar. ") +
             "Tandai hasilnya setelah laga selesai — tiap tanda jadi bahan koreksi " +
             "buat analisis berikutnya.",
     ) {
@@ -891,6 +869,24 @@ private fun SafeListCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // This is the row people actually bet from, so the bookmaker's price
+                // belongs here more than anywhere else: a safe market at a price
+                // below break-even is a losing bet however green the percentage is.
+                match.priceOf(option)?.let { price ->
+                    val edge = match.edgeOf(option) ?: 0
+                    Spacer(Modifier.width(8.dp))
+                    Surface(
+                        color = (if (edge > 0) Green else Rose).copy(alpha = 0.16f),
+                        shape = RoundedCornerShape(5.dp),
+                    ) {
+                        Text(
+                            "%.2f".format(price),
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (edge > 0) Green else Rose,
+                        )
+                    }
+                }
             }
             // Marking each safe option, not just the one bet, is what turns a single
             // match into several observations — the record the model is fed grows in
@@ -947,7 +943,12 @@ private fun MarketsCard(match: MatchPrediction) {
 
     Card(
         title = "Semua Market (${match.markets.size})",
-        subtitle = "Angka kanan adalah odds impas — pasang kalau bandar bayar di atas itu.",
+        subtitle = if (match.prices.isEmpty()) {
+            "Angka kanan adalah odds impas — pasang kalau bandar bayar di atas itu."
+        } else {
+            "Angka kanan odds impas. Kotak berwarna harga Melbet yang terbaca dari " +
+                "gambar: hijau berarti bayarannya di atas impas, merah di bawah."
+        },
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SortChip("Paling aman", bySafety, Modifier.weight(1f)) { bySafety = true }
@@ -955,7 +956,14 @@ private fun MarketsCard(match: MatchPrediction) {
         }
         Spacer(Modifier.height(4.dp))
         groups.forEach { (group, options) ->
-            MarketGroup(group, options, expandedByDefault = groups.size == 1 || options.any { it.safe })
+            MarketGroup(
+                group,
+                options,
+                expandedByDefault = groups.size == 1 || options.any { it.safe },
+                priced = { option ->
+                    match.priceOf(option)?.let { price -> price to (match.edgeOf(option) ?: 0) }
+                },
+            )
         }
     }
 }
@@ -982,6 +990,8 @@ private fun MarketGroup(
     group: String,
     options: List<com.skorsnap.app.data.MarketOption>,
     expandedByDefault: Boolean,
+    /** Bookmaker price and its edge, when one was read off the screenshots. */
+    priced: (com.skorsnap.app.data.MarketOption) -> Pair<Double, Int>? = { null },
 ) {
     var open by remember(group) { mutableStateOf(expandedByDefault) }
     Column(Modifier.padding(top = 12.dp)) {
@@ -1048,6 +1058,24 @@ private fun MarketGroup(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        // The bookmaker's own price, when it was on one of the
+                        // screenshots. Shown next to the minimum so the comparison
+                        // that decides whether a bet is worth placing is one glance
+                        // rather than a calculation.
+                        priced(option)?.let { (price, edge) ->
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                color = (if (edge > 0) Green else Rose).copy(alpha = 0.16f),
+                                shape = RoundedCornerShape(5.dp),
+                            ) {
+                                Text(
+                                    "%.2f".format(price),
+                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (edge > 0) Green else Rose,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -2056,8 +2084,12 @@ private fun PasteOddsCard(leg: Leg, report: String?, onPaste: (String) -> Unit) 
 
     Card(
         title = "Tempel Odds — ${leg.home} vs ${leg.away}",
-        subtitle = "Satu market per baris, harganya di akhir. Setelah terpasang, leg " +
-            "yang harganya di bawah minimal diganti sendiri.",
+        // A fallback now, not the way in: prices on a screenshot of the bookmaker
+        // are read during the analysis, so this is for the times no price screen
+        // was captured.
+        subtitle = "Cadangan kalau layar harga tidak ikut difoto. Satu market per " +
+            "baris, harganya di akhir. Leg yang bayarannya di bawah minimal " +
+            "diganti sendiri.",
     ) {
         TextButton(onClick = { open = !open }) {
             Text(
