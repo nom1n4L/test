@@ -449,13 +449,14 @@ fun AddScreen(
         }
 
         Card(
-            title = "Tangkap Layar Langsung",
+            title = "Rekam Layar Sambil Scroll",
             subtitle = if (capturing) {
-                "Tombol 📸 sudah aktif. Buka aplikasi statistikmu, tekan tombolnya di " +
-                    "tiap halaman yang mau dibaca, lalu kembali ke sini."
+                "Tombol melayang sudah aktif. Buka aplikasi statistikmu, tekan tombolnya " +
+                    "sekali untuk mulai merekam, scroll pelan-pelan, lalu tekan lagi kalau " +
+                    "sudah. Layar yang berubah diambil sendiri."
             } else {
-                "Tidak perlu screenshot manual. Nyalakan sekali, lalu tinggal tekan " +
-                    "tombol melayang di aplikasi mana pun."
+                "Tanpa screenshot sama sekali. Nyalakan sekali, lalu rekam sambil scroll " +
+                    "di aplikasi mana pun."
             },
         ) {
             Button(
@@ -476,10 +477,12 @@ fun AddScreen(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "Android akan minta dua izin: tampil di atas aplikasi lain, dan rekam " +
-                    "layar. Selama aktif ada notifikasi permanen — itu memang harus ada, " +
-                    "supaya jelas kapan layarmu sedang bisa ditangkap. Gambarnya tetap di " +
-                    "HP sampai kamu tekan Analisis.",
+                "Tombolnya: ▶ berarti siap, ⏺ berarti sedang merekam — angkanya jumlah " +
+                    "layar yang sudah terkumpul. Berhenti sendiri di 12 layar supaya tidak " +
+                    "boros token.\n\nAndroid minta dua izin: tampil di atas aplikasi lain, " +
+                    "dan rekam layar. Selama aktif ada notifikasi permanen — itu memang " +
+                    "harus ada, supaya jelas kapan layarmu bisa terekam. Gambarnya tetap " +
+                    "di HP sampai kamu tekan Analisis.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

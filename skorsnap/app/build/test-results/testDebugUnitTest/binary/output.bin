@@ -14,169 +14,175 @@
 7Gambar tidak terbaca → tetap kosong, tidak dikarang.
 ESatu pasaran diminta, dua angka dikembalikan — tidak ada 51 baris.
 ZMarket yang belum diisi odds-nya tidak pernah dipilih — tak ada yang bisa dibandingkan.
-
-BCATATAN HASIL NYATA DARI APLIKASI INI (10 taruhan sudah selesai).
-)Keseluruhan: dijanjikan 77%, tembus 50%.
-1Per kelompok market (hanya yang minimal 4 data):
-�- Corner: dijanjikan 77%, tembus 50% dari 10 taruhan → TERLALU PERCAYA DIRI — turunkan peluangmu di kelompok ini sekitar 27 poin
-�Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, bukan aturan mati. Jangan mengubah pembacaanmu atas statistik di gambar hanya supaya cocok dengan catatan ini.
+1Batas 12 layar per rekaman — berhenti sendiri.
 
-*Total terlihat sehat: 76% lawan janji 74%
-9  Corner       8/10  nyata  80%  janji  76%  selisih +4 
-C  Over 1.5     3/6   nyata  50%  janji  74%  selisih -24 ← awasi
-C  Total Gol    5/5   nyata 100%  janji  72%  selisih +28 ← awasi
-NYang sudah di rentang aman tidak diutak-atik — walau ada yang lebih tinggi.
-:Leg dengan harga di bawah minimal ditunjuk satu per satu.
-MKelompok 'Total Gol' 50%, tapi Over 1.5 0/3 dan Under 3.5 3/3 — beda jauh.
->Pasangan berjumlah 1,0; DC tidak pernah di bawah komponennya.
-+Ganti satu leg tidak mengubah leg lainnya.
-3Kalimat tambahan di luar JSON tidak merusak hasil.
-4 leg @80% → 41% (1 dari 2)
-
-:Kesan awal 72% → digeser → Under 4.5 → dipakai 58%.
-CPilihan 6% diganti; batas mana pun tidak akan membiarkannya lewat.
+BCATATAN HASIL NYATA DARI APLIKASI INI (10 taruhan sudah selesai).
+)Keseluruhan: dijanjikan 77%, tembus 50%.
+1Per kelompok market (hanya yang minimal 4 data):
+�- Corner: dijanjikan 77%, tembus 50% dari 10 taruhan → TERLALU PERCAYA DIRI — turunkan peluangmu di kelompok ini sekitar 27 poin
+�Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, bukan aturan mati. Jangan mengubah pembacaanmu atas statistik di gambar hanya supaya cocok dengan catatan ini.
+
+*Total terlihat sehat: 76% lawan janji 74%
+9  Corner       8/10  nyata  80%  janji  76%  selisih +4 
+C  Over 1.5     3/6   nyata  50%  janji  74%  selisih -24 ← awasi
+C  Total Gol    5/5   nyata 100%  janji  72%  selisih +28 ← awasi
+NYang sudah di rentang aman tidak diutak-atik — walau ada yang lebih tinggi.
+:Leg dengan harga di bawah minimal ditunjuk satu per satu.
+
+>Layar diam → tidak disimpan ulang; kedipan kecil diabaikan.
+MKelompok 'Total Gol' 50%, tapi Over 1.5 0/3 dan Under 3.5 3/3 — beda jauh.
+>Pasangan berjumlah 1,0; DC tidak pernah di bawah komponennya.
++Ganti satu leg tidak mengubah leg lainnya.
+3Kalimat tambahan di luar JSON tidak merusak hasil.
+4 leg @80% → 41% (1 dari 2)
 
-FStatistik sebagai teks ≈ 29 token, versus ~30.000 untuk screenshot.
-OLaga tanpa market di rentang aman dilewati, slip tidak ditambal lemparan koin.
-EModel omni disaring — dulu muncul di daftar lalu selalu gagal 400.
-
-MTandai 'Under 11.5' di daftar aman → rekomendasi otomatis tercatat tembus.
-3Berpikir 16384 token, sisa 32768 untuk jawabannya.
-
-�Parlay: 8 slip selesai, tembus 0, perkalian peluang memperkirakan 5.8. Parlay lebih sering gagal daripada perkalian peluangnya — tanda leg-leg itu saling terkait. Hindari memilih market yang bergerak bersamaan dalam satu laga.
-
-GJatah output 49152, berpikir dibatasi 16384, sisa 32768 untuk jawaban.
- wUrutan model: [gemini-flash-latest, gemini-3.7-flash, gemini-3.5-flash-lite, gemini-3-flash-preview, gemini-2.5-flash]
-!STanpa odds asli, harapan keduanya identik 83.9% — bayaran naik bukan nilai naik.
-"=Tiga keadaan terbaca terpisah: pasang, lewatkan, butuh data.
-#"Katalog match dan corner lengkap.
-$
-$�- Corner Babak 1: dijanjikan 70%, tembus 23% dari 13 taruhan → TERLALU PERCAYA DIRI — turunkan peluangmu di kelompok ini sekitar 47 poin ‼ PERHATIAN: 12 dari 13 pilihanmu di kelompok ini arahnya Under, dan Under cuma tem
-%
-%GRekomendasi & paling aman → Over 1.5; bayaran lebih tinggi → BTTS.
-&P404 'sudah pensiun' → otomatis pindah ke gemini-3.6-flash, bukan gagal total.
-'8Patokan lama yang bikin condong ke Under sudah dicabut.
-(5Empat langkah penalaran wajib diisi, bukan opsional.
-)
-)DTerbaca: Preston vs Bristol City, pilih Over 1.5 82%, impas di 1.22
-*
-*�Grup di prompt: [Corner, Corner Babak 1, Corner per Tim, Double Chance, Handicap Asia, Handicap Eropa, Hasil Akhir, Kombinasi Hasil + Total, Multigol, Total Babak 1, Total Gol, Total per Tim]
-+
-+dJanji 75%, tembus 75% → Akurasi nyatamu kurang lebih sama dengan yang dijanjikan model. Artiny…
-+dJanji 85%, tembus 55% → Hasilnya di bawah yang dijanjikan model. Kalau bertahan sampai 100 has…
-,9Berpikir dibatasi 16384, sisa 32768 token untuk jawaban.
--:Pasang sesuai rekomendasi → dihitung sekali, bukan dua.
-.7Urutan grup: [Double Chance, Total Gol, Handicap Asia]
-/
-/BCATATAN HASIL NYATA DARI APLIKASI INI (16 taruhan sudah selesai).
-/)Keseluruhan: dijanjikan 75%, tembus 69%.
-/1Per kelompok market (hanya yang minimal 4 data):
-/P- Corner: dijanjikan 76%, tembus 80% dari 10 taruhan → sudah pas, pertahankan
-/�- Total Gol: dijanjikan 74%, tembus 50% dari 6 taruhan → TERLALU PERCAYA DIRI — turunkan peluangmu di kelompok ini sekitar 24 poin
-/�Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, bukan aturan mati. Jangan mengubah pembacaanmu atas statistik di gambar hanya supaya cocok dengan catatan ini.
-0BTotal gol 2-3 47% < 2-4 61% < Over 1.5 72% — bandnya konsisten.
-1
-1OKesimpulan ditulis paling akhir, setelah semua pertimbangan — dan wajib ada.
-2GMode khusus 54% vs corner umum 54% — sepadan, tidak dibagi dua kali.
-3SKalau Over yang kalah terus, dia disuruh menurunkan perkiraan — bukan menaikkan.
-4OPrompt menegaskan babak pertama, dan menyuruh mengaku kalau datanya tidak ada.
-5!Corner 5,4-4,6 → Over 9.5 50%.
-6
-6!Tanpa odds : 84% · minimal 1.19
-6)Odds 1,70  : 84% · minimal 1.19 · +43%
-6(Odds 1,10  : 84% · minimal 1.19 · -8%
-7
-7CScreenshot biasa dibiarkan utuh; hanya long capture yang dipotong.
-8
-8:Corner babak 1 2.8 + 2.4 → Over 4.5 57%, Under 4.5 43%.
-9
-99Model kasih 1 market → layar dapat 63, 9 grup lengkap.
-:JBalasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.
-;0  tinggi  2600 →  1 potong, tertinggi 2600 px
-;0  tinggi  4000 →  3 potong, tertinggi 1600 px
-;0  tinggi  8000 →  6 potong, tertinggi 1600 px
-;0  tinggi 20000 → 10 potong, tertinggi 2120 px
-;0  tinggi 45000 → 10 potong, tertinggi 4620 px
-<vDua alasan keraguan terbaca dan siap ditampilkan: [rata-rata cuma dari 4 laga, angka dikumpulkan melawan tim promosi]
+:Kesan awal 72% → digeser → Under 4.5 → dipakai 58%.
+CPilihan 6% diganti; batas mana pun tidak akan membiarkannya lewat.
+
+FStatistik sebagai teks ≈ 29 token, versus ~30.000 untuk screenshot.
+OLaga tanpa market di rentang aman dilewati, slip tidak ditambal lemparan koin.
+EModel omni disaring — dulu muncul di daftar lalu selalu gagal 400.
+
+MTandai 'Under 11.5' di daftar aman → rekomendasi otomatis tercatat tembus.
+3Berpikir 16384 token, sisa 32768 untuk jawabannya.
+ 
+ �Parlay: 8 slip selesai, tembus 0, perkalian peluang memperkirakan 5.8. Parlay lebih sering gagal daripada perkalian peluangnya — tanda leg-leg itu saling terkait. Hindari memilih market yang bergerak bersamaan dalam satu laga.
+!
+!GJatah output 49152, berpikir dibatasi 16384, sisa 32768 untuk jawaban.
+"wUrutan model: [gemini-flash-latest, gemini-3.7-flash, gemini-3.5-flash-lite, gemini-3-flash-preview, gemini-2.5-flash]
+#STanpa odds asli, harapan keduanya identik 83.9% — bayaran naik bukan nilai naik.
+$=Tiga keadaan terbaca terpisah: pasang, lewatkan, butuh data.
+%"Katalog match dan corner lengkap.
+&
+&�- Corner Babak 1: dijanjikan 70%, tembus 23% dari 13 taruhan → TERLALU PERCAYA DIRI — turunkan peluangmu di kelompok ini sekitar 47 poin ‼ PERHATIAN: 12 dari 13 pilihanmu di kelompok ini arahnya Under, dan Under cuma tem
+'
+'GRekomendasi & paling aman → Over 1.5; bayaran lebih tinggi → BTTS.
+("Setelah scroll, layarnya diambil.
+)P404 'sudah pensiun' → otomatis pindah ke gemini-3.6-flash, bukan gagal total.
+*8Patokan lama yang bikin condong ke Under sudah dicabut.
++5Empat langkah penalaran wajib diisi, bukan opsional.
+,
+,DTerbaca: Preston vs Bristol City, pilih Over 1.5 82%, impas di 1.22
+-
+-�Grup di prompt: [Corner, Corner Babak 1, Corner per Tim, Double Chance, Handicap Asia, Handicap Eropa, Hasil Akhir, Kombinasi Hasil + Total, Multigol, Total Babak 1, Total Gol, Total per Tim]
+.
+.dJanji 75%, tembus 75% → Akurasi nyatamu kurang lebih sama dengan yang dijanjikan model. Artiny…
+.dJanji 85%, tembus 55% → Hasilnya di bawah yang dijanjikan model. Kalau bertahan sampai 100 has…
+/9Berpikir dibatasi 16384, sisa 32768 token untuk jawaban.
+0:Pasang sesuai rekomendasi → dihitung sekali, bukan dua.
+17Urutan grup: [Double Chance, Total Gol, Handicap Asia]
+2
+2BCATATAN HASIL NYATA DARI APLIKASI INI (16 taruhan sudah selesai).
+2)Keseluruhan: dijanjikan 75%, tembus 69%.
+21Per kelompok market (hanya yang minimal 4 data):
+2P- Corner: dijanjikan 76%, tembus 80% dari 10 taruhan → sudah pas, pertahankan
+2�- Total Gol: dijanjikan 74%, tembus 50% dari 6 taruhan → TERLALU PERCAYA DIRI — turunkan peluangmu di kelompok ini sekitar 24 poin
+2�Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, bukan aturan mati. Jangan mengubah pembacaanmu atas statistik di gambar hanya supaya cocok dengan catatan ini.
+3BTotal gol 2-3 47% < 2-4 61% < Over 1.5 72% — bandnya konsisten.
+4
+4OKesimpulan ditulis paling akhir, setelah semua pertimbangan — dan wajib ada.
+5GMode khusus 54% vs corner umum 54% — sepadan, tidak dibagi dua kali.
+6SKalau Over yang kalah terus, dia disuruh menurunkan perkiraan — bukan menaikkan.
+7FUkuran layar aneh tidak bikin crash — ditangani, bukan diasumsikan.
+8OPrompt menegaskan babak pertama, dan menyuruh mengaku kalau datanya tidak ada.
+9!Corner 5,4-4,6 → Over 9.5 50%.
+:
+:!Tanpa odds : 84% · minimal 1.19
+:)Odds 1,70  : 84% · minimal 1.19 · +43%
+:(Odds 1,10  : 84% · minimal 1.19 · -8%
+;
+;CScreenshot biasa dibiarkan utuh; hanya long capture yang dipotong.
+<
+<:Corner babak 1 2.8 + 2.4 → Over 4.5 57%, Under 4.5 43%.
 =
-=eRekomendasi 'Over 1.5' meleset, pasangan 'Double Chance 1X' tembus — dua-duanya tercatat terpisah.
->
->&12 hasil  → ±22 poin (belum cukup)
->120 hasil → ±7 poin (cukup)
-?+97% (odds di bawah 1,04) diganti jadi 84%.
-@DModel bilang 62% menang → grid disetel ke 2.16/1.08, bacanya 62%.
+=9Model kasih 1 market → layar dapat 63, 9 grup lengkap.
+>JBalasan tanpa JSON ditolak dengan pesan, bukan diam-diam dianggap kosong.
+?0  tinggi  2600 →  1 potong, tertinggi 2600 px
+?0  tinggi  4000 →  3 potong, tertinggi 1600 px
+?0  tinggi  8000 →  6 potong, tertinggi 1600 px
+?0  tinggi 20000 → 10 potong, tertinggi 2120 px
+?0  tinggi 45000 → 10 potong, tertinggi 4620 px
+@vDua alasan keraguan terbaca dan siap ditampilkan: [rata-rata cuma dari 4 laga, angka dikumpulkan melawan tim promosi]
 A
-AYOver 1.5 84% (+1%) vs BTTS 70% (+19%) → dipilih BTTS, bukan yang peluangnya tertinggi.
+AeRekomendasi 'Over 1.5' meleset, pasangan 'Double Chance 1X' tembus — dua-duanya tercatat terpisah.
 B
-B3Penyaring model: 5 dipertahankan, 8 disembunyikan.
-CWDaftar aman: [DC, Over 1.5, BTTS] — tertinggi di atas, yang di luar rentang dibuang.
-D.Paling aman  : tembus 59%, bayaran wajar 1.69
-D.Bayaran naik : tembus 34%, bayaran wajar 2.92
+B&12 hasil  → ±22 poin (belum cukup)
+B120 hasil → ±7 poin (cukup)
+C+97% (odds di bawah 1,04) diganti jadi 84%.
+DDModel bilang 62% menang → grid disetel ke 2.16/1.08, bacanya 62%.
 E
-EF57% diganti jadi 'Double Chance 1X' 81% — dan dikabari ke pengguna.
-FQBoleh menalar soal piala dan jurang kekuatan; dilarang mengarang peringkat FIFA.
-GALima aturan penalaran ada di instruksi yang benar-benar dikirim.
-HRAngka peluangnya identik di semua selera risiko — yang berubah cuma pilihannya.
-IRKalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.
-JCTiga leg 84%: di odds 1,30 harapan 130%, di odds 1,12 harapan 83%.
-J;Angka aplikasi tidak berubah — harganya yang menentukan.
-K
-KDTiga format simpanan lama terbaca semua — catatanmu tidak hilang.
-L]5-0 pun belum disimpulkan: "Baru 5 laga yang bisa dibandingkan (5-0). Terlalu sedikit un…"
-M
-MP11 dari 12: nyata 92%, dijanjikan 78%, sejatinya antara 65% dan 99% (±17 poin)
-MzVonis: Baru 12 hasil. Terlalu sedikit untuk menyimpulkan apa pun — beruntung dan pintar terlihat sama di jumlah segini.
-N
-NlJadwal terbaca: Náutico vs Botafogo-SP (Brazil · Serie B), Arsenal vs Chelsea (England · Premier League)
-OFSatu laga ditandai 3 market → 3 bukti kalibrasi, tapi tetap 1 laga.
-P
-PFDefault sekarang 'gemini-flash-latest' — alias, tidak bisa pensiun.
+EYOver 1.5 84% (+1%) vs BTTS 70% (+19%) → dipilih BTTS, bukan yang peluangnya tertinggi.
+F
+F3Penyaring model: 5 dipertahankan, 8 disembunyikan.
+GWDaftar aman: [DC, Over 1.5, BTTS] — tertinggi di atas, yang di luar rentang dibuang.
+H.Paling aman  : tembus 59%, bayaran wajar 1.69
+H.Bayaran naik : tembus 34%, bayaran wajar 2.92
+I
+IF57% diganti jadi 'Double Chance 1X' 81% — dan dikabari ke pengguna.
+JQBoleh menalar soal piala dan jurang kekuatan; dilarang mengarang peringkat FIFA.
+KALima aturan penalaran ada di instruksi yang benar-benar dikirim.
+LRAngka peluangnya identik di semua selera risiko — yang berubah cuma pilihannya.
+MRKalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.
+NCTiga leg 84%: di odds 1,30 harapan 130%, di odds 1,12 harapan 83%.
+N;Angka aplikasi tidak berubah — harganya yang menentukan.
+O
+ODTiga format simpanan lama terbaca semua — catatanmu tidak hilang.
+P]5-0 pun belum disimpulkan: "Baru 5 laga yang bisa dibandingkan (5-0). Terlalu sedikit un…"
+Q
+QP11 dari 12: nyata 92%, dijanjikan 78%, sejatinya antara 65% dan 99% (±17 poin)
+QzVonis: Baru 12 hasil. Terlalu sedikit untuk menyimpulkan apa pun — beruntung dan pintar terlihat sama di jumlah segini.
 R
-R0Skema mencakup 24 field, 18 di antaranya wajib.
-S
-SY72 fungsi publik diperiksa — tak satu pun menyerahkan data laga tanpa diawasi Compose.
+RlJadwal terbaca: Náutico vs Botafogo-SP (Brazil · Serie B), Arsenal vs Chelsea (England · Premier League)
+SFSatu laga ditandai 3 market → 3 bukti kalibrasi, tapi tetap 1 laga.
 T
-T(6 leg @75%: tembus semua 18% (1 dari 6)
-T"   diperkirakan tembus 4.5 dari 6
-T   bayaran wajar 5.62
-T   imbal hasil harapan 70%
-UHAturan keras ada: geser minimal 8 poin, batal kalau turun di bawah 55%.
-VKTanpa harga, briefnya bilang apa adanya — bukan kosong tanpa keterangan.
+TFDefault sekarang 'gemini-flash-latest' — alias, tidak bisa pensiun.
+V
+V0Skema mencakup 24 field, 18 di antaranya wajib.
 W
-WG3 slip selesai, 1 tembus — dipecah per jumlah leg, bukan per market.
-XK4 slip 0 tembus pun belum disimpulkan — parlay jarang tembus, itu wajar.
-Y8Baris tanpa nama tim dibuang, bukan ditampilkan kosong.
-Z
-ZNSatu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.
+WY72 fungsi publik diperiksa — tak satu pun menyerahkan data laga tanpa diawasi Compose.
+X
+X(6 leg @75%: tembus semua 18% (1 dari 6)
+X"   diperkirakan tembus 4.5 dari 6
+X   bayaran wajar 5.62
+X   imbal hasil harapan 70%
+YHAturan keras ada: geser minimal 8 poin, batal kalau turun di bawah 55%.
+ZKTanpa harga, briefnya bilang apa adanya — bukan kosong tanpa keterangan.
 [
-[%Aman      batas 68% → Over 1.5 78%
-[8Seimbang  batas 55% → Over 1.5 78%, Total gol 2-3 61%
-[ZBerani    batas 42% → Over 1.5 78%, Total gol 2-3 61%, Tuan rumah menang & Over 2.5 47%
-\
-\NCatatan analisis ulang membawa pembacaan lama dan izin untuk berubah pikiran.
-]
-]>Tes model: 2048 token — cukup untuk berpikir lalu menjawab.
-^-Peluang mustahil dibuang, bukan ditampilkan.
-_KHanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
-`
-`AKatalog jadi 63 market, termasuk Multigol dan Menang & Over 2.5.
-aWUrutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
-bCHandicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
-cDAngka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
-dETidak ada selera risiko yang merekomendasikan 94% — odds-nya 1,06.
-ePRp 200,000 dipasang, kembali Rp 182,250 — slip tanpa nominal tidak diikutkan.
-f
-f"5 dari 5 laga → 78%, bukan 100%
-f"8 dari 10 laga → 71%, bukan 80%
-f!3 dari 4 laga → 63%, bukan 75%
-gQKalau semua harga di bawah minimal, tidak ada yang ditukar — bukan asal ganti.
-hQCatatan seimbang atau menang tidak ikut ditandai — cuma kebiasaan yang merugi.
-iVTidak ada teks yang menyisipkan %% lalu memanggil format() — pola yang bikin crash.
-j
-jPAkun disuspend → pesannya menjelaskan langkah, bukan menampilkan JSON mentah.
-kJTiga keputusan jelas, dan 'lewatkan' ditegaskan sebagai jawaban yang sah.
-m`Harga terbaca: Match Winner: Home=1.96, Match Winner: Draw=3.1, Goals Over/Under: Over 2.5=2.25
-n
-n,3 leg aman    : tembus 72.1%, harapan 83.9%
-n,3 leg berisiko: tembus 17.2%, harapan 83.9%
-n'=> peluang beda jauh, harapan identik.
+[G3 slip selesai, 1 tembus — dipecah per jumlah leg, bukan per market.
+\K4 slip 0 tembus pun belum disimpulkan — parlay jarang tembus, itu wajar.
+]8Baris tanpa nama tim dibuang, bukan ditampilkan kosong.
+^
+^NSatu laga: rekomendasi meleset, pilihan sendiri tembus — keduanya tercatat.
+_
+_%Aman      batas 68% → Over 1.5 78%
+_8Seimbang  batas 55% → Over 1.5 78%, Total gol 2-3 61%
+_ZBerani    batas 42% → Over 1.5 78%, Total gol 2-3 61%, Tuan rumah menang & Over 2.5 47%
+`HHalaman yang berubah separuh tetap diambil — data hilang lebih mahal.
+a
+aNCatatan analisis ulang membawa pembacaan lama dan izin untuk berubah pikiran.
+b
+b>Tes model: 2048 token — cukup untuk berpikir lalu menjawab.
+c-Peluang mustahil dibuang, bukan ditampilkan.
+dKHanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
+e
+eAKatalog jadi 63 market, termasuk Multigol dan Menang & Over 2.5.
+fWUrutan model: [gemini-3-flash, gemini-2.5-pro, gemini-2.0-flash-lite, gemini-exp-1206]
+gCHandicap Asia dan Eropa dengan nama sama tetap dua baris terpisah.
+hDAngka model dipertahankan (42%), hitungan cuma mengisi yang kosong.
+iETidak ada selera risiko yang merekomendasikan 94% — odds-nya 1,06.
+jPRp 200,000 dipasang, kembali Rp 182,250 — slip tanpa nominal tidak diikutkan.
+k
+k"5 dari 5 laga → 78%, bukan 100%
+k"8 dari 10 laga → 71%, bukan 80%
+k!3 dari 4 laga → 63%, bukan 75%
+lQKalau semua harga di bawah minimal, tidak ada yang ditukar — bukan asal ganti.
+mQCatatan seimbang atau menang tidak ikut ditandai — cuma kebiasaan yang merugi.
+nVTidak ada teks yang menyisipkan %% lalu memanggil format() — pola yang bikin crash.
+o
+oPAkun disuspend → pesannya menjelaskan langkah, bukan menampilkan JSON mentah.
+pJTiga keputusan jelas, dan 'lewatkan' ditegaskan sebagai jawaban yang sah.
+r`Harga terbaca: Match Winner: Home=1.96, Match Winner: Draw=3.1, Goals Over/Under: Over 2.5=2.25
+s
+s,3 leg aman    : tembus 72.1%, harapan 83.9%
+s,3 leg berisiko: tembus 17.2%, harapan 83.9%
+s'=> peluang beda jauh, harapan identik.

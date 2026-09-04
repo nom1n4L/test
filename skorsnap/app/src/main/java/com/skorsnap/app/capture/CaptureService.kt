@@ -30,12 +30,13 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.abs
 
 /**
- * A floating button that photographs whatever app is in front.
+ * A floating button that records whatever app is in front.
  *
- * Built because the manual route — screenshot, leave the stats app, open Skorsnap,
- * find the image in the picker, repeat for each screen — is several times the work
- * of the analysis itself. This does the same thing in one tap without leaving the
- * page the numbers are on.
+ * Tapping it once starts sampling and tapping it again stops: the user scrolls
+ * through their statistics normally and the screens are collected on the way. Even
+ * a tap per screen was too much friction, and it is unnecessary — the mirror runs
+ * continuously, so the only real problem is deciding which frames are worth
+ * keeping. See Frames for that.
  *
  * MediaProjection is Android's own API for this and the only honest way to do it:
  * the system asks the user to approve each session with a dialog the app cannot
@@ -49,6 +50,40 @@ class CaptureService : Service() {
     private var reader: ImageReader? = null
     private var display: VirtualDisplay? = null
     private var bubble: View? = null
+    private var label: TextView? = null
+    private var recording = false
+    private var lastKept: IntArray? = null
+    /**
+     * One sampling tick: hide the button, read a frame, show it again.
+     *
+     * The button has to disappear for the instant the frame is read or it lands in
+     * its own capture, but it must stay on screen and tappable the rest of the time
+     * — it is the only way to stop the recording. Hiding it for the whole session
+     * would trap the user in a recording they cannot end.
+     */
+    private val sampler = object : Runnable {
+        override fun run() {
+            if (!recording) return
+            bubble?.visibility = View.INVISIBLE
+            main.postDelayed({
+                grab()
+                bubble?.visibility = View.VISIBLE
+                when {
+                    !recording -> Unit
+                    CaptureBus.shots.value.size >= Frames.MAX_FRAMES -> {
+                        recording = false
+                        CaptureBus.report(
+                            "Sudah ${Frames.MAX_FRAMES} layar terkumpul — perekaman " +
+                                "berhenti sendiri supaya tidak boros. Kembali ke Skorsnap " +
+                                "dan tekan Analisis."
+                        )
+                        refreshLabel()
+                    }
+                    else -> main.postDelayed(this, SAMPLE_MS)
+                }
+            }, HIDE_MS)
+        }
+    }
     private lateinit var windows: WindowManager
     private val main = Handler(Looper.getMainLooper())
 
@@ -143,11 +178,24 @@ class CaptureService : Service() {
             val shot = Bitmap.createBitmap(padded, 0, 0, image.width, image.height)
             padded.recycle()
 
+            // Most sampled frames are the previous one again — a finger resting, a
+            // list settling. Keeping them all would bill the user for duplicates and
+            // bury the numbers among them.
+            val pixels = IntArray(shot.width * shot.height)
+            shot.getPixels(pixels, 0, shot.width, 0, 0, shot.width, shot.height)
+            val signature = Frames.signature(pixels, shot.width, shot.height)
+            if (recording && !Frames.changed(lastKept, signature)) {
+                shot.recycle()
+                return
+            }
+            lastKept = signature
+
             val out = ByteArrayOutputStream()
             shot.compress(Bitmap.CompressFormat.JPEG, 92, out)
             shot.recycle()
             CaptureBus.add(out.toByteArray())
-            CaptureBus.report(null)
+            refreshLabel()
+            if (!recording) CaptureBus.report(null)
         } catch (e: Exception) {
             CaptureBus.report("Gagal menangkap layar: ${e.message}")
         } finally {
@@ -157,13 +205,14 @@ class CaptureService : Service() {
 
     /** The draggable button, with a count so the user can see what they have. */
     private fun showBubble() {
-        val label = TextView(this).apply {
+        val text = TextView(this).apply {
             text = "📸"
             textSize = 22f
             setPadding(28, 20, 28, 20)
             setBackgroundResource(android.R.drawable.dialog_holo_dark_frame)
         }
-        val holder = FrameLayout(this).apply { addView(label) }
+        label = text
+        val holder = FrameLayout(this).apply { addView(text) }
 
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT,
@@ -201,16 +250,7 @@ class CaptureService : Service() {
                 }
                 MotionEvent.ACTION_UP -> {
                     val moved = abs(event.rawX - downX) > 12 || abs(event.rawY - downY) > 12
-                    if (!moved) {
-                        // Hidden for the frame so the button is not in its own
-                        // screenshot, then restored once the pixels are read.
-                        holder.visibility = View.INVISIBLE
-                        main.postDelayed({
-                            grab()
-                            holder.visibility = View.VISIBLE
-                            label.text = "📸 ${CaptureBus.shots.value.size}"
-                        }, 120)
-                    }
+                    if (!moved) toggleRecording()
                     true
                 }
                 else -> false
@@ -220,6 +260,37 @@ class CaptureService : Service() {
         runCatching { windows.addView(holder, params) }
             .onFailure { CaptureBus.report("Izin tampil di atas aplikasi lain belum diberikan.") }
         bubble = holder
+    }
+
+    /**
+     * Starts or stops sampling.
+     *
+     * The button is hidden while a frame is read so it never appears in its own
+     * capture, and restored immediately after.
+     */
+    private fun toggleRecording() {
+        recording = !recording
+        if (recording) {
+            lastKept = null
+            CaptureBus.report(
+                "Merekam. Scroll pelan-pelan di aplikasi statistikmu — layar yang " +
+                    "berubah diambil sendiri. Tekan tombolnya lagi kalau sudah."
+            )
+            main.postDelayed(sampler, 400)
+        } else {
+            main.removeCallbacks(sampler)
+            CaptureBus.report(
+                "Selesai: ${CaptureBus.shots.value.size} layar terkumpul. Kembali ke " +
+                    "Skorsnap dan tekan Analisis."
+            )
+        }
+        refreshLabel()
+    }
+
+    private fun refreshLabel() {
+        val count = CaptureBus.shots.value.size
+        // Never touches visibility: the sampler owns that, and it must stay tappable.
+        label?.text = if (recording) "⏺ $count" else "▶ $count"
     }
 
     private fun notification(): Notification {
@@ -257,6 +328,8 @@ class CaptureService : Service() {
     }
 
     override fun onDestroy() {
+        recording = false
+        main.removeCallbacks(sampler)
         bubble?.let { runCatching { windows.removeView(it) } }
         bubble = null
         display?.release()
@@ -270,6 +343,17 @@ class CaptureService : Service() {
         const val EXTRA_CODE = "code"
         const val EXTRA_DATA = "data"
         const val ACTION_STOP = "stop"
+
+        /**
+         * Gap between sampled frames.
+         *
+         * Slow enough that a scroll settles into something readable, fast enough
+         * that a normal scroll through a stats page is not missed between samples.
+         */
+        private const val SAMPLE_MS = 900L
+
+        /** Long enough for the compositor to drop the button before a frame is read. */
+        private const val HIDE_MS = 110L
         private const val NOTIFICATION_ID = 42
     }
 }

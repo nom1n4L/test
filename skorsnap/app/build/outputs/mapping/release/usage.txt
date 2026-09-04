@@ -19218,7 +19218,14 @@ com.skorsnap.app.capture.CaptureService:
     public static final java.lang.String ACTION_STOP
     public static final java.lang.String EXTRA_CODE
     public static final java.lang.String EXTRA_DATA
+    private static final long HIDE_MS
     private static final int NOTIFICATION_ID
+    private static final long SAMPLE_MS
+com.skorsnap.app.capture.Frames:
+    public static final int $stable
+    public static final double CHANGE_THRESHOLD
+    public static final int GRID
+    public static final int MAX_FRAMES
 com.skorsnap.app.data.Analyst$AnalystException:
     public static final int $stable
 com.skorsnap.app.data.Analyst$Companion:
@@ -40520,6 +40527,10 @@ com.skorsnap.app.capture.CaptureService:
     public static android.app.Notification notification()
     public static void showBubble()
     public static void startMirror()
+    public static void toggleRecording()
+com.skorsnap.app.capture.Frames:
+    public static final com.skorsnap.app.capture.Frames INSTANCE
+    static void <clinit>()
 com.skorsnap.app.data.Analyst$AnalystException:
     static void <clinit>()
 com.skorsnap.app.data.Analyst$Companion:

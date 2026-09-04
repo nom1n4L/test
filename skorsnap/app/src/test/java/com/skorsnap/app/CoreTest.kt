@@ -5,6 +5,7 @@ import com.skorsnap.app.data.Appetite
 import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Migration
 import org.json.JSONObject
+import com.skorsnap.app.capture.Frames
 import com.skorsnap.app.data.Coach
 import com.skorsnap.app.data.Football
 import com.skorsnap.app.data.Lens
@@ -1796,6 +1797,70 @@ class CoreTest {
         assert(explained)
         println()
         println("Akun disuspend → pesannya menjelaskan langkah, bukan menampilkan JSON mentah.")
+    }
+
+    // ------------------------------------------------ rekam sambil scroll
+
+    private fun screen(shift: Int, noise: Int = 0): IntArray =
+        IntArray(Frames.GRID * Frames.GRID) { i ->
+            val row = i / Frames.GRID
+            (((row + shift) * 37) % 256 + noise).coerceIn(0, 255)
+        }
+
+    /**
+     * Sampling a screen every second while someone scrolls produces mostly the same
+     * picture again. Keeping all of it would bill for duplicates and bury the
+     * numbers among them.
+     */
+    @Test
+    fun anUnchangedScreenIsNotKeptTwice() {
+        val first = screen(0)
+        assert(Frames.changed(null, first)) { "frame pertama harus selalu diambil" }
+        assert(!Frames.changed(first, screen(0))) { "layar yang sama diambil dua kali" }
+        assert(!Frames.changed(first, screen(0, noise = 2))) {
+            "kedipan kecil dianggap perubahan"
+        }
+        println()
+        println("Layar diam → tidak disimpan ulang; kedipan kecil diabaikan.")
+    }
+
+    @Test
+    fun aScrolledScreenIsKept() {
+        val before = screen(0)
+        assert(Frames.changed(before, screen(3))) { "scroll tidak terdeteksi" }
+        assert(Frames.changed(before, screen(8)))
+        println("Setelah scroll, layarnya diambil.")
+    }
+
+    /**
+     * Missing a screen the user meant to capture is worse than keeping a near
+     * duplicate, so the threshold leans towards keeping.
+     */
+    @Test
+    fun aPartialChangeIsKeptRatherThanMissed() {
+        val before = screen(0)
+        val half = before.copyOf().also { grid ->
+            for (i in grid.size / 2 until grid.size) grid[i] = (grid[i] + 90).coerceAtMost(255)
+        }
+        assert(Frames.changed(before, half)) { "perubahan separuh layar terlewat" }
+        println("Halaman yang berubah separuh tetap diambil — data hilang lebih mahal.")
+    }
+
+    /** A phone left recording must not quietly spend the whole daily allowance. */
+    @Test
+    fun theRecordingStopsItselfBeforeItGetsExpensive() {
+        assert(Frames.MAX_FRAMES in 6..20) { "batas frame tidak masuk akal: ${Frames.MAX_FRAMES}" }
+        println("Batas ${Frames.MAX_FRAMES} layar per rekaman — berhenti sendiri.")
+    }
+
+    @Test
+    fun aSignatureSurvivesOddScreenSizes() {
+        assert(Frames.signature(IntArray(0), 0, 0).isEmpty())
+        assert(Frames.signature(IntArray(4), 2, 2).isEmpty()) { "layar mini bikin crash" }
+        val real = Frames.signature(IntArray(1080 * 240) { it }, 1080, 240)
+        assert(real.size == Frames.GRID * Frames.GRID)
+        assert(Frames.changed(IntArray(0), real)) { "ukuran beda harus dianggap berubah" }
+        println("Ukuran layar aneh tidak bikin crash — ditangani, bukan diasumsikan.")
     }
 
     @Test
