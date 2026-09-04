@@ -1,5 +1,8 @@
 package com.skorsnap.app.data
 
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
 /**
  * Reads a block of prices pasted or typed from a bookmaker, and works out which
  * of the app's markets each one refers to.
@@ -71,6 +74,32 @@ object Odds {
             if (best == null) missed.add(entry) else pairs["${best.group}|${best.name}"] = entry.price
         }
         return Matched(pairs, missed)
+    }
+
+    /**
+     * Says, per price, which market it landed on and whether it pays enough.
+     *
+     * Kept here rather than in the screen that shows it so it can be checked
+     * directly: the previous version reported a bare count ("1 harga terpasang"),
+     * which is indistinguishable from the feature doing nothing at all, and that is
+     * exactly the failure a test on this function catches.
+     */
+    fun describe(matched: Matched, markets: List<MarketOption>): String = buildString {
+        matched.pairs.forEach { (key, price) ->
+            val name = key.substringAfter('|')
+            val option = markets.firstOrNull { it.name == name } ?: return@forEach
+            val edge = ((price * option.prob - 1.0) * 100).roundToInt()
+            append(name)
+            append(": butuh ${twoDecimals(option.breakEven)}, dibayar ${twoDecimals(price)}")
+            // abs on the losing side: the sign is already carried by the word, and
+            // "rugi -12%" reads as a profit.
+            append(if (edge > 0) " → untung $edge%\n" else " → rugi ${abs(edge)}%\n")
+        }
+        if (matched.unmatched.isNotEmpty()) {
+            append("Tidak dikenali: ")
+            append(matched.unmatched.take(5).joinToString { it.label })
+            append(". Pakai nama yang mirip nama market di daftar analisis.\n")
+        }
     }
 
     /**

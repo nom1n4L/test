@@ -1853,6 +1853,7 @@ fun SlipScreen(
     odds: Map<String, Double>,
     onOdds: (String, Double) -> Unit,
     onPasteOdds: (String, String) -> Unit,
+    oddsReport: Map<String, String> = emptyMap(),
     onSave: (Slip, Double) -> Unit,
     onOpen: (String) -> Unit,
     onClear: () -> Unit,
@@ -1966,7 +1967,7 @@ fun SlipScreen(
         item { ValueCard(slip, onBest) }
 
         items(slip.legs, key = { "paste-${it.matchId}" }) { leg ->
-            PasteOddsCard(leg) { onPasteOdds(leg.matchId, it) }
+            PasteOddsCard(leg, oddsReport[leg.matchId]) { onPasteOdds(leg.matchId, it) }
         }
 
         if (slip.weakLegs.isNotEmpty()) {
@@ -2049,7 +2050,7 @@ fun SlipScreen(
  * comparison something to compare, and the app then moves the leg by itself.
  */
 @Composable
-private fun PasteOddsCard(leg: Leg, onPaste: (String) -> Unit) {
+private fun PasteOddsCard(leg: Leg, report: String?, onPaste: (String) -> Unit) {
     var text by remember(leg.matchId) { mutableStateOf("") }
     var open by remember(leg.matchId) { mutableStateOf(false) }
 
@@ -2063,6 +2064,23 @@ private fun PasteOddsCard(leg: Leg, onPaste: (String) -> Unit) {
                 if (open) "Tutup" else "Buka kotak tempel",
                 style = MaterialTheme.typography.labelSmall,
             )
+        }
+        // Shown whether the box is open or shut: the outcome of the last paste is
+        // the thing the user came back to read.
+        report?.let {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    it.trim(),
+                    modifier = Modifier.padding(11.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
         }
         if (!open) return@Card
         OutlinedTextField(

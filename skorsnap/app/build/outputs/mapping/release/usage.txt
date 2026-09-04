@@ -40756,6 +40756,7 @@ com.skorsnap.app.data.Odds$Matched
 com.skorsnap.app.data.Odds:
     public static final int $stable
     public static final com.skorsnap.app.data.Odds INSTANCE
+    public static java.lang.String describe()
     public static com.skorsnap.app.data.Odds$Matched match()
     public static java.util.List parse()
 com.skorsnap.app.data.Outcome:
@@ -40768,7 +40769,6 @@ com.skorsnap.app.data.Parlay:
     public static java.util.List marginTable()
     public static java.util.List skipped()
     public static com.skorsnap.app.data.MarketOption swapIfUnderpriced()
-com.skorsnap.app.data.ParlayKt
 com.skorsnap.app.data.Report:
     public static final int $stable
     static void <clinit>()
@@ -40896,6 +40896,7 @@ com.skorsnap.app.ui.AppKt:
     public static final kotlin.Unit App$lambda$1$lambda$0()
     public static final kotlin.Unit App$lambda$3$lambda$2()
     public static final java.util.List access$App$lambda$5(androidx.compose.runtime.State)
+    public static final java.util.List access$App$lambda$6(androidx.compose.runtime.MutableState)
     public static final boolean access$App$lambda$7(androidx.compose.runtime.MutableState)
 com.skorsnap.app.ui.AppViewModel$1$1:
     public static java.lang.Object emit$4()
@@ -40951,6 +40952,7 @@ com.skorsnap.app.ui.AppViewModel:
     public static kotlinx.coroutines.flow.StateFlow getModels()
     public static kotlinx.coroutines.flow.StateFlow getModelsBusy()
     public static kotlinx.coroutines.flow.StateFlow getNotes()
+    public static kotlinx.coroutines.flow.StateFlow getOddsReport()
     public static kotlinx.coroutines.flow.StateFlow getScreen()
     public static kotlinx.coroutines.flow.StateFlow getSelected()
     public static kotlinx.coroutines.flow.StateFlow getSlips()
@@ -40961,6 +40963,7 @@ com.skorsnap.app.ui.AppViewModel:
     public static void markOutcome()
     public static void markSlip()
     public static com.skorsnap.app.data.MatchPrediction matchOf()
+    public static java.lang.String nothingSwapped()
     public static void reanalyse()
     public static void remove()
     public static void removeSlip()
@@ -41087,6 +41090,8 @@ com.skorsnap.app.ui.Screen$AddMore:
 com.skorsnap.app.ui.Screen$Detail:
     static void <clinit>()
     public final java.lang.String getId()
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$1f75f0e938e84ba3d5dc1d9d1901ef1e7eb70b5948bd3c6456274bc623395278$2:
+    public final synthetic int f$15
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$f496c903d78fe52c79ccc42132843f8e01f41e7056d413245d968c20e506be77$1:
     public final synthetic int f$9
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$7$033b8c63d92bdfcfe169e278071467cb11c9a82318fb5fa14824e99c104c45df$0:
@@ -41253,6 +41258,8 @@ com.skorsnap.app.ui.ScreensKt$OutcomeCard$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1$2:
     public final void invoke$40()
+com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1$3$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReasoningCard$1:
@@ -41850,7 +41857,6 @@ kotlin.text.StringsKt__IndentKt$getIndentFunction$2
 kotlin.text.StringsKt__StringNumberConversionsKt
 kotlin.text.StringsKt__StringsJVMKt:
     public static boolean endsWith$default(java.lang.String,java.lang.String)
-    public static boolean startsWith$default(java.lang.String,java.lang.String)
 kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$1
 kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$2:
     public final kotlin.Pair invoke()

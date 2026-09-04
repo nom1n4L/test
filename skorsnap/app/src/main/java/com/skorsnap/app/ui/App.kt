@@ -59,6 +59,7 @@ fun App(
     val fixturesBusy by vm.fixturesBusy.collectAsStateWithLifecycle()
     val footballReport by vm.footballReport.collectAsStateWithLifecycle()
     val fetchedOdds by vm.fetchedOdds.collectAsStateWithLifecycle()
+    val oddsReport by vm.oddsReport.collectAsStateWithLifecycle()
     val capturing by vm.capturing.collectAsStateWithLifecycle()
     val captureProblem by vm.captureProblem.collectAsStateWithLifecycle()
     val notes by vm.notes.collectAsStateWithLifecycle()
@@ -177,6 +178,7 @@ fun App(
                     odds = legOdds,
                     onOdds = vm::setLegOdds,
                     onPasteOdds = vm::applyOdds,
+                    oddsReport = oddsReport,
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onClear = { vm.clearSelection() },
                 )

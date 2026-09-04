@@ -1936,6 +1936,66 @@ class CoreTest {
     }
 
     /**
+     * The complaint that started this: a price was typed, it was attached correctly,
+     * and the app said "1 harga terpasang" — which is what it would have said if the
+     * feature were broken. The report has to name the market, the minimum it needs,
+     * what the book pays, and which way that lands.
+     */
+    @Test
+    fun everyPastedPriceIsReportedAgainstItsOwnMinimum() {
+        val markets = listOf(
+            // 0.74 needs 1.35 to break even; 1.45 clears it, 1.22 does not.
+            MarketOption("1X (tuan rumah atau seri)", 0.74, "", "Double Chance"),
+            MarketOption("Over 2.5", 0.52, "", "Total Gol"),
+        )
+        val matched = Odds.match(Odds.parse("1x 1,45\nOver 2.5 1,60\nSudut pertama 3,00"), markets)
+        val text = Odds.describe(matched, markets)
+        println(text)
+
+        assert(text.contains("1X")) { "market tidak disebut, persis keluhan yang lama:\n$text" }
+        assert(text.contains("butuh 1.35")) { "harga minimalnya tidak disebut:\n$text" }
+        assert(text.contains("dibayar 1.45")) { "harga yang diketik tidak disebut:\n$text" }
+        assert(Regex("""1X[^\n]*untung 7%""").containsMatchIn(text)) {
+            "1,45 di peluang 0,74 itu untung 7%:\n$text"
+        }
+        assert(Regex("""Over 2\.5[^\n]*rugi 17%""").containsMatchIn(text)) {
+            "1,60 di peluang 0,52 itu rugi 17%, dan harus ditulis tanpa tanda minus ganda:\n$text"
+        }
+        assert(!text.contains("-")) { "persen rugi tidak boleh bertanda minus:\n$text" }
+        assert(text.contains("Tidak dikenali: Sudut pertama")) {
+            "baris yang tidak cocok harus dilaporkan, bukan dibuang diam-diam:\n$text"
+        }
+    }
+
+    /**
+     * The swap message used to be written straight to the message field, then
+     * overwritten by applyOdds a line later: the leg moved and the user was never
+     * told. Checked at the source, since the fix is that the message is returned
+     * rather than assigned.
+     */
+    @Test
+    fun theSwapMessageIsReturnedSoItCannotBeOverwritten() {
+        val file = java.io.File("src/main/java/com/skorsnap/app/ui/AppViewModel.kt")
+        assert(file.isFile) { "sumber tidak ditemukan di ${file.absolutePath}" }
+        val src = file.readText()
+        val signature = Regex("""private fun autoSwap\([^)]*\):\s*String\?""")
+        assert(signature.containsMatchIn(src)) {
+            "autoSwap harus mengembalikan pesannya, bukan menulisnya sendiri"
+        }
+        val body = src.substringAfter("fun applyOdds(").substringBefore("\n    }")
+        assert(Regex("""val swap = autoSwap\(""").containsMatchIn(body)) {
+            "hasil autoSwap dibuang di applyOdds"
+        }
+        assert(body.contains("swap ?:")) { "pesan penukaran tidak ikut dilaporkan" }
+        // Comments stripped first: the fix's own comment quotes the old message.
+        val code = src.lines().filterNot { it.trim().startsWith("//") || it.trim().startsWith("*") }
+        assert(code.none { it.contains("harga terpasang") }) {
+            "laporan jumlah harga saja sudah pernah bikin fitur ini kelihatan mati"
+        }
+        println("Pesan penukaran leg tidak bisa lagi ketimpa laporan tempel harga.")
+    }
+
+    /**
      * A price attached to the wrong market is the failure that loses money without
      * showing itself, so the more specific market always wins and anything
      * unrecognised is reported rather than guessed at.

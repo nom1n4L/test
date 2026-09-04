@@ -109,6 +109,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val _fixturesBusy = MutableStateFlow(false)
     val fixturesBusy: StateFlow<Boolean> = _fixturesBusy.asStateFlow()
 
+    /**
+     * What happened to the prices last pasted for a match.
+     *
+     * Kept per match and shown inside its own card rather than in the snackbar: the
+     * report runs to several lines and a snackbar would cut it off, which is how a
+     * working feature came to look like nothing happening.
+     */
+    private val _oddsReport = MutableStateFlow<Map<String, String>>(emptyMap())
+    val oddsReport: StateFlow<Map<String, String>> = _oddsReport.asStateFlow()
+
     /** Bookmaker prices fetched with a fixture, kept as a reference per match. */
     private val _fetchedOdds = MutableStateFlow<Map<String, Map<String, Double>>>(emptyMap())
     val fetchedOdds: StateFlow<Map<String, Map<String, Double>>> = _fetchedOdds.asStateFlow()
@@ -580,7 +590,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setLegOdds(key: String, odds: Double) {
         _legOdds.value =
             if (odds <= 1.0) _legOdds.value - key else _legOdds.value + (key to odds)
-        autoSwap(key.substringBefore('|'))
+        autoSwap(key.substringBefore('|'))?.let { _message.value = it }
     }
 
     /**
@@ -593,21 +603,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val match = _matches.value.firstOrNull { it.id == matchId } ?: return
         val entries = Odds.parse(text)
         if (entries.isEmpty()) {
-            _message.value = "Tidak ada harga yang terbaca. Satu market per baris, " +
-                "harganya di akhir baris."
+            _oddsReport.value = _oddsReport.value + (matchId to
+                "Tidak ada harga yang terbaca. Satu market per baris, harganya di akhir baris.")
             return
         }
         val matched = Odds.match(entries, match.markets)
         _legOdds.value = _legOdds.value + matched.pairs.mapKeys { "$matchId|${it.key.substringAfter('|')}" }
-        autoSwap(matchId)
-        _message.value = buildString {
-            append("${matched.pairs.size} harga terpasang")
-            if (matched.unmatched.isNotEmpty()) {
-                append(". Tidak dikenali: ")
-                append(matched.unmatched.take(5).joinToString { it.label })
-                if (matched.unmatched.size > 5) append(", dan ${matched.unmatched.size - 5} lagi")
-            }
-            append(".")
+        val swap = autoSwap(matchId)
+
+        // Reporting only a count told the user nothing: not which market the price
+        // landed on, not whether it clears, not why the leg did or did not move.
+        // "1 harga terpasang" looked exactly like nothing happening.
+        val report = Odds.describe(matched, match.markets) +
+            (swap ?: nothingSwapped(match, matchId))
+        _oddsReport.value = _oddsReport.value + (matchId to report)
+        _message.value = null
+    }
+
+    /** Why a leg stayed put, which is as worth saying as why it moved. */
+    private fun nothingSwapped(match: MatchPrediction, matchId: String): String {
+        val currentName = _chosen.value[matchId]
+            ?: Parlay.build(listOf(match), _strategy.value).legs.firstOrNull()?.market
+        val current = match.markets.firstOrNull { it.name == currentName }
+        val price = current?.let { _legOdds.value["$matchId|${it.name}"] } ?: 0.0
+        return when {
+            current == null -> "Laga ini belum punya leg di parlaymu."
+            price > 1.0 && price * current.prob - 1.0 > 0 ->
+                "Leg tetap ${current.name} — harganya sudah di atas minimal, jadi tidak diganti."
+            _legOdds.value.keys.count { it.startsWith("$matchId|") } < 2 ->
+                "Leg masih ${current.name}. Isi harga beberapa market lain dulu — " +
+                    "dengan satu harga saja tidak ada pembandingnya."
+            else ->
+                "Leg masih ${current.name}. Tidak ada market lain yang harganya di atas " +
+                    "minimal, jadi tidak ada yang layak ditukar."
         }
     }
 
@@ -618,16 +646,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * moves the leg by itself rather than leaving a losing bet in the slip with a
      * warning next to it.
      */
-    private fun autoSwap(matchId: String) {
-        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+    private fun autoSwap(matchId: String): String? {
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return null
         val currentName = _chosen.value[matchId]
             ?: Parlay.build(listOf(match), _strategy.value).legs.firstOrNull()?.market
         val current = match.markets.firstOrNull { it.name == currentName }
         val better = Parlay.swapIfUnderpriced(match, current, _legOdds.value, _appetite.value.floor)
-            ?: return
+            ?: return null
         _chosen.value = _chosen.value + (matchId to better.name)
-        _message.value = "${match.title}: ${current?.name ?: "leg"} harganya di bawah " +
-            "minimal, diganti ke ${better.name}."
+        // Returned rather than written straight to the message, because applyOdds
+        // writes afterwards and used to overwrite this — the swap happened and the
+        // user was never told.
+        return "Leg diganti: ${current?.name ?: "kosong"} → ${better.name}."
     }
 
     fun toggle(id: String) {
