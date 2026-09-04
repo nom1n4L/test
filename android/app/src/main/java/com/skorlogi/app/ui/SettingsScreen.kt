@@ -1,0 +1,556 @@
+package com.skorlogi.app.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.skorlogi.app.data.Dates
+import kotlin.math.ln
+import kotlin.math.roundToInt
+
+@Composable
+fun SettingsScreen(
+    vm: AppViewModel,
+    state: UiState,
+    decay: Double,
+    onSync: () -> Unit,
+    onDecay: (Double) -> Unit,
+    onOpenLeagues: () -> Unit,
+) {
+    var value by remember { mutableFloatStateOf(decay.toFloat()) }
+    val halfLifeDays = (ln(2.0) / value.coerceAtLeast(0.0005f)).roundToInt()
+
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        SectionCard(
+            title = "Data",
+            subtitle = if (state.lastSync < 0) {
+                "Belum pernah diperbarui."
+            } else {
+                "Terakhir diperbarui ${Dates.format(state.lastSync)} · ${state.matchCount} pertandingan tersimpan."
+            },
+        ) {
+            Button(
+                onClick = onSync,
+                enabled = !state.syncing,
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (state.syncing) "Sedang mengunduh…" else "Perbarui Data Sekarang")
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Sumber: football-data.co.uk — arsip terbuka, tanpa akun dan tanpa kunci API. " +
+                    "Berkasnya diperbarui pemiliknya beberapa kali seminggu, biasanya tiap Minggu dan Rabu.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        OddsSection(vm)
+
+        ClaudeSection(vm)
+
+        ApiSection(vm)
+
+        SectionCard(title = "Liga") {
+            Button(
+                onClick = onOpenLeagues,
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Pilih liga yang diikuti", color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+
+        SectionCard(
+            title = "Bobot Laga Lama",
+            subtitle = "Laga lama dianggap kurang mewakili kekuatan tim sekarang. " +
+                "Sekarang: pengaruh sebuah laga tinggal separuh setelah $halfLifeDays hari.",
+        ) {
+            Slider(
+                value = value,
+                onValueChange = { value = it },
+                onValueChangeFinished = { onDecay(value.toDouble()) },
+                valueRange = 0.002f..0.012f,
+                colors = SliderDefaults.colors(thumbColor = Green, activeTrackColor = Green),
+            )
+            Row {
+                Text(
+                    "Lebih banyak riwayat",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Lebih reaktif",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Nilai bawaan diambil dari hasil uji ulang: pada rentang 4 bulan sampai 1 tahun " +
+                    "hasilnya hampir sama saja, jadi tidak perlu diutak-atik. Yang jelas menurun " +
+                    "cuma kalau digeser sampai mentok ke sisi paling reaktif.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(title = "Cara Kerja Model") {
+            Text(
+                "1. Mengunduh seluruh hasil pertandingan beberapa musim terakhir dari liga yang kamu pilih.\n\n" +
+                    "2. Untuk tiap liga, mencari nilai serangan dan pertahanan tiap tim yang paling " +
+                    "cocok dengan hasil nyata, dengan laga terbaru diberi bobot lebih besar " +
+                    "(metode Dixon–Coles, 1997).\n\n" +
+                    "3. Dari nilai itu dihitung perkiraan gol kedua tim, lalu disusun tabel peluang " +
+                    "untuk setiap kemungkinan skor.\n\n" +
+                    "4. Semua market — 1X2, over/under, handicap, corner, kartu, babak 1 — dibaca " +
+                    "dari tabel yang sama, jadi angkanya selalu konsisten satu sama lain.\n\n" +
+                    "5. Elo dihitung terpisah sebagai pembanding. Kalau keduanya berbeda jauh, " +
+                    "keyakinan prediksi diturunkan.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(title = "Sejujurnya soal Akurasi") {
+            Text(
+                "Model ini diuji ulang pada 2.709 pertandingan yang belum pernah dilihatnya, " +
+                    "dari 7 liga. Tiap prediksi hanya memakai data yang benar-benar sudah " +
+                    "ada saat itu, jadi tidak ada hasil yang bocor dari masa depan.\n\n" +
+                    "Hasilnya:\n" +
+                    "• Hasil akhir (1X2): benar 52,0%\n" +
+                    "• Over/Under 2.5 gol: benar 55,9%\n" +
+                    "• Kedua tim cetak gol: benar 55,8%\n" +
+                    "• Babak 1 ada gol: benar 72,2%\n\n" +
+                    "Sebagai pembanding: menebak tuan rumah menang terus cuma benar 43,7%, " +
+                    "sedangkan bandar Bet365 — dengan margin dibuang — benar 53,9%. " +
+                    "Jadi model ini kira-kira 2 poin di bawah bandar, dan jauh di atas tebakan asal.\n\n" +
+                    "Angka 52% itu memang sudah bagus untuk sepak bola. Olahraga dengan gol " +
+                    "sedikit punya unsur keberuntungan besar yang tidak bisa dihapus model apa pun. " +
+                    "Siapa pun yang menjanjikan akurasi 90% sedang menjual sesuatu.\n\n" +
+                    "Yang tidak diketahui aplikasi ini: cedera, rotasi pemain, larangan bermain, " +
+                    "pergantian pelatih, dan motivasi tim. Pakailah sebagai satu masukan, " +
+                    "bukan satu-satunya.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(title = "Kejujuran Angka") {
+            Text(
+                "Tiap market diuji ulang untuk melihat apakah angkanya bisa dipegang: " +
+                    "kalau model bilang 75%, apakah benar terjadi 75%?\n\n" +
+                    "Yang lolos: Hasil Akhir, Double Chance, Total Gol, Babak 1. " +
+                    "Angka mereka meleset paling banyak beberapa poin.\n\n" +
+                    "Yang tidak lolos: corner dan kartu. Sebelum diperbaiki, prediksi corner " +
+                    "yang mengaku 74% ternyata cuma benar 55%. Sekarang angkanya sudah " +
+                    "ditarik mendekati 50% supaya tidak menyesatkan, dan market ini tidak " +
+                    "pernah dipakai di halaman Pilihan Terbaik.\n\n" +
+                    "BTTS juga sempat kelewat percaya diri (klaim 72%, nyata 64%) dan sudah " +
+                    "dikoreksi.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        SectionCard(title = "Skorlogi 1.7") {
+            Text(
+                "Semua perhitungan berjalan di dalam HP. Tidak ada akun, tidak ada iklan, " +
+                    "tidak ada data yang dikirim ke mana pun selain mengunduh arsip pertandingan.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+
+/**
+ * API-Football setup. The archive the app ships with covers 38 leagues and about a
+ * week of fixtures; a key here adds the rest of the world, Liga 1 included, and a
+ * schedule that runs days further ahead.
+ */
+@Composable
+private fun ApiSection(vm: AppViewModel) {
+    val status by vm.apiStatus.collectAsStateWithLifecycle()
+    val catalog by vm.apiCatalog.collectAsStateWithLifecycle()
+    val busy by vm.apiBusy.collectAsStateWithLifecycle()
+    var key by remember { mutableStateOf(vm.repo.apiKey) }
+    val followed = remember(catalog, status) { vm.followedApiLeagues() }
+
+    SectionCard(
+        title = "Tambah Liga Dunia (API-Football)",
+        subtitle = "Opsional. Tanpa ini, aplikasi tetap jalan dengan 38 liga dari arsip terbuka.",
+    ) {
+        Text(
+            "Langkahnya:\n" +
+                "1. Buka dashboard.api-football.com, daftar gratis (email + kata sandi, " +
+                "tanpa kartu kredit)\n" +
+                "2. Buka menu Profile — kuncinya ada di sana, deretan panjang huruf dan angka\n" +
+                "3. Salin, tempel di kolom bawah, tekan Cek kunci\n" +
+                "4. Tekan Ambil daftar liga, cari \"Indonesia\", centang Liga 1\n" +
+                "5. Kembali ke atas, tekan Perbarui Data Sekarang\n\n" +
+                "Kalau kamu terlanjur daftar lewat RapidAPI, kuncinya tetap dipakai — " +
+                "aplikasi ini mencoba kedua jalur otomatis.\n\n" +
+                "Kuota gratisnya kecil, jadi hasilnya disimpan dan riwayat hanya diambil " +
+                "ulang seminggu sekali. Sekali perbarui menghabiskan sekitar 5 permintaan " +
+                "untuk jadwal, plus 3 per liga yang baru kamu tambahkan.\n\n" +
+                "Catatan jujur: data corner dan kartu tidak ikut lewat jalur ini — di API itu " +
+                "biayanya satu permintaan per pertandingan, yang mustahil muat di kuota gratis. " +
+                "Market itu tetap datang dari arsip untuk 22 liga yang punya datanya.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = { key = it.trim() },
+            label = { Text("Kunci API") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { vm.testApiKey(key) },
+                enabled = !busy && key.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+            ) {
+                Text(if (busy) "Mengecek…" else "Cek kunci")
+            }
+            Button(
+                onClick = { vm.loadApiCatalog() },
+                enabled = !busy && vm.repo.hasApiKey,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+            ) {
+                Text("Ambil daftar liga", color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
+        if (status != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                status!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (status!!.startsWith("Gagal")) Rose else Green,
+            )
+        }
+        if (followed.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Diikuti lewat API: ${followed.size} liga — ${followed.take(4).joinToString { it.name }}" +
+                    if (followed.size > 4) ", dan lainnya" else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (catalog.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            ApiLeaguePicker(catalog, followed) { vm.setFollowedApiLeagues(it) }
+        }
+    }
+}
+
+/**
+ * Picks from the API catalogue. It runs to well over a thousand entries, so this
+ * filters by typed text rather than trying to list them all.
+ */
+@Composable
+private fun ApiLeaguePicker(
+    catalog: List<com.skorlogi.app.data.ApiLeague>,
+    followed: List<com.skorlogi.app.data.ApiLeague>,
+    onChange: (List<com.skorlogi.app.data.ApiLeague>) -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    var selected by remember(followed) { mutableStateOf(followed.map { it.id }.toSet()) }
+
+    OutlinedTextField(
+        value = query,
+        onValueChange = { query = it },
+        label = { Text("Cari liga atau negara") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        textStyle = MaterialTheme.typography.bodySmall,
+    )
+    Spacer(Modifier.height(8.dp))
+
+    val matches = remember(query, catalog) {
+        if (query.length < 2) {
+            emptyList()
+        } else {
+            catalog.filter {
+                it.name.contains(query, true) || it.country.contains(query, true)
+            }.take(30)
+        }
+    }
+    if (query.length < 2) {
+        Text(
+            "Ketik minimal 2 huruf. Contoh: \"Indonesia\" untuk Liga 1 dan Liga 2.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    matches.forEach { league ->
+        val on = league.id in selected
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 1.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            androidx.compose.material3.Checkbox(
+                checked = on,
+                onCheckedChange = { checked ->
+                    selected = if (checked) selected + league.id else selected - league.id
+                    onChange(catalog.filter { it.id in selected })
+                },
+                colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = Green),
+            )
+            Column(Modifier.weight(1f)) {
+                Text(league.name, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "${league.country} · musim ${league.currentSeason}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+
+/**
+ * Claude assistant setup. Unlike everything else here this costs money per
+ * message, so the price of each model is shown rather than buried.
+ */
+@Composable
+private fun ClaudeSection(vm: AppViewModel) {
+    var key by remember { mutableStateOf(vm.repo.claudeKey) }
+    var model by remember { mutableStateOf(vm.repo.claudeModel) }
+
+    SectionCard(
+        title = "Chatbot Claude",
+        subtitle = "Opsional, dan satu-satunya bagian aplikasi ini yang berbayar.",
+    ) {
+        Text(
+            "Buat kunci di console.anthropic.com, tempel di sini. Tiap pesan menagih " +
+                "akun Anthropic-mu sesuai jumlah token. Obrolan pendek biasanya di bawah " +
+                "satu sen, tapi tetap ada biayanya.\n\n" +
+                "Claude di aplikasi ini hanya boleh memakai angka yang dihitung " +
+                "aplikasi — ia dilarang mengarang statistik dari ingatannya.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = {
+                key = it.trim()
+                vm.setClaudeKey(key)
+            },
+            label = { Text("Kunci Claude API") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Model",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        com.skorlogi.app.data.Assistant.MODELS.forEach { (label, id, price) ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        model = id
+                        vm.setClaudeModel(id)
+                    }
+                    .padding(vertical = 5.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.RadioButton(
+                    selected = model == id,
+                    onClick = {
+                        model = id
+                        vm.setClaudeModel(id)
+                    },
+                    colors = androidx.compose.material3.RadioButtonDefaults.colors(selectedColor = Green),
+                )
+                Column(Modifier.weight(1f)) {
+                    Text(label, style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        price,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+/**
+ * The odds aggregator. Set up separately from everything else because it answers
+ * a different question: not what will happen, but who pays most for it.
+ */
+@Composable
+private fun OddsSection(vm: AppViewModel) {
+    var key by remember { mutableStateOf(vm.repo.oddsKey) }
+    var book by remember { mutableStateOf(vm.myBookmaker()) }
+    val catalog by vm.sportCatalog.collectAsStateWithLifecycle()
+    val busy by vm.oddsBusy.collectAsStateWithLifecycle()
+    val message by vm.oddsMessage.collectAsStateWithLifecycle()
+    var chosen by remember(catalog) { mutableStateOf(vm.oddsSports()) }
+
+    SectionCard(
+        title = "Odds Banyak Bandar (the-odds-api)",
+        subtitle = "Sumber keunggulan yang bisa dibuktikan, bukan diperkirakan.",
+    ) {
+        Text(
+            "Daftar gratis di the-odds-api.com — email saja, 500 permintaan per bulan. " +
+                "Dari situ aplikasi membaca harga 1xBet, Marathonbet, Betsson, William Hill, " +
+                "Pinnacle dan puluhan bandar lain sekaligus.\n\n" +
+                "Hemat kuota: memuat daftar kompetisi itu gratis, tapi sekali ambil odds " +
+                "memakai 1 kredit per market per liga. Pilih liga seperlunya.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = key,
+            onValueChange = {
+                key = it.trim()
+                vm.setOddsKey(key)
+            },
+            label = { Text("Kunci the-odds-api") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { vm.loadSportCatalog() },
+            enabled = !busy && key.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = Green),
+        ) {
+            Text(if (busy) "Memuat…" else "Muat daftar kompetisi (gratis)")
+        }
+        if (message != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                message!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (message!!.startsWith("Gagal")) Rose else Green,
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Bandar yang kamu pakai — dipakai untuk menghitung berapa yang kamu hemat " +
+                "kalau mengejar harga terbaik",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(4.dp))
+        OutlinedTextField(
+            value = book,
+            onValueChange = {
+                book = it.trim()
+                vm.setMyBookmaker(book)
+            },
+            label = { Text("Kode bandar (mis. onexbet, marathonbet)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+
+        if (chosen.isNotEmpty()) {
+            // Two markets per competition per refresh, against 500 a month.
+            val cost = chosen.size * 2
+            val refreshes = if (cost > 0) 500 / cost else 0
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                color = (if (refreshes < 10) Amber else Green).copy(alpha = 0.12f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(9.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    "${chosen.size} kompetisi dipilih → sekali ambil odds memakai $cost kredit, " +
+                        "jadi jatah 500/bulan cukup untuk sekitar $refreshes kali." +
+                        if (refreshes < 10) " Kurangi pilihannya kalau mau lebih sering." else "",
+                    modifier = Modifier.padding(10.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (refreshes < 10) Amber else Green,
+                )
+            }
+        }
+
+        if (catalog.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Kompetisi yang diambil odds-nya (${chosen.size} dipilih)",
+                style = MaterialTheme.typography.labelSmall,
+                color = Green,
+            )
+            catalog.take(40).forEach { sport ->
+                val on = sport.key in chosen
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            chosen = if (on) chosen - sport.key else chosen + sport.key
+                            vm.setOddsSports(chosen)
+                        }
+                        .padding(vertical = 1.dp),
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                ) {
+                    androidx.compose.material3.Checkbox(
+                        checked = on,
+                        onCheckedChange = { checked ->
+                            chosen = if (checked) chosen + sport.key else chosen - sport.key
+                            vm.setOddsSports(chosen)
+                        },
+                        colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = Green),
+                    )
+                    Text(
+                        sport.title,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}

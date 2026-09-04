@@ -1,0 +1,1140 @@
+package com.skorsnap.app.data
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.Base64
+import kotlin.math.roundToInt
+
+/**
+ * Reads a match's statistics out of screenshots and turns them into probabilities,
+ * using Google's Gemini API.
+ *
+ * The whole app rests on one rule, which is also the only thing that makes reading
+ * screenshots better than guessing: nothing may be used that is not visible in the
+ * pictures. A language model asked about football will produce confident-sounding
+ * numbers from its own stale memory, and those numbers would be indistinguishable
+ * on screen from ones actually derived from the user's data. So the instructions
+ * forbid it, ask for the stats it did read to be listed back, and ask for the ones
+ * it expected and could not find — which is what lets the app show its work.
+ *
+ * Talks to the REST endpoint directly rather than through a client library. The
+ * request is one POST with a JSON body, the app was 3.4 MB with an SDK bundled and
+ * is 1.3 MB without one, and `responseSchema` means the reply cannot come back in
+ * a shape the parser does not expect.
+ */
+class Analyst(private val apiKey: String) {
+
+    class AnalystException(message: String) : Exception(message)
+
+    /** A model this key can actually use, as reported by Google itself. */
+    data class Model(val id: String, val label: String, val description: String)
+
+    /**
+     * Asks the API which models this key may call, instead of shipping a guessed
+     * list. Model names change and availability differs per key and per tier — a
+     * hardcoded name that has been renamed or is not on the free tier fails with a
+     * 404 that tells the user nothing they can act on.
+     *
+     * Free: listing models costs no quota.
+     */
+    suspend fun listModels(): List<Model> = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
+        var conn: HttpURLConnection? = null
+        try {
+            conn = (URL("$HOST/v1beta/models?pageSize=200").openConnection() as HttpURLConnection)
+                .apply {
+                    requestMethod = "GET"
+                    connectTimeout = 25_000
+                    readTimeout = 25_000
+                    setRequestProperty("x-goog-api-key", apiKey)
+                }
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (code !in 200..299) throw AnalystException(errorMessage(code, text))
+
+            val arr = JSONObject(text).optJSONArray("models") ?: JSONArray()
+            val out = ArrayList<Model>(arr.length())
+            for (i in 0 until arr.length()) {
+                val m = arr.optJSONObject(i) ?: continue
+                val methods = m.optJSONArray("supportedGenerationMethods")
+                val supported = (0 until (methods?.length() ?: 0))
+                    .any { methods!!.optString(it) == "generateContent" }
+                if (!supported) continue
+
+                val name = m.optString("name").removePrefix("models/")
+                if (!usable(name)) continue
+
+                out.add(
+                    Model(
+                        id = name,
+                        label = m.optString("displayName").ifBlank { name },
+                        description = m.optString("description").take(90),
+                    )
+                )
+            }
+            rank(out)
+        } catch (e: AnalystException) {
+            throw e
+        } catch (e: Exception) {
+            throw AnalystException(e.message ?: e.javaClass.simpleName)
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    suspend fun analyse(
+        images: List<ByteArray>,
+        note: String,
+        model: String = DEFAULT_MODEL,
+        mode: Mode = Mode.MATCH,
+        history: List<MatchPrediction> = emptyList(),
+        slips: List<SavedSlip> = emptyList(),
+        previous: MatchPrediction? = null,
+        appetite: Appetite = Appetite.SAFE,
+        stats: String = "",
+    ): MatchPrediction = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
+        if (images.isEmpty() && stats.isBlank()) {
+            throw AnalystException("Belum ada gambar atau statistik.")
+        }
+
+        val parts = JSONArray()
+        // Fetched statistics go in first, as text. They cost about a thousand tokens
+        // where the same numbers as a screenshot cost thirty, and they cannot be
+        // misread — but they are incomplete, so the images still follow.
+        if (stats.isNotBlank()) parts.put(JSONObject().put("text", stats))
+        // A long capture arrives as several full-resolution bands rather than one
+        // image too big to decode; see Images.forUpload.
+        for (bytes in images.flatMap { Images.forUpload(it) }) {
+            parts.put(
+                JSONObject().put(
+                    "inline_data",
+                    JSONObject()
+                        .put("mime_type", mimeTypeOf(bytes))
+                        .put("data", Base64.getEncoder().encodeToString(bytes))
+                )
+            )
+        }
+        parts.put(JSONObject().put("text", userPrompt(note, mode)))
+        parts.put(JSONObject().put("text", appetiteNote(appetite)))
+        // The model's own track record, so a market it has been overconfident on
+        // does not get the same number again. See Coach for what this can and
+        // cannot do.
+        Coach.brief(history, slips).takeIf { it.isNotBlank() }?.let {
+            parts.put(JSONObject().put("text", it))
+        }
+        // A second look at the same match, with the data it asked for. Handing back
+        // its own previous reading is what makes this a revision rather than a
+        // fresh guess that happens to have more pictures.
+        previous?.let { parts.put(JSONObject().put("text", revisionNote(it))) }
+
+        val body = JSONObject()
+            .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+            .put(
+                "systemInstruction",
+                JSONObject().put("parts", JSONArray().put(JSONObject().put("text", SYSTEM_PROMPT)))
+            )
+            .put(
+                "generationConfig",
+                JSONObject()
+                    // Reading numbers off a table is not a creative task; near-zero
+                    // temperature keeps the same screenshot giving the same answer.
+                    .put("temperature", 0.15)
+                    // Gemini thinks before it answers and those tokens come out of
+                    // this same budget. At 8192 a long screenshot could spend the
+                    // whole allowance reasoning and never reach the JSON, which
+                    // surfaced as "jawaban terpotong" on perfectly good input.
+                    .put("maxOutputTokens", MAX_OUTPUT_TOKENS)
+                    // Bounded from the first attempt rather than only after a
+                    // failure. Truncation used to trigger a full retry, and a retry
+                    // re-uploads every screenshot — on a long capture that is the
+                    // expensive half of the request, charged twice for one answer.
+                    .put("thinkingConfig", JSONObject().put("thinkingBudget", THINKING_BUDGET))
+                    .put("responseMimeType", "application/json")
+                    .put("responseSchema", RESPONSE_SCHEMA)
+            )
+
+        val reply = try {
+            post(model, body.toString())
+        } catch (e: TruncatedException) {
+            // Reasoning ate the budget. Rerun with thinking held to a fixed slice so
+            // the answer itself is guaranteed room. Everything else is identical, so
+            // this only ever kicks in when the normal path has already failed.
+            val constrained = JSONObject(body.toString()).also { retry ->
+                retry.getJSONObject("generationConfig")
+                    .put("maxOutputTokens", MAX_OUTPUT_TOKENS)
+                    .put("thinkingConfig", JSONObject().put("thinkingBudget", TIGHT_THINKING_BUDGET))
+            }
+            post(model, constrained.toString())
+        }
+        // Order matters. The prices are folded in first, so the grid derives its
+        // missing markets from goal expectations that already reflect the market;
+        // then value picks among the result; then the safe-band rule has the last
+        // word, because a floor the user set is not something value may overrule.
+        enforceSafePick(
+            Value.apply(
+                Grid.fill(Devig.blend(parse(reply).copy(mode = mode))),
+                appetite.floor,
+            ),
+            appetite.floor,
+        )
+    }
+
+    /**
+     * Keeps the recommendation inside the band the app calls safe.
+     *
+     * The badge and the pick were defined separately, so a 57% market could be
+     * recommended while nothing about it was marked safe — advice the rest of the
+     * screen disagreed with. The instruction above asks the model to stay in the
+     * band; this makes it so regardless, because a rule that matters should not
+     * depend on the model choosing to follow it.
+     *
+     * When the pick is replaced the app says so rather than quietly presenting its
+     * own choice as the model's.
+     */
+    internal fun enforceSafePick(
+        p: MatchPrediction,
+        floor: Double = MarketOption.SAFE_LOW,
+    ): MatchPrediction {
+        val current = p.markets.firstOrNull { it.name == p.pick }
+        if (current != null && current.inBand(floor)) return p
+
+        // A market the model actually looked at beats one the app worked out, even
+        // when the arithmetic one reads higher: the model saw the screenshots.
+        val safe = p.safePicks(floor)
+        val best = safe.firstOrNull { !it.derived } ?: safe.firstOrNull() ?: return p
+        return p.copy(
+            pick = best.name,
+            pickProb = best.prob,
+            pickCorrected = true,
+        )
+    }
+
+    /**
+     * Turns one captured screen into plain text, immediately.
+     *
+     * The difference this makes is the whole point of it: a screen held as an image
+     * is billed again on every analysis that includes it, and twelve of them is
+     * most of a match's cost. Read once into text, it is a few hundred tokens that
+     * can be reused, corrected, and read by the user before anything is predicted.
+     *
+     * Deliberately not asked to judge anything. It transcribes; the analysis that
+     * follows does the thinking, and keeping those apart means a misread number can
+     * be spotted as a misread number rather than hiding inside a conclusion.
+     */
+    suspend fun extract(image: ByteArray, model: String = DEFAULT_MODEL): String =
+        withContext(Dispatchers.IO) {
+            val parts = JSONArray()
+            Images.forUpload(image).forEach { bytes ->
+                parts.put(
+                    JSONObject().put(
+                        "inline_data",
+                        JSONObject()
+                            .put("mime_type", mimeTypeOf(bytes))
+                            .put("data", Base64.getEncoder().encodeToString(bytes))
+                    )
+                )
+            }
+            parts.put(JSONObject().put("text", EXTRACT_PROMPT))
+
+            val body = JSONObject()
+                .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+                .put(
+                    "generationConfig",
+                    JSONObject()
+                        .put("temperature", 0.0)
+                        .put("maxOutputTokens", EXTRACT_OUTPUT_TOKENS)
+                        // No reasoning budget: this is transcription, and thinking
+                        // tokens here would cost more than the text is worth.
+                        .put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
+                )
+            runCatching { post(model, body.toString()) }
+                .getOrElse {
+                    // Some models refuse a zero thinking budget outright.
+                    val relaxed = JSONObject(body.toString()).also { retry ->
+                        retry.getJSONObject("generationConfig").remove("thinkingConfig")
+                    }
+                    post(model, relaxed.toString())
+                }
+                .trim()
+        }
+
+    /**
+     * How low a probability this user wants to be pointed at.
+     *
+     * Separated from the honesty rules on purpose. The probabilities themselves must
+     * not move with appetite — that would be dishonesty dressed as boldness. What
+     * moves is which market gets recommended out of the same honest set, and the
+     * cost of moving that floor is stated plainly so a lower one is a choice rather
+     * than a surprise.
+     */
+    private fun appetiteNote(appetite: Appetite): String = when (appetite) {
+        Appetite.SAFE ->
+            "SELERA RISIKO: AMAN. Rekomendasikan hanya market dengan peluang 68% ke " +
+                "atas. Kalau tidak ada yang sampai 68%, katakan lewatkan."
+        Appetite.BALANCED, Appetite.BOLD -> {
+            val floor = (appetite.floor * 100).roundToInt()
+            "SELERA RISIKO: ${appetite.label.uppercase()}. Pengguna ini SENGAJA meminta " +
+                "market yang bayarannya lebih baik, jadi jangan otomatis memilih " +
+                "peluang tertinggi. Batas bawah rekomendasi turun ke $floor%.\n" +
+                "- Market seperti \"Tuan rumah menang & Over 2.5\", \"Total gol 2-3\", " +
+                "\"Menang & BTTS Ya\", atau handicap boleh direkomendasikan meski " +
+                "peluangnya 45-65%, ASALKAN alasannya kuat dari angka di gambar.\n" +
+                "- Pilih market yang paling didukung mekanisme, bukan yang angkanya " +
+                "paling besar. Over 0.5 memang hampir pasti tembus, tapi bayarannya " +
+                "tidak sepadan dan bukan itu yang dicari pengguna ini.\n" +
+                "- JANGAN menaikkan angka peluang supaya sebuah market terlihat layak. " +
+                "Peluangnya tetap jujur; yang berubah cuma market mana yang kamu " +
+                "rekomendasikan.\n" +
+                "- Di \"verdict\", sebutkan bahwa ini pilihan bayaran lebih tinggi dan " +
+                "wajar lebih sering meleset."
+        }
+    }
+
+    /**
+     * What the model said last time, and what it is being asked to do about it.
+     *
+     * Stated as a revision so the second answer is allowed to contradict the first.
+     * A model shown its own conclusion tends to defend it; being told outright that
+     * changing its mind is the point is what stops that.
+     */
+    private fun revisionNote(p: MatchPrediction): String = buildString {
+        append("ANALISIS ULANG. Ini pembacaanmu sendiri sebelumnya untuk laga yang sama:\n")
+        if (p.firstRead.isNotBlank()) append("- Kesan awal: ${p.firstRead}\n")
+        p.risks.forEach { append("- Keraguan: $it\n") }
+        if (p.adjustment.isNotBlank()) append("- Setelah digeser: ${p.adjustment}\n")
+        if (p.pick.isNotBlank()) {
+            append("- Kesimpulan lama: ${p.pick} di ${Math.round(p.pickProb * 100)}%\n")
+        }
+        if (p.needMore.isNotEmpty()) {
+            append("- Data yang kamu minta: ${p.needMore.joinToString("; ")}\n")
+        }
+        append(
+            "\nGambar di atas berisi data tambahan. Baca ulang dari awal dengan data " +
+                "lama DAN baru digabung. Kalau data baru mengubah arah jawabanmu, ubah — " +
+                "berubah pikiran karena data baru itu justru yang benar, bukan " +
+                "kelemahan. Kalau data baru ternyata tidak mengubah apa pun, katakan " +
+                "begitu di \"verdict\" dan naikkan keyakinanmu. Kalau data yang kamu " +
+                "minta masih belum ada juga, jangan minta hal yang sama dua kali — " +
+                "putuskan dengan yang ada, dan pilih \"lewatkan\" kalau memang tidak layak."
+        )
+    }
+
+    /** Raised when the model ran out of room before finishing its JSON. */
+    private class TruncatedException :
+        Exception("Jawaban model terpotong sebelum selesai.")
+
+    /**
+     * Sends the request, and follows Google's own advice when a model has retired.
+     *
+     * A retired model answers 404 with "no longer available to new users. Please
+     * update your code to use models/gemini-3.6-flash" — the replacement is right
+     * there in the message, so failing the user's analysis rather than following it
+     * would be perverse. The substitution happens once and the caller is told which
+     * model actually answered.
+     */
+    private fun post(model: String, body: String): String {
+        try {
+            return postOnce(model, body)
+        } catch (e: RetiredModelException) {
+            substituted = model to e.replacement
+            return postOnce(e.replacement, body)
+        }
+    }
+
+    /** What the last call actually consumed, so spending is visible rather than guessed. */
+    data class Usage(val input: Int, val thinking: Int, val output: Int) {
+        val total: Int get() = input + thinking + output
+    }
+
+    @Volatile
+    var lastUsage: Usage? = null
+        private set
+
+    /** Set when a retired model was silently swapped for the one Google named. */
+    @Volatile
+    var substituted: Pair<String, String>? = null
+        private set
+
+    private class RetiredModelException(val replacement: String) : Exception()
+
+    private fun postOnce(model: String, body: String): String {
+        var conn: HttpURLConnection? = null
+        try {
+            val url = "$HOST/v1beta/models/$model:generateContent"
+            conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 30_000
+                // Reading several dense screenshots takes the model a while.
+                readTimeout = 180_000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+                setRequestProperty("x-goog-api-key", apiKey)
+            }
+            conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+
+            val code = conn.responseCode
+            val text = (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+
+            if (code !in 200..299) {
+                retirementReplacement(code, text)?.let { throw RetiredModelException(it) }
+                throw AnalystException(errorMessage(code, text))
+            }
+
+            val json = JSONObject(text)
+            json.optJSONObject("usageMetadata")?.let {
+                lastUsage = Usage(
+                    input = it.optInt("promptTokenCount"),
+                    thinking = it.optInt("thoughtsTokenCount"),
+                    output = it.optInt("candidatesTokenCount"),
+                )
+            }
+            val candidate = json.optJSONArray("candidates")?.optJSONObject(0)
+                ?: throw AnalystException(
+                    json.optJSONObject("promptFeedback")?.optString("blockReason")
+                        ?.takeIf { it.isNotBlank() }
+                        ?.let { "Permintaan ditolak Gemini ($it)." }
+                        ?: "Gemini tidak mengembalikan jawaban."
+                )
+
+            // A reply cut off mid-JSON parses as garbage; say so plainly instead.
+            val finish = candidate.optString("finishReason")
+            if (finish == "MAX_TOKENS") throw TruncatedException()
+
+            val partsOut = candidate.optJSONObject("content")?.optJSONArray("parts")
+                ?: throw AnalystException("Balasan Gemini kosong (alasan: ${finish.ifBlank { "tidak diketahui" }}).")
+
+            return (0 until partsOut.length())
+                .mapNotNull { partsOut.optJSONObject(it)?.optString("text")?.takeIf(String::isNotBlank) }
+                .joinToString("\n")
+                .trim()
+        } catch (e: AnalystException) {
+            throw e
+        } catch (e: TruncatedException) {
+            throw e
+        } catch (e: Exception) {
+            throw AnalystException(e.message ?: e.javaClass.simpleName)
+        } finally {
+            conn?.disconnect()
+        }
+    }
+
+    /**
+     * Explains a failure without hiding it.
+     *
+     * An earlier version replaced Google's own message with a guess about what had
+     * gone wrong, and when the guess was incorrect — a model that lists but cannot
+     * be called returns 404 for reasons the guess did not cover — the user was left
+     * with advice that did not help and no way to find out more. The service's
+     * message goes through verbatim; the hint is added beside it, not instead.
+     */
+    /**
+     * The model Google tells us to use instead, or null if this is a different 404.
+     */
+    internal fun retirementReplacement(code: Int, body: String): String? {
+        if (code != 404) return null
+        // Collapsed to single spaces first: the phrase is matched as text, and a
+        // line break landing mid-phrase should not decide whether the user's
+        // analysis recovers or fails.
+        val detail = runCatching {
+            JSONObject(body).optJSONObject("error")?.optString("message")
+        }.getOrNull().orEmpty().replace(Regex("""\s+"""), " ")
+        if (!detail.contains("no longer available", true)) return null
+        return Regex("""use models/([A-Za-z0-9.\-]+)""").find(detail)?.groupValues?.get(1)
+    }
+
+    private fun errorMessage(code: Int, body: String): String {
+        val detail = runCatching {
+            JSONObject(body).optJSONObject("error")?.optString("message")
+        }.getOrNull().orEmpty().trim()
+
+        val hint = when (code) {
+            400 -> if (detail.contains("API key", true)) {
+                "Kuncinya ditolak — salin ulang dari aistudio.google.com."
+            } else {
+                "Permintaan ditolak."
+            }
+            403 -> "Kunci tidak punya izin untuk ini."
+            404 -> "Model ini tidak bisa dipanggil kuncimu, walaupun muncul di daftar. " +
+                "Pilih model lain dan tekan \"Tes model ini\" di Pengaturan."
+            429 -> "Kuota gratis habis untuk sekarang. Tunggu beberapa menit, atau pakai model Flash."
+            in 500..599 -> "Server Gemini sedang bermasalah. Coba lagi sebentar."
+            else -> "Gagal."
+        }
+        return if (detail.isBlank()) "$hint (HTTP $code)" else "$hint\n\nKata Google: $detail"
+    }
+
+    /**
+     * A one-sentence request to the chosen model, so a broken combination shows up
+     * in a second instead of after picking eight screenshots.
+     */
+    suspend fun testModel(model: String): String = withContext(Dispatchers.IO) {
+        val body = JSONObject()
+            .put(
+                "contents",
+                JSONArray().put(
+                    JSONObject().put(
+                        "parts",
+                        JSONArray().put(JSONObject().put("text", "Balas persis satu kata: OK"))
+                    )
+                )
+            )
+            // Sixteen tokens used to be the whole allowance here, and current models
+            // spend their first tokens thinking: every model answered MAX_TOKENS with
+            // no text, which the screen reported as a bare "Gagal." So the test said
+            // every model was broken while all of them worked. Two thousand tokens is
+            // still a fraction of a rupiah and leaves room for an actual reply.
+            .put("generationConfig", JSONObject().put("maxOutputTokens", TEST_OUTPUT_TOKENS))
+        val reply = post(model, body.toString())
+        val spent = lastUsage?.let { " Terpakai ${it.total} token." }.orEmpty()
+        val moved = substituted?.let { " (${it.first} sudah pensiun, dialihkan ke ${it.second}.)" }.orEmpty()
+        "Model $model berfungsi. Balasannya: ${reply.take(60)}$spent$moved"
+    }
+
+    /** Sniffs the format from the file's own header rather than trusting a name. */
+    private fun mimeTypeOf(bytes: ByteArray): String = when {
+        bytes.size > 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
+        bytes.size > 8 && bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() -> "image/png"
+        bytes.size > 12 && bytes[8] == 'W'.code.toByte() && bytes[9] == 'E'.code.toByte() -> "image/webp"
+        else -> "image/jpeg"
+    }
+
+    /**
+     * Pulls the JSON object out of the reply. The schema should guarantee clean
+     * JSON, but a stray sentence around it should not cost the user their
+     * analysis, so the object is located rather than assumed to start at index 0.
+     */
+    internal fun parse(text: String): MatchPrediction {
+        val start = text.indexOf('{')
+        val end = text.lastIndexOf('}')
+        if (start < 0 || end <= start) {
+            throw AnalystException("Balasan tidak berbentuk JSON. Isi balasan: ${text.take(200)}")
+        }
+        val json = try {
+            JSONObject(text.substring(start, end + 1))
+        } catch (e: Exception) {
+            throw AnalystException("JSON tidak bisa dibaca: ${e.message}")
+        }
+
+        fun strings(key: String): List<String> {
+            val arr = json.optJSONArray(key) ?: return emptyList()
+            return (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) }
+        }
+
+        val markets = ArrayList<MarketOption>()
+        json.optJSONArray("markets")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val m = arr.optJSONObject(i) ?: continue
+                val name = m.optString("name")
+                val prob = m.optDouble("prob", -1.0)
+                if (name.isBlank() || prob < 0 || prob > 1) continue
+                markets.add(
+                    MarketOption(name, prob, m.optString("why"), m.optString("group").ifBlank { "Lainnya" })
+                )
+            }
+        }
+
+        // Prices the model saw on a bookmaker screen, kept by the label it read them
+        // under. Matching them to markets is Odds' job, not the parser's.
+        val seen = ArrayList<Odds.Entry>()
+        json.optJSONArray("odds")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val label = o.optString("market")
+                val price = o.optDouble("price", 0.0)
+                if (label.isNotBlank() && price > 1.0 && price <= 1000) {
+                    seen.add(Odds.Entry(label, price))
+                }
+            }
+        }
+
+        return MatchPrediction(
+            id = java.util.UUID.randomUUID().toString(),
+            home = json.optString("home"),
+            away = json.optString("away"),
+            league = json.optString("league"),
+            readable = json.optBoolean("readable", true),
+            problem = json.optString("problem"),
+            statsSeen = strings("stats_seen"),
+            statsMissing = strings("stats_missing"),
+            probHome = json.optDouble("prob_home", 0.0),
+            probDraw = json.optDouble("prob_draw", 0.0),
+            probAway = json.optDouble("prob_away", 0.0),
+            xgHome = json.optDouble("xg_home", 0.0),
+            xgAway = json.optDouble("xg_away", 0.0),
+            markets = markets.sortedByDescending { it.prob },
+            risks = strings("risks"),
+            needMore = strings("need_more"),
+            action = json.optString("action"),
+            verdict = json.optString("verdict"),
+            firstRead = json.optString("first_read"),
+            riskSide = json.optString("risk_side"),
+            adjustment = json.optString("adjustment"),
+            pick = json.optString("pick"),
+            pickProb = json.optDouble("pick_prob", 0.0),
+            confidence = json.optString("confidence", "sedang"),
+            confidenceWhy = json.optString("confidence_why"),
+            prices = Odds.match(seen, markets).pairs,
+            raw = text,
+        )
+    }
+
+    private fun userPrompt(note: String, mode: Mode): String = buildString {
+        append("Baca statistik di gambar-gambar di atas, lalu isi JSON sesuai skema.\n\n")
+        if (note.isNotBlank()) append("Catatan dari pengguna: $note\n\n")
+        append(
+            when (mode) {
+                Mode.CORNER -> CORNER_MARKETS
+                Mode.CORNER_1H -> CORNER_1H_MARKETS
+                Mode.MATCH -> MATCH_MARKETS
+            }
+        )
+        append("\n\n")
+        append(
+            """
+Aturan pengisian:
+- "odds": kalau di antara gambar ada layar bandar (Melbet, 1xBet, Pinnacle, dan
+  sejenisnya), salin SEMUA harga yang terlihat ke sini: "market" ditulis persis
+  seperti nama market di daftar di atas, "price" angkanya. Kalau tidak ada layar
+  harga sama sekali, isi array kosong. JANGAN mengarang harga, dan JANGAN memakai
+  harga itu untuk menggeser peluangmu — peluangmu sudah ditulis sebelum bagian ini,
+  dan memang begitu urutannya supaya kamu tidak sekadar menyalin bandar.
+- prob_home + prob_draw + prob_away harus berjumlah 1,0.
+- Semua "prob" adalah peluang antara 0 dan 1, bukan persen. 0,72 berarti 72%.
+- Isi "markets" LENGKAP. Setiap market di daftar di atas wajib ada; satu pun jangan
+  dilewati, karena daftar yang bolong bikin pengguna kehilangan pilihan pasang.
+- Kalau statistik untuk satu market tipis, tetap isi dari xg_home/xg_away, turunkan
+  angkanya supaya jujur, dan tulis alasannya di "why". Yang tidak boleh dikarang itu
+  statistiknya, bukan hitungannya. Kalau gambarnya sendiri tidak terbaca, jangan
+  menebak apa pun: set "readable" = false.
+- xg_home dan xg_away wajib berisi perkiraan gol yang masuk akal dan tidak boleh 0 —
+  seluruh market gol diturunkan dari keduanya.
+- Setiap market wajib punya "group" persis seperti judul di daftar di atas.
+- Peluang di satu pasangan harus konsisten: Over 2.5 dan Under 2.5 dijumlah 1,0,
+  BTTS Ya dan Tidak dijumlah 1,0, 1X2 dijumlah 1,0.
+- "pick" hanya SATU, diambil dari "markets", dan peluangnya WAJIB antara 0,68 dan
+  0,92. Di bawah 0,68 terlalu dekat lempar koin untuk disebut rekomendasi; di atas
+  0,92 odds-nya terlalu kecil untuk dipasang. Di dalam rentang itu, pilih yang
+  peluangnya paling tinggi DAN dukungan datanya paling jelas — kalau dua market
+  sama-sama didukung data, ambil yang peluangnya lebih tinggi.
+- Kalau tidak ada satu pun market yang jatuh di 0,68-0,92, isi "pick" dengan yang
+  paling mendekati rentang itu dan turunkan "confidence" jadi "rendah".
+- "stats_seen" diisi statistik yang benar-benar kamu baca dari gambar.
+- "stats_missing" diisi statistik penting yang kamu cari tapi tidak ada di gambar.
+- Semua teks dalam bahasa Indonesia.
+            """.trimIndent()
+        )
+    }
+
+    companion object {
+        private const val HOST = "https://generativelanguage.googleapis.com"
+
+        /**
+         * The alias rather than a dated name.
+         *
+         * `gemini-2.5-flash` was the default and it now answers 404 for any key
+         * created recently — "no longer available to new users" — so a brand-new
+         * paid key could not call a single model. The `-latest` aliases always
+         * resolve to a current model, which is exactly the property a default needs.
+         */
+        const val DEFAULT_MODEL = "gemini-flash-latest"
+
+        /**
+         * Room for the answer, generous because thinking is drawn from the same
+         * pot and a screenshot full of tables gives the model a lot to think about.
+         */
+        internal const val MAX_OUTPUT_TOKENS = 49152
+
+        /** Room for one screen's worth of transcribed numbers. */
+        internal const val EXTRACT_OUTPUT_TOKENS = 3072
+
+        /**
+         * The transcription instruction.
+         *
+         * Says what to do with things it cannot read, because the failure that
+         * matters is a confidently wrong number: "1,42" read as "4,2" produces an
+         * analysis nobody can tell is broken. A gap is recoverable, a wrong digit
+         * is not.
+         */
+        internal val EXTRACT_PROMPT = """
+Salin semua angka dan statistik sepak bola yang terlihat di layar ini menjadi teks.
+JANGAN menganalisis, JANGAN memprediksi, JANGAN menyimpulkan apa pun. Tugasmu cuma
+menyalin apa adanya.
+
+Aturan:
+- Tulis nama tim, nama liga, dan tanggal kalau terlihat.
+- Tulis tiap statistik satu baris: nama statistik, nilainya untuk tiap tim.
+  Contoh: "Rata-rata corner babak 1: Sabah 3,22 | Selangor 4,00"
+- Sebutkan satuan dan konteksnya kalau ada di layar: per laga, kandang, tandang,
+  babak 1, dari berapa laga.
+- Angka yang buram, terpotong, atau kamu ragu: JANGAN ditebak. Tulis di baris
+  terpisah diawali "TIDAK JELAS:" lalu sebutkan statistik apa. Salah satu digit
+  lebih berbahaya daripada tidak ada angkanya.
+- Kalau ini layar bandar taruhan (Melbet, 1xBet, dan sejenisnya), salin daftar
+  harganya: satu market satu baris, diawali "ODDS:", nama marketnya, lalu harganya
+  di akhir baris. Contoh: "ODDS: Over 2.5 = 1,85". Ini yang paling sering dilewat,
+  padahal tanpa harga pengguna harus mengetiknya sendiri satu per satu.
+- Kalau layar ini bukan statistik sepak bola dan bukan daftar harga (menu, iklan,
+  layar utama), balas persis satu kata: KOSONG
+- Jangan menambahkan pengetahuanmu sendiri. Hanya yang ada di layar.
+        """.trimIndent()
+
+        /** Thinking allowance on the retry, leaving the rest for the JSON. */
+        internal const val THINKING_BUDGET = 16384
+
+        /** The tighter budget used if a bounded first attempt still ran out of room. */
+        internal const val TIGHT_THINKING_BUDGET = 2048
+
+        /**
+         * Enough room for a one-word reply after the model has finished thinking.
+         */
+        internal const val TEST_OUTPUT_TOKENS = 2048
+
+        /**
+         * The floor the schema puts under the market list.
+         *
+         * Asked for the full catalogue the model would still return three or four
+         * markets and call it done, which is what made whole groups appear on one
+         * match and vanish on the next. Well under the catalogue size, so a genuinely
+         * thin answer is still possible — Grid fills whatever is missing.
+         */
+        internal const val MIN_MARKETS = 24
+
+
+        /** Variants built for other jobs entirely. */
+        private val SPECIALISED = listOf(
+            "embedding", "-tts", "-image", "native-audio", "live-",
+            "robotics", "transcribe", "guard", "computer-use", "-thinking-",
+            // Listed as supporting generateContent, but every call answers
+            // "This model only supports Interactions API".
+            "-omni-",
+        )
+
+        /**
+         * Whether a model can plausibly read a screenshot of a stats table. The
+         * API also offers embedding, speech, image-generation, robotics and
+         * transcription variants, and listing them all buries the three or four
+         * that are actually usable.
+         */
+        internal fun usable(name: String): Boolean =
+            name.startsWith("gemini-") && SPECIALISED.none { it in name }
+
+        /**
+         * Best first, where "best" means most likely to still work tomorrow.
+         *
+         * The aliases lead because they never retire; after them come the numbered
+         * models newest-first, full models ahead of their lite variants, and stable
+         * releases ahead of previews.
+         */
+        internal fun rank(models: List<Model>): List<Model> =
+            models.sortedWith(compareByDescending<Model> { score(it.id) }.thenBy { it.id })
+
+        internal fun score(id: String): Double {
+            val family = when {
+                "pro" in id -> 3.0
+                "lite" in id -> 1.0
+                else -> 2.0
+            }
+            val preview = if ("preview" in id || "customtools" in id) -4.0 else 0.0
+            if (id.endsWith("-latest")) return 1000.0 + family
+            val version = Regex("""gemini-(\d+(?:\.\d+)?)""").find(id)
+                ?.groupValues?.get(1)?.toDoubleOrNull() ?: 0.0
+            return version * 10 + family + preview
+        }
+
+        /**
+         * Shown only until the live list arrives. Aliases exclusively: the previous
+         * list named three dated models and all three have since been closed to new
+         * keys, so it sent users straight into a 404.
+         */
+        val MODELS = listOf(
+            Triple("Gemini Flash (terbaru)", "gemini-flash-latest", "Selalu versi terkini — pilihan awal"),
+            Triple("Gemini Pro (terbaru)", "gemini-pro-latest", "Paling teliti baca angka, lebih lambat"),
+            Triple("Gemini Flash Lite (terbaru)", "gemini-flash-lite-latest", "Paling hemat kuota"),
+        )
+
+        /**
+         * Forces the reply into the shape the parser expects, so a malformed answer
+         * cannot reach the user as a blank match.
+         */
+        internal val RESPONSE_SCHEMA: JSONObject = JSONObject()
+            .put("type", "OBJECT")
+            .put(
+                "properties",
+                JSONObject()
+                    .put("home", str())
+                    .put("away", str())
+                    .put("league", str())
+                    .put("readable", JSONObject().put("type", "BOOLEAN"))
+                    .put("problem", str())
+                    .put("stats_seen", strArray())
+                    .put("stats_missing", strArray())
+                    .put("first_read", str())
+                    .put("risks", strArray())
+                    .put("risk_side", str())
+                    .put("adjustment", str())
+                    .put("prob_home", num())
+                    .put("prob_draw", num())
+                    .put("prob_away", num())
+                    .put("xg_home", num())
+                    .put("xg_away", num())
+                    .put(
+                        "markets",
+                        JSONObject().put("type", "ARRAY").put("minItems", MIN_MARKETS).put(
+                            "items",
+                            JSONObject()
+                                .put("type", "OBJECT")
+                                .put(
+                                    "properties",
+                                    JSONObject().put("name", str()).put("prob", num())
+                                        .put("why", str()).put("group", str())
+                                )
+                                .put(
+                                    "required",
+                                    JSONArray().put("name").put("prob").put("why").put("group")
+                                )
+                        )
+                    )
+                    .put("pick", str())
+                    .put("pick_prob", num())
+                    .put("confidence", str())
+                    .put("confidence_why", str())
+                    .put("need_more", strArray())
+                    .put("action", str())
+                    .put("verdict", str())
+                    // Prices seen on screen, transcribed rather than judged. Ordered
+                    // last below for a reason worth stating: a model that writes the
+                    // bookmaker's price before its own probability will copy it, and
+                    // then every "untung 7%" the app prints is comparing a number
+                    // with itself. The odds are read only after the answer is fixed.
+                    .put(
+                        "odds",
+                        JSONObject().put("type", "ARRAY").put(
+                            "items",
+                            JSONObject().put("type", "OBJECT").put(
+                                "properties",
+                                JSONObject().put("market", str()).put("price", num()),
+                            ).put("required", JSONArray().put("market").put("price")),
+                        ),
+                    )
+            )
+            .put(
+                "propertyOrdering",
+                JSONArray().put("home").put("away").put("league").put("readable")
+                    .put("problem").put("stats_seen").put("stats_missing")
+                    .put("first_read").put("risks").put("risk_side").put("adjustment")
+                    .put("prob_home").put("prob_draw").put("prob_away")
+                    .put("xg_home").put("xg_away").put("markets")
+                    .put("pick").put("pick_prob").put("confidence").put("confidence_why")
+                    .put("need_more").put("action").put("verdict").put("odds")
+            )
+            .put(
+                "required",
+                JSONArray().put("home").put("away").put("readable").put("stats_seen")
+                    .put("first_read").put("risks").put("risk_side").put("adjustment")
+                    .put("stats_missing").put("prob_home").put("prob_draw").put("prob_away")
+                    .put("markets").put("pick").put("pick_prob").put("confidence")
+                    .put("action").put("verdict")
+            )
+
+        private fun str() = JSONObject().put("type", "STRING")
+        private fun num() = JSONObject().put("type", "NUMBER")
+        private fun strArray() = JSONObject().put("type", "ARRAY").put("items", str())
+
+        /**
+         * The match-day catalogue.
+         *
+         * Listing the markets explicitly, with the exact group headings, is what
+         * lets the screen organise forty rows without guessing where each belongs.
+         * The instruction to omit rather than invent matters more here than it did
+         * with eight markets: a long list is an invitation to fill it in.
+         */
+        internal val MATCH_MARKETS = """
+Isi market-market berikut, pakai "group" persis seperti judulnya:
+
+[Hasil Akhir]
+- "Tuan rumah menang", "Seri", "Tandang menang"
+
+[Double Chance]
+- "1X (tuan rumah atau seri)", "12 (tidak seri)", "X2 (seri atau tandang)"
+
+[Total Gol]
+- "Over 0.5", "Under 0.5", "Over 1.5", "Under 1.5", "Over 2.5", "Under 2.5",
+  "Over 3.5", "Under 3.5", "Over 4.5", "Under 4.5"
+- "Kedua tim cetak gol (BTTS) - Ya", "Kedua tim cetak gol (BTTS) - Tidak"
+- "Minimal satu tim cetak 2+ gol - Ya", "Minimal satu tim cetak 2+ gol - Tidak"
+
+[Total Babak 1]
+- "Babak 1 Over 0.5", "Babak 1 Under 0.5", "Babak 1 Over 1.5",
+  "Babak 1 Under 1.5", "Babak 1 Over 2.5", "Babak 1 Under 2.5"
+
+[Total per Tim]
+- "Tuan rumah Over 0.5", "Tuan rumah Over 1.5", "Tuan rumah Over 2.5"
+- "Tandang Over 0.5", "Tandang Over 1.5", "Tandang Over 2.5"
+
+[Multigol]
+- "Total gol 1-3", "Total gol 2-3", "Total gol 2-4", "Total gol 3-5"
+
+[Kombinasi Hasil + Total]
+- "1X & Over 2.5", "1X & Under 2.5", "X2 & Over 2.5", "X2 & Under 2.5"
+- "Tuan rumah menang & Over 1.5", "Tandang menang & Over 1.5"
+- "Tuan rumah menang & Over 2.5", "Tandang menang & Over 2.5"
+- "Tuan rumah menang & Under 2.5", "Tandang menang & Under 2.5"
+- "Tuan rumah menang & BTTS Ya", "Tandang menang & BTTS Ya"
+- "1X & BTTS Ya", "X2 & BTTS Ya"
+- "12 & Over 2.5"
+
+[Handicap Asia]
+- "Tuan rumah -0.25", "Tandang +0.25", "Tuan rumah -0.5", "Tandang +0.5"
+- "Tuan rumah -0.75", "Tandang +0.75", "Tuan rumah -1", "Tandang +1"
+
+[Handicap Eropa]
+- "Tuan rumah -1", "Tandang +1", "Tuan rumah -2", "Tandang +2"
+        """.trimIndent()
+
+        /**
+         * The single-market catalogue.
+         *
+         * Deliberately narrow. Asked for forty markets a model spreads its attention
+         * over all of them; asked for one it can spend the whole reading on the
+         * statistics that actually decide that one. The instruction to say so when
+         * the first-half split is missing matters more here than anywhere else,
+         * because a full-match corner average tells you almost nothing about the
+         * first half on its own.
+         */
+        internal val CORNER_1H_MARKETS = """
+Analisis ini KHUSUS SATU PASARAN: total sepak pojok (corner) kedua tim digabung
+di BABAK PERTAMA saja, garis 4.5. Abaikan gol, abaikan babak kedua, abaikan
+market lain sepenuhnya.
+
+Isi "markets" dengan TEPAT DUA baris, group-nya "Corner Babak 1":
+- "Corner babak 1 Over 4.5"   (5 corner atau lebih di babak 1)
+- "Corner babak 1 Under 4.5"  (4 corner atau kurang di babak 1)
+Kedua peluang itu wajib berjumlah 1,0.
+
+Yang harus kamu cari di gambar, sebutkan di "stats_seen" mana yang benar-benar ada:
+- rata-rata corner babak 1 tiap tim (ini yang paling menentukan)
+- rata-rata corner penuh tiap tim, dan corner yang diberikan ke lawan
+- berapa sering laga tiap tim melewati 4.5 corner di babak 1
+- tempo awal: tim yang menyerang sejak menit pertama menghasilkan corner lebih awal
+
+Kalau angka khusus babak pertama TIDAK ADA di gambar dan kamu hanya punya angka
+corner satu laga penuh, katakan itu di "stats_missing", turunkan "confidence" jadi
+"rendah", dan perkirakan babak pertama sekitar 45% dari total laga penuh — jangan
+berpura-pura punya data babak pertama.
+
+SEBELUM memilih sisi, tulis dulu di "first_read" perkiraan corner GABUNGAN kedua
+tim di babak pertama sebagai satu angka. Baru bandingkan dengan garis 4.5.
+Catatan penting: rata-rata liga untuk corner babak 1 gabungan sekitar 4,5 sampai
+5,0 — jadi Over 4.5 itu lemparan koin, bukan taruhan Under yang nyaman. Under 4.5
+hanya masuk akal kalau perkiraan gabunganmu di bawah 4,0.
+
+Isi xg_home dan xg_away dengan perkiraan jumlah corner BABAK PERTAMA tiap tim
+(biasanya 2 sampai 3 per tim; jumlah keduanya harus masuk akal dibanding rata-rata
+liga 4,5-5,0, bukan angka satu laga penuh).
+Isi prob_home/prob_draw/prob_away dengan peluang siapa yang dapat corner lebih
+banyak di babak 1.
+        """.trimIndent()
+
+        /** The corner catalogue, used when the user asks for a corner analysis. */
+        internal val CORNER_MARKETS = """
+Analisis ini KHUSUS SEPAK POJOK (corner). Abaikan gol; fokus ke statistik corner.
+Isi market-market berikut, pakai "group" persis seperti judulnya:
+
+[Corner]
+- "Total corner Over 7.5", "Total corner Under 7.5"
+- "Total corner Over 8.5", "Total corner Under 8.5"
+- "Total corner Over 9.5", "Total corner Under 9.5"
+- "Total corner Over 10.5", "Total corner Under 10.5"
+- "Total corner Over 11.5", "Total corner Under 11.5"
+- "Tuan rumah corner terbanyak", "Corner sama banyak", "Tandang corner terbanyak"
+
+[Corner Babak 1]
+- "Corner babak 1 Over 3.5", "Corner babak 1 Under 3.5"
+- "Corner babak 1 Over 4.5", "Corner babak 1 Under 4.5"
+- "Corner babak 1 Over 5.5", "Corner babak 1 Under 5.5"
+
+[Corner per Tim]
+- "Corner tuan rumah Over 3.5", "Corner tuan rumah Over 4.5", "Corner tuan rumah Over 5.5"
+- "Corner tandang Over 3.5", "Corner tandang Over 4.5", "Corner tandang Over 5.5"
+
+Untuk analisis corner, isi prob_home/prob_draw/prob_away dengan peluang siapa yang
+mendapat corner lebih banyak, dan xg_home/xg_away dengan perkiraan jumlah corner
+tiap tim.
+        """.trimIndent()
+
+        internal val SYSTEM_PROMPT = """
+Kamu menganalisis statistik sepak bola dari tangkapan layar untuk aplikasi Skorsnap.
+Semua jawaban dalam bahasa Indonesia.
+
+ATURAN YANG TIDAK BOLEH DILANGGAR:
+
+1. Hanya pakai angka yang benar-benar terlihat di gambar. Pengetahuan sepak bolamu
+   sendiri sudah kedaluwarsa dan tidak boleh dipakai — jangan menambahkan rata-rata
+   gol, rekor, cedera, atau klasemen dari ingatan. Kalau sesuatu tidak ada di
+   gambar, tulis di "stats_missing", jangan dikarang.
+
+2. Baca angkanya dengan teliti. Salah membaca 1,42 menjadi 4,2 akan menghasilkan
+   prediksi yang salah total dan tidak ada yang bisa mendeteksinya. Kalau sebuah
+   angka buram atau terpotong, jangan ditebak — masukkan ke "stats_missing".
+
+3. Kalau gambarnya tidak terbaca atau isinya bukan statistik sepak bola, set
+   "readable": false dan jelaskan di "problem".
+
+4. Jujurlah soal keyakinan. Statistik sepak bola punya batas: bahkan model terbaik
+   dengan data lengkap hanya benar sekitar 52-55% untuk tebakan menang/seri/kalah.
+   Kalau kamu memberi peluang 85% untuk hasil akhir, kemungkinan besar kamu salah.
+   Angka setinggi itu hanya wajar untuk market seperti "over 0.5 gol".
+
+5. Jangan pernah menulis bahwa sesuatu pasti menang, aman, atau dijamin. Yang kamu
+   berikan adalah peluang, dan peluang 80% tetap meleset 1 dari 5 kali.
+
+6. Untuk "pick", pilih market yang paling didukung angka di gambar — bukan yang
+   peluangnya paling besar. Market seperti Over/Under, Double Chance, dan Kedua Tim
+   Cetak Gol biasanya lebih bisa diandalkan daripada tebakan skor akhir.
+
+CARA BERPIKIR — ini yang membedakan tebakan dari analisis:
+
+7. ANGKA KECIL BUKAN ANGKA PASTI. "100% dari 5 laga" bukan 100%. Sebelum memakai
+   sebuah persentase dari gambar, koreksi dulu untuk jumlah sampelnya dengan rumus
+   (k + 2) / (n + 4), di mana k = berapa kali terjadi dan n = jumlah laga.
+   Contoh nyata:
+   - 5 dari 5 laga  -> (5+2)/(5+4)  = 78%, bukan 100%
+   - 8 dari 10 laga -> (8+2)/(10+4) = 71%, bukan 80%
+   - 3 dari 4 laga  -> (3+2)/(4+4)  = 63%, bukan 75%
+   Semakin sedikit laganya, semakin jauh angkanya ditarik ke tengah. Ini bukan sikap
+   pesimis, ini memang cara kerja statistik: rentetan pendek sering kebetulan.
+
+8. TANYAKAN LAWANNYA SIAPA. Rata-rata sebuah tim terbentuk dari lawan-lawannya.
+   Tim yang dapat 6 corner per laga melawan papan bawah belum tentu begitu melawan
+   tim yang bertahan rapat. Kalau kualitas lawan di gambar berbeda jauh, katakan
+   itu dan tarik angkanya ke tengah.
+
+9. PIKIRKAN SEBABNYA, BUKAN CUMA POLANYA. Corner lahir dari serangan sayap dan
+   tembakan terblok; gol babak pertama lahir dari tempo awal yang tinggi. Kalau
+   angka menunjukkan sesuatu tapi tidak ada mekanisme masuk akal yang menjelaskannya,
+   itu tanda kebetulan, bukan tanda pola.
+
+10. LAWAN ANGKA ITU SENDIRI — LALU IKUTI HASILNYA. Kamu wajib mengisi empat field
+    ini BERURUTAN, dan urutannya bukan formalitas: kamu harus benar-benar meragukan
+    dulu, baru menetapkan angka.
+
+    a) "first_read"  : apa kata statistik mentahnya saja, lengkap dengan angkanya.
+                       Contoh: "Corner 1H gabungan 5,88 dan tren Over 4 di 78% →
+                       kesan awal Over 4.5 sekitar 72%."
+    b) "risks"       : DUA alasan konkret, dan WAJIB SATU KE MASING-MASING ARAH:
+                       - satu alasan kenapa angkanya bisa KETINGGIAN
+                       - satu alasan kenapa angkanya bisa KERENDAHAN
+                       Aturan dua arah ini bukan formalitas. Kalau kamu hanya mencari
+                       alasan untuk ragu, di pasaran total (corner/gol) alasan itu
+                       hampir selalu mengarah ke Under — tempo lambat, tim bertahan,
+                       laga piala. Hasilnya kamu menebak Under terus dan salah terus.
+                       Alasan ke arah atas selalu ada juga: tim tertinggal akan
+                       menyerang, laga terbuka, sayap aktif, set piece, kiper buang
+                       bola, tekanan tinggi bikin banyak corner beruntun.
+                       Yang buruk: "sepak bola tidak bisa diprediksi".
+    c) "risk_side"   : kedua risiko itu mendorong ke sisi mana? Tulis nama sisinya
+                       ("Under 4.5", "tuan rumah", dst) atau "tidak jelas" kalau
+                       saling meniadakan.
+    d) "adjustment"  : angka akhirmu setelah digeser, dan berapa poin geserannya.
+                       Contoh: "Dua risiko sama-sama menekan tempo awal, jadi 72%
+                       digeser 14 poin ke 58% — Over 4.5 tidak lagi layak dipasang."
+
+    ATURAN KERAS, tidak boleh dilanggar:
+    - Timbang kedua arah, lalu putuskan mana yang lebih berat. Kalau yang satu jelas
+      lebih berat, angka di "first_read" WAJIB bergeser minimal 8 poin ke arah itu.
+      Kalau keduanya seimbang, tulis "tidak jelas" di "risk_side", biarkan angkanya,
+      dan turunkan keyakinanmu.
+    - Menulis risiko lalu memakai angka semula tanpa penjelasan adalah kesalahan
+      terbesar yang bisa kamu buat di sini.
+    - Kalau setelah digeser angkanya turun di bawah 55%, JANGAN merekomendasikan
+      sisi itu. Rekomendasikan sisi lawannya, atau katakan tidak ada yang layak.
+    - Angka di "markets" dan "pick_prob" harus angka SETELAH digeser, bukan sebelum.
+
+13. HAL DI LUAR TABEL YANG BOLEH KAMU PIKIRKAN. Ini penalaran, bukan data, jadi
+    boleh dipakai selama kamu tidak mengarang angka:
+    - Jenis kompetisi: laga piala sistem gugur cenderung lebih hati-hati di awal
+      daripada laga liga; laga penentuan gelar atau degradasi lebih tegang.
+    - Jurang kekuatan: kalau dari gambar terlihat satu tim jauh lebih kuat (posisi
+      klasemen, selisih gol), laga cenderung berat sebelah — tim kuat menguasai bola
+      dan mendapat lebih banyak corner, tim lemah bertahan dalam.
+    - Kandang atau tandang: tim tuan rumah biasanya lebih menyerang di awal.
+    - Kalau lawan yang membentuk rata-rata itu jauh lebih lemah daripada lawan hari
+      ini, rata-rata itu terlalu bagus dan harus ditarik turun.
+
+15. TUTUP DENGAN KEPUTUSAN, BUKAN DENGAN PERTIMBANGAN. Setelah semua di atas,
+    jangan biarkan pembaca menebak sendiri kesimpulannya. Isi tiga field terakhir:
+
+    - "action" : tulis PERSIS salah satu dari tiga kata ini —
+        "pasang"     : ada satu sisi yang layak dipasang sekarang.
+        "lewatkan"   : datanya cukup, tapi tidak ada sisi yang layak. Ini jawaban
+                       yang sah dan sering benar. Jangan memaksakan taruhan.
+        "butuh data" : ada data yang, kalau ada, kemungkinan besar mengubah arah
+                       jawabanmu. Pakai ini HANYA kalau data itu memang menentukan.
+    - "need_more" : kalau "butuh data", sebutkan DATA APA PERSISNYA yang kamu
+                    butuhkan, sekonkret mungkin, supaya pengguna bisa mencarinya di
+                    aplikasi statistiknya. Contoh bagus: "rata-rata corner babak 1
+                    León khusus laga tandang", "susunan pemain kedua tim". Contoh
+                    buruk: "data lebih lengkap". Kalau datanya sudah cukup, biarkan
+                    kosong.
+    - "verdict" : SATU sampai DUA kalimat, bahasa sehari-hari, yang langsung
+                  menjawab "jadi pasang apa?". Sebutkan sisinya, persentasenya, dan
+                  kalau lewatkan katakan kenapa. Jangan mengulang pertimbangan yang
+                  sudah kamu tulis di atas — ini kesimpulan, bukan ringkasan.
+                  Contoh: "Pasang Under 4.5 di 62%. Tempo awal laga gugur dan León
+                  yang bertahan dalam membuat Over terlalu mahal untuk harga
+                  segitu." Atau: "Lewatkan. Setelah digeser tidak ada sisi yang
+                  sampai 55%, jadi tidak ada yang layak dipasang di laga ini."
+
+16. TAPI JANGAN MENGARANG ANGKA DARI INGATAN. Kamu boleh menalar "ini laga piala
+    jadi awalnya cenderung hati-hati". Kamu TIDAK boleh menulis peringkat FIFA,
+    rekor pertemuan, skor sejarah, atau posisi klasemen dari ingatanmu — pengetahuan
+    sepak bolamu sudah kedaluwarsa dan liga kecil paling sering kamu salah ingat.
+    Angka hanya boleh datang dari gambar. Kalau sebuah pertimbangan datang dari
+    penalaran umum dan bukan dari gambar, katakan begitu di "risks" atau
+    "adjustment" — jangan diselipkan ke "stats_seen" seolah-olah terbaca di sana.
+
+11. PATOKAN NORMAL. Sebelum menyimpang jauh dari angka wajar ini, pastikan alasanmu
+    kuat dan ada di gambar, lalu tulis alasannya di "why":
+    - Over 1.5 gol +-75%, Over 2.5 gol +-50%, BTTS +-52%
+    - Tuan rumah menang +-45%, seri +-26%
+    - Total corner satu laga penuh Over 8.5 +-60%, Over 9.5 +-50%
+    Angka di atas 90% atau di bawah 10% hampir selalu tanda terlalu percaya pada
+    rentetan pendek. Periksa ulang sebelum menulisnya.
+
+11b. CORNER BABAK PERTAMA — BACA INI SEBELUM MEMILIH UNDER. Patokan lamaku di sini
+    SALAH dan sudah terbukti salah dari catatan nyata: dulu tertulis Over 4.5
+    sekitar 45%, seolah Under yang unggul. Kenyataannya tidak.
+    - Rata-rata corner satu laga penuh di sebagian besar liga sekitar 10 sampai 11.
+      Babak pertama kira-kira 45% dari itu, jadi sekitar 4,5 sampai 5,0 corner.
+    - Artinya "Over 4.5 corner babak 1" itu LEMPARAN KOIN, sekitar 50%, bukan taruhan
+      Under yang nyaman. Under 4.5 hanya unggul kalau kedua tim benar-benar rendah
+      (perkiraan gabungan di bawah 4,0) dan itu jarang.
+    - "Under 5.5" perlu 5 corner atau kurang. Dengan rata-rata 4,7 dan sebaran corner
+      yang lebar, itu cuma sekitar 55-60% — bukan 75%.
+    - Hitung dulu perkiraan gabungan babak pertama secara eksplisit sebelum memilih
+      sisi. Kalau perkiraanmu 5,0 atau lebih, JANGAN memilih Under 4.5.
+    - Corner datang bergerombol: satu serangan bisa menghasilkan tiga corner
+      beruntun. Sebaran yang lebar ini membuat Under lebih sering meleset daripada
+      yang diperkirakan orang.
+    - Tabel ini dihitung dari sebaran yang dipakai aplikasi. Pakai sebagai patokan:
+        perkiraan gabungan 1H   Over 4.5   Over 5.5
+              4,0                 37%        23%
+              4,5                 46%        31%
+              4,7                 49%        34%
+              5,0                 54%        38%
+              5,5                 61%        46%
+              6,0                 68%        53%
+      Kalau angkamu jauh dari tabel ini untuk perkiraan yang sama, kamu salah hitung.
+
+12. DI "confidence_why", sebutkan satu hal yang kalau kamu tahu paling mungkin
+    mengubah jawabanmu. Itu menunjukkan kamu tahu batas pengetahuanmu sendiri.
+        """.trimIndent()
+    }
+}
