@@ -96,11 +96,18 @@ class Analyst(private val apiKey: String) {
         slips: List<SavedSlip> = emptyList(),
         previous: MatchPrediction? = null,
         appetite: Appetite = Appetite.SAFE,
+        stats: String = "",
     ): MatchPrediction = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
-        if (images.isEmpty()) throw AnalystException("Belum ada gambar.")
+        if (images.isEmpty() && stats.isBlank()) {
+            throw AnalystException("Belum ada gambar atau statistik.")
+        }
 
         val parts = JSONArray()
+        // Fetched statistics go in first, as text. They cost about a thousand tokens
+        // where the same numbers as a screenshot cost thirty, and they cannot be
+        // misread — but they are incomplete, so the images still follow.
+        if (stats.isNotBlank()) parts.put(JSONObject().put("text", stats))
         // A long capture arrives as several full-resolution bands rather than one
         // image too big to decode; see Images.forUpload.
         for (bytes in images.flatMap { Images.forUpload(it) }) {

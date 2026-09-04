@@ -6,6 +6,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.Appetite
+import com.skorsnap.app.data.Football
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Lens
@@ -29,6 +30,7 @@ sealed interface Screen {
     data object Slip : Screen
     data object History : Screen
     data class AddMore(val id: String) : Screen
+    data object Browse : Screen
     data object Report : Screen
     data object Settings : Screen
 }
@@ -74,6 +76,106 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         store.appetite = value
         _appetite.value = value
     }
+
+    /** Fixtures fetched for a date, so a match can be picked instead of photographed. */
+    private val _fixtures = MutableStateFlow<List<Football.Fixture>>(emptyList())
+    val fixtures: StateFlow<List<Football.Fixture>> = _fixtures.asStateFlow()
+
+    private val _fixturesBusy = MutableStateFlow(false)
+    val fixturesBusy: StateFlow<Boolean> = _fixturesBusy.asStateFlow()
+
+    /** Bookmaker prices fetched with a fixture, kept as a reference per match. */
+    private val _fetchedOdds = MutableStateFlow<Map<String, Map<String, Double>>>(emptyMap())
+    val fetchedOdds: StateFlow<Map<String, Map<String, Double>>> = _fetchedOdds.asStateFlow()
+
+    private val _footballReport = MutableStateFlow<String?>(null)
+    val footballReport: StateFlow<String?> = _footballReport.asStateFlow()
+
+    fun saveAndCheckFootballKey(key: String) {
+        store.footballKey = key
+        if (key.isBlank()) {
+            _footballReport.value = "Kunci dikosongkan."
+            return
+        }
+        viewModelScope.launch {
+            _fixturesBusy.value = true
+            _footballReport.value = try {
+                Football(store.footballKey).probe(today())
+            } catch (e: Exception) {
+                "Gagal: ${e.message}"
+            }
+            _fixturesBusy.value = false
+        }
+    }
+
+    fun loadFixtures(date: String) {
+        if (_fixturesBusy.value) return
+        viewModelScope.launch {
+            _fixturesBusy.value = true
+            _footballReport.value = null
+            try {
+                val found = Football(store.footballKey).fixtures(date)
+                _fixtures.value = found
+                if (found.isEmpty()) {
+                    _footballReport.value = "Tidak ada pertandingan pada $date."
+                }
+            } catch (e: Exception) {
+                _footballReport.value = "Gagal: ${e.message}"
+            }
+            _fixturesBusy.value = false
+        }
+    }
+
+    /**
+     * Analyses a fixture from fetched statistics, plus any staged screenshots.
+     *
+     * The screenshots stay optional and stay useful: the free feed carries no corner
+     * data at all, which is the one thing this user's strategy runs on. Fetching what
+     * is available and photographing only what is not is the whole point of the
+     * arrangement.
+     */
+    fun analyseFixture(fixture: Football.Fixture, note: String) {
+        if (_busy.value) return
+        viewModelScope.launch {
+            _busy.value = true
+            _message.value = null
+            try {
+                val football = Football(store.footballKey)
+                val stats = football.statsBrief(fixture)
+                val analyst = Analyst(store.apiKey)
+                val result = analyst.analyse(
+                    _staged.value, note, store.model, _mode.value,
+                    _matches.value, _slips.value, null, _appetite.value, stats,
+                ).copy(
+                    model = store.model,
+                    home = fixture.home,
+                    away = fixture.away,
+                    league = fixture.where,
+                )
+                _lastUsage.value = analyst.lastUsage
+                val updated = _matches.value + result
+                _matches.value = updated
+                store.save(updated)
+                _staged.value = emptyList()
+                _screen.value = Screen.Detail(result.id)
+                // Shown as a reference rather than written into the legs. The feed
+                // names markets its own way ("Match Winner: Home"), and quietly
+                // matching those to the app's names would put a price on the wrong
+                // bet — the one error here that costs money silently.
+                runCatching { football.odds(fixture.id) }.getOrNull()?.let { prices ->
+                    if (prices.isNotEmpty()) {
+                        _fetchedOdds.value = _fetchedOdds.value + (result.id to prices)
+                    }
+                }
+            } catch (e: Exception) {
+                _message.value = "Gagal: ${e.message}"
+            }
+            _busy.value = false
+        }
+    }
+
+    private fun today(): String =
+        java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
 
     /** How the parlay screen takes one market from each selected match. */
     private val _strategy = MutableStateFlow(Strategy.RECOMMENDED)

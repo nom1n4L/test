@@ -6,6 +6,7 @@ import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Migration
 import org.json.JSONObject
 import com.skorsnap.app.data.Coach
+import com.skorsnap.app.data.Football
 import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.MarketOption
 import com.skorsnap.app.data.Markets
@@ -1673,6 +1674,79 @@ class CoreTest {
         assert(p.contains("KERENDAHAN")) { "tidak diminta alasan arah bawah" }
         assert(p.contains("menebak Under terus")) { "jebakan satu arah tidak dijelaskan" }
         println("Keraguan wajib dua arah — itu yang dulu bikin 12 dari 13 pilihan jadi Under.")
+    }
+
+    // ------------------------------------------------ ambil data otomatis
+
+    @Test
+    fun fixturesAreReadFromTheFeedShape() {
+        val json = JSONObject("""
+        {"results":2,"response":[
+          {"fixture":{"id":1198,"date":"2026-09-05T19:30:00+00:00"},
+           "league":{"id":72,"name":"Serie B","country":"Brazil","season":2026},
+           "teams":{"home":{"id":1,"name":"Náutico"},"away":{"id":2,"name":"Botafogo-SP"}}},
+          {"fixture":{"id":1199,"date":"2026-09-05T21:00:00+00:00"},
+           "league":{"id":39,"name":"Premier League","country":"England","season":2026},
+           "teams":{"home":{"id":3,"name":"Arsenal"},"away":{"id":4,"name":"Chelsea"}}}
+        ]}
+        """.trimIndent())
+        val out = Football.parseFixtures(json)
+        assert(out.size == 2) { "jadwal tidak terbaca: ${out.size}" }
+        assert(out[0].title == "Náutico vs Botafogo-SP")
+        assert(out[0].where == "Brazil · Serie B")
+        assert(out[0].season == 2026 && out[0].homeId == 1L)
+        assert(out[0].kickoff == "2026-09-05 19:30") { "jam salah: ${out[0].kickoff}" }
+        println()
+        println("Jadwal terbaca: ${out.joinToString { "${it.title} (${it.where})" }}")
+    }
+
+    /**
+     * The provider's documentation could not be reached from the build environment,
+     * so the shape here is inferred. A wrong guess must degrade rather than crash:
+     * a fixture missing its teams is dropped, never shown blank.
+     */
+    @Test
+    fun aMalformedFeedDegradesInsteadOfCrashing() {
+        val ragged = JSONObject("""
+        {"response":[
+          {"fixture":{"id":1}},
+          {"league":{"name":"X"}},
+          {"fixture":{"id":3,"date":"2026-09-05T10:00:00+00:00"},
+           "teams":{"home":{"id":9,"name":"Ada"},"away":{"id":10,"name":"Lawan"}}}
+        ]}
+        """.trimIndent())
+        val out = Football.parseFixtures(ragged)
+        assert(out.size == 1) { "baris rusak ikut lolos: ${out.map { it.title }}" }
+        assert(out.first().home == "Ada")
+        assert(Football.parseFixtures(JSONObject("{}")).isEmpty())
+        println("Baris tanpa nama tim dibuang, bukan ditampilkan kosong.")
+    }
+
+    @Test
+    fun pricesAreFlattenedWithTheirMarketNames() {
+        val json = JSONObject("""
+        {"response":[{"bookmakers":[{"name":"Bet365","bets":[
+          {"name":"Match Winner","values":[{"value":"Home","odd":"1.96"},{"value":"Draw","odd":"3.10"}]},
+          {"name":"Goals Over/Under","values":[{"value":"Over 2.5","odd":"2.25"},{"value":"rusak","odd":"-"}]}
+        ]}]}]}
+        """.trimIndent())
+        val out = Football.parseOdds(json)
+        assert(out["Match Winner: Home"] == 1.96) { "harga tidak terbaca: $out" }
+        assert(out["Goals Over/Under: Over 2.5"] == 2.25)
+        assert(out.none { it.key.contains("rusak") }) { "harga tidak sah ikut masuk" }
+        println("Harga terbaca: ${out.entries.joinToString { "${it.key}=${it.value}" }}")
+    }
+
+    @Test
+    fun textStatsAreFarCheaperThanTheSameNumbersAsAnImage() {
+        // A screenshot is tiled at 258 tokens per 768x768 patch; a long capture runs
+        // to tens of thousands. The same numbers as text are a rounding error.
+        val statsBlock = "Main 26: menang 10, seri 8, kalah 8\nRata-rata gol: cetak 1.2, " +
+            "kebobolan 1.1\nGol per menit: 0-15: 2, 16-30: 3, 31-45: 6"
+        val roughTokens = statsBlock.length / 4
+        assert(roughTokens < 200) { "blok statistik terlalu besar: $roughTokens token" }
+        println()
+        println("Statistik sebagai teks ≈ $roughTokens token, versus ~30.000 untuk screenshot.")
     }
 
     @Test

@@ -72,6 +72,7 @@ import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.priceLabel
 import com.skorsnap.app.data.twoDecimals
 import com.skorsnap.app.data.Appetite
+import com.skorsnap.app.data.Football
 
 @Composable
 fun Card(
@@ -116,6 +117,7 @@ fun HomeScreen(
     onSlip: () -> Unit,
     onReport: () -> Unit,
     onHistory: () -> Unit,
+    onBrowse: () -> Unit,
     onSettings: () -> Unit,
 ) {
     // Played matches move to their own screen: the list is for deciding what to
@@ -154,6 +156,25 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("+  Tambah Pertandingan", style = MaterialTheme.typography.titleMedium)
+            }
+            Spacer(Modifier.height(8.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable(enabled = hasKey, onClick = onBrowse),
+            ) {
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Cari pertandingan otomatis", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            "Ambil jadwal dan statistik sendiri — tanpa screenshot, jauh " +
+                                "lebih hemat token.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text("→", style = MaterialTheme.typography.titleMedium, color = Sky)
+                }
             }
         }
 
@@ -541,6 +562,7 @@ fun DetailScreen(
     onAddMore: () -> Unit,
     onDelete: () -> Unit,
     appetite: Appetite = Appetite.SAFE,
+    prices: Map<String, Double> = emptyMap(),
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -651,6 +673,33 @@ fun DetailScreen(
 
         if (match.risks.isNotEmpty() || match.adjustment.isNotBlank()) {
             item { ReasoningCard(match) }
+        }
+
+        if (prices.isNotEmpty()) {
+            item {
+                Card(
+                    title = "Harga Bandar (${prices.size})",
+                    subtitle = "Diambil bersama statistiknya. Ditampilkan apa adanya — " +
+                        "nama market di sini beda dengan nama di aplikasi, jadi tidak " +
+                        "kupasangkan otomatis supaya harga tidak nyangkut di taruhan yang salah.",
+                ) {
+                    prices.entries.take(24).forEach { (name, price) ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                            Text(
+                                name,
+                                Modifier.weight(1f),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                twoDecimals(price),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         item { StatsReadCard(match) }
@@ -1264,6 +1313,262 @@ private fun Step(label: String, body: String, colour: Color) {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+/** Picker button plus the thumbnails, shared by the two screens that stage images. */
+@Composable
+private fun ImageStrip(staged: List<ByteArray>, onPick: () -> Unit, onRemove: (Int) -> Unit) {
+    Button(
+        onClick = onPick,
+        colors = ButtonDefaults.buttonColors(containerColor = Sky),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            if (staged.isEmpty()) "Tambah screenshot (opsional)" else "Tambah gambar lagi",
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
+    if (staged.isEmpty()) return
+    Spacer(Modifier.height(8.dp))
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        staged.forEachIndexed { index, bytes ->
+            Box {
+                val bitmap = remember(bytes) { Images.preview(bytes)?.asImageBitmap() }
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = null,
+                        modifier = Modifier.size(72.dp, 112.dp).clip(RoundedCornerShape(10.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Box(
+                        Modifier.size(72.dp, 112.dp).clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                    )
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.background.copy(alpha = 0.75f),
+                    shape = RoundedCornerShape(topStart = 10.dp, bottomEnd = 10.dp),
+                    modifier = Modifier.align(Alignment.TopStart).clickable { onRemove(index) },
+                ) {
+                    Text(
+                        "✕",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Rose,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Fixtures for a date, so a match can be chosen instead of photographed.
+ *
+ * Choosing here fetches both teams' season statistics as text. That is roughly a
+ * thousand tokens where the same numbers as a screenshot are thirty thousand, and
+ * a number read from a field cannot be misread the way one read from an image can.
+ *
+ * Screenshots stay available on the same screen, because the free feed carries no
+ * corner statistics at all — the one thing this user's strategy runs on.
+ */
+@Composable
+fun BrowseScreen(
+    fixtures: List<Football.Fixture>,
+    busy: Boolean,
+    report: String?,
+    staged: List<ByteArray>,
+    hasKey: Boolean,
+    onLoad: (String) -> Unit,
+    onPick: () -> Unit,
+    onRemove: (Int) -> Unit,
+    onAnalyse: (Football.Fixture, String) -> Unit,
+    onSettings: () -> Unit,
+) {
+    var chosen by remember { mutableStateOf<Football.Fixture?>(null) }
+    var note by rememberSaveable { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
+    val dates = remember {
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val cal = java.util.Calendar.getInstance()
+        (0..3).map {
+            val d = fmt.format(cal.time)
+            cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            d
+        }
+    }
+    var date by rememberSaveable { mutableStateOf(dates.first()) }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (!hasKey) {
+            item {
+                Card(title = "Pasang Kunci API-Football") {
+                    Text(
+                        "Daftar gratis di dashboard.api-football.com — 100 permintaan per " +
+                            "hari, cukup untuk sekitar 25 laga. Tempel kuncinya di " +
+                            "Pengaturan, lalu kembali ke sini.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = onSettings,
+                        colors = ButtonDefaults.buttonColors(containerColor = Sky),
+                    ) { Text("Buka Pengaturan") }
+                }
+            }
+            return@LazyColumn
+        }
+
+        item {
+            Card(title = "Tanggal") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    dates.forEach { d ->
+                        val on = d == date
+                        Surface(
+                            color = if (on) Sky.copy(alpha = 0.20f)
+                            else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.weight(1f).clickable {
+                                date = d
+                                onLoad(d)
+                            },
+                        ) {
+                            Text(
+                                d.takeLast(5),
+                                modifier = Modifier.padding(vertical = 10.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center,
+                                color = if (on) Sky else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = { onLoad(date) },
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        if (busy) "Mengambil…" else "Muat pertandingan",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                if (report != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        report,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (report.startsWith("Gagal")) Rose else Green,
+                    )
+                }
+            }
+        }
+
+        if (fixtures.isEmpty()) return@LazyColumn
+
+        item {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text("Cari tim atau liga") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodySmall,
+            )
+        }
+
+        val shown = fixtures.filter {
+            query.isBlank() || "${it.title} ${it.where}".contains(query, ignoreCase = true)
+        }
+
+        item {
+            Text(
+                "${shown.size} pertandingan. Pilih satu, lalu tekan Analisis.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        items(shown, key = { it.id }) { fx ->
+            val on = chosen?.id == fx.id
+            Surface(
+                color = if (on) Sky.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable { chosen = if (on) null else fx },
+            ) {
+                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            fx.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                        )
+                        Text(
+                            fx.where,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        fx.kickoff.takeLast(5),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        chosen?.let { fx ->
+            item {
+                Card(
+                    title = "Analisis ${fx.title}",
+                    subtitle = "Statistik liga diambil otomatis. Tambahkan screenshot " +
+                        "kalau butuh data corner — sumber ini tidak punya itu.",
+                ) {
+                    ImageStrip(staged, onPick, onRemove)
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("Catatan tambahan (opsional)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = MaterialTheme.typography.bodySmall,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = { onAnalyse(fx, note) },
+                        enabled = !busy,
+                        colors = ButtonDefaults.buttonColors(containerColor = Green),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (busy) "Menganalisis…" else "Analisis pertandingan ini",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Memakai 3 permintaan dari jatah harianmu: statistik dua tim dan " +
+                            "harga bandar.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** A compact tembus/meleset chip for a row inside a list. */
@@ -1976,6 +2281,8 @@ fun SettingsScreen(vm: AppViewModel) {
     val report by vm.modelReport.collectAsStateWithLifecycle()
     val usage by vm.lastUsage.collectAsStateWithLifecycle()
     val appetite by vm.appetite.collectAsStateWithLifecycle()
+    val fixturesBusy by vm.fixturesBusy.collectAsStateWithLifecycle()
+    val footballReport by vm.footballReport.collectAsStateWithLifecycle()
     var model by remember(available) { mutableStateOf(vm.store.model) }
 
     Column(
@@ -2139,7 +2446,50 @@ fun SettingsScreen(vm: AppViewModel) {
         }
 
         Card(
-            title = "3. Selera Risiko",
+            title = "3. Kunci API-Football (opsional)",
+            subtitle = "Untuk mengambil jadwal dan statistik sendiri. Gratis 100 " +
+                "permintaan/hari di dashboard.api-football.com.",
+        ) {
+            var key by rememberSaveable { mutableStateOf(vm.store.footballKey) }
+            OutlinedTextField(
+                value = key,
+                onValueChange = { key = it.trim() },
+                label = { Text("Kunci API-Football") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                textStyle = MaterialTheme.typography.bodySmall,
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = { vm.saveAndCheckFootballKey(key) },
+                enabled = !fixturesBusy,
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    if (fixturesBusy) "Mengecek…" else "Simpan & Cek Kunci",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            footballReport?.let {
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (it.startsWith("Gagal")) Rose else Green,
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Sumber ini TIDAK punya statistik sepak pojok sama sekali. Untuk analisis " +
+                    "corner, screenshot FootyStats-mu tetap lebih lengkap — pakai keduanya.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Amber,
+            )
+        }
+
+        Card(
+            title = "4. Selera Risiko",
             subtitle = "Seberapa rendah peluang yang boleh direkomendasikan. " +
                 "Ini tidak mengubah angkanya — cuma market mana yang dipilih.",
         ) {

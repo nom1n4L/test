@@ -51,6 +51,10 @@ fun App(vm: AppViewModel) {
     val chosen by vm.chosen.collectAsStateWithLifecycle()
     val slips by vm.slips.collectAsStateWithLifecycle()
     val appetite by vm.appetite.collectAsStateWithLifecycle()
+    val fixtures by vm.fixtures.collectAsStateWithLifecycle()
+    val fixturesBusy by vm.fixturesBusy.collectAsStateWithLifecycle()
+    val footballReport by vm.footballReport.collectAsStateWithLifecycle()
+    val fetchedOdds by vm.fetchedOdds.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
@@ -87,6 +91,7 @@ fun App(vm: AppViewModel) {
                     onSlip = { vm.go(Screen.Slip) },
                     onReport = { vm.go(Screen.Report) },
                     onHistory = { vm.go(Screen.History) },
+                    onBrowse = { vm.go(Screen.Browse) },
                     onSettings = { vm.go(Screen.Settings) },
                 )
                 is Screen.Add -> AddScreen(
@@ -144,6 +149,7 @@ fun App(vm: AppViewModel) {
                             onAddMore = { vm.go(Screen.AddMore(s.id)) },
                             onDelete = { vm.remove(s.id) },
                             appetite = appetite,
+                            prices = fetchedOdds[s.id].orEmpty(),
                         )
                     }
                 }
@@ -164,6 +170,22 @@ fun App(vm: AppViewModel) {
                 // the view model. vm.report() read the flow's value directly, which
                 // Compose does not watch, so recording a result while this screen
                 // was open left the numbers on the previous total.
+                is Screen.Browse -> BrowseScreen(
+                    fixtures = fixtures,
+                    busy = fixturesBusy || busy,
+                    report = footballReport,
+                    staged = staged,
+                    hasKey = vm.store.hasFootballKey,
+                    onLoad = vm::loadFixtures,
+                    onPick = {
+                        picker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    onRemove = vm::removeStaged,
+                    onAnalyse = { fx, note -> vm.analyseFixture(fx, note) },
+                    onSettings = { vm.go(Screen.Settings) },
+                )
                 is Screen.History -> HistoryScreen(
                     matches = matches,
                     onOpen = { vm.go(Screen.Detail(it)) },
@@ -207,6 +229,7 @@ private fun TopBar(screen: Screen, vm: AppViewModel) {
                         is Screen.AddMore -> "Tambah Data"
                         is Screen.Detail -> "Analisa"
                         is Screen.Slip -> "Parlay"
+                        is Screen.Browse -> "Cari Pertandingan"
                         is Screen.History -> "Riwayat"
                         is Screen.Report -> "Rapor"
                         is Screen.Settings -> "Pengaturan"

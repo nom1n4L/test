@@ -24,6 +24,12 @@ class Store(context: Context) {
             .ifBlank { Analyst.DEFAULT_MODEL }
         set(v) = prefs.edit().putString("model", v).apply()
 
+    var footballKey: String
+        get() = prefs.getString("football_key", "").orEmpty()
+        set(v) = prefs.edit().putString("football_key", v.trim()).apply()
+
+    val hasFootballKey: Boolean get() = footballKey.isNotBlank()
+
     var appetite: Appetite
         get() = runCatching { Appetite.valueOf(prefs.getString("appetite", "").orEmpty()) }
             .getOrDefault(Appetite.SAFE)
