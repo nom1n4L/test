@@ -35129,11 +35129,13 @@ kotlin.text.MatchResult$Destructured
 kotlin.text.MatchResult:
     public abstract kotlin.text.MatchResult$Destructured getDestructured()
     public abstract kotlin.text.MatchGroupCollection getGroups()
+    public abstract java.lang.String getValue()
 kotlin.text.MatcherMatchResult$groups$1:
     public kotlin.text.MatchGroup get(java.lang.String)
 kotlin.text.MatcherMatchResult:
     public kotlin.text.MatchResult$Destructured getDestructured()
     public kotlin.text.MatchGroupCollection getGroups()
+    public java.lang.String getValue()
 kotlin.text.Regex$Companion:
     public static final synthetic int access$ensureUnicodeCase(kotlin.text.Regex$Companion,int)
     private final int ensureUnicodeCase(int)
@@ -35151,7 +35153,6 @@ kotlin.text.Regex:
     public void <init>(java.lang.String,java.util.Set)
     public void <init>(java.lang.String,kotlin.text.RegexOption)
     public static final synthetic java.util.regex.Pattern access$getNativePattern$p(kotlin.text.Regex)
-    public final boolean containsMatchIn(java.lang.CharSequence)
     public final kotlin.sequences.Sequence findAll(java.lang.CharSequence,int)
     public static synthetic kotlin.sequences.Sequence findAll$default(kotlin.text.Regex,java.lang.CharSequence,int,int,java.lang.Object)
     public final java.util.Set getOptions()
@@ -35381,7 +35382,9 @@ kotlin.text.StringsKt__StringsKt:
     private static final boolean contains(java.lang.CharSequence,kotlin.text.Regex)
     public static final boolean contentEqualsIgnoreCaseImpl(java.lang.CharSequence,java.lang.CharSequence)
     public static final boolean endsWith(java.lang.CharSequence,char,boolean)
+    public static final boolean endsWith(java.lang.CharSequence,java.lang.CharSequence,boolean)
     public static synthetic boolean endsWith$default(java.lang.CharSequence,char,boolean,int,java.lang.Object)
+    public static synthetic boolean endsWith$default(java.lang.CharSequence,java.lang.CharSequence,boolean,int,java.lang.Object)
     public static final kotlin.Pair findAnyOf(java.lang.CharSequence,java.util.Collection,int,boolean)
     public static synthetic kotlin.Pair findAnyOf$default(java.lang.CharSequence,java.util.Collection,int,boolean,int,java.lang.Object)
     public static final kotlin.Pair findLastAnyOf(java.lang.CharSequence,java.util.Collection,int,boolean)
@@ -35418,6 +35421,7 @@ kotlin.text.StringsKt__StringsKt:
     private static final java.lang.String removeRange(java.lang.String,int,int)
     private static final java.lang.String removeRange(java.lang.String,kotlin.ranges.IntRange)
     public static final java.lang.CharSequence removeSuffix(java.lang.CharSequence,java.lang.CharSequence)
+    public static final java.lang.String removeSuffix(java.lang.String,java.lang.CharSequence)
     public static final java.lang.CharSequence removeSurrounding(java.lang.CharSequence,java.lang.CharSequence)
     public static final java.lang.CharSequence removeSurrounding(java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence)
     public static final java.lang.String removeSurrounding(java.lang.String,java.lang.CharSequence)
@@ -35485,7 +35489,6 @@ kotlin.text.StringsKt__StringsKt:
     public static final varargs java.lang.CharSequence trimStart(java.lang.CharSequence,char[])
     private static final java.lang.String trimStart(java.lang.String)
     public static final java.lang.String trimStart(java.lang.String,kotlin.jvm.functions.Function1)
-    public static final varargs java.lang.String trimStart(java.lang.String,char[])
 kotlin.text.StringsKt___StringsJvmKt:
     public void <init>()
     private static final char elementAt(java.lang.CharSequence,int)
@@ -52093,8 +52096,11 @@ com.skorsnap.app.data.Odds$Matched:
 com.skorsnap.app.data.Odds:
     public static final int $stable
     public static final com.skorsnap.app.data.Odds INSTANCE
+    public static java.lang.String clean()
     public static java.lang.String describe()
+    public static com.skorsnap.app.data.Odds$Entry entry()
     public static java.util.List parse()
+    public static java.util.List segments()
 com.skorsnap.app.data.Outcome:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
 com.skorsnap.app.data.Parlay$WhenMappings
@@ -52913,7 +52919,6 @@ kotlin.collections.ArrayDeque:
     public static void removeRangeShiftPreceding()
     public static void removeRangeShiftSucceeding()
 kotlin.collections.ArraysKt:
-    public static boolean contains(char[],char)
     public static java.lang.Object first(java.lang.Object[])
     public static kotlin.ranges.IntRange getIndices(int[])
     public static int getLastIndex(java.lang.Object[])
@@ -53182,7 +53187,6 @@ kotlin.sequences.SequencesKt__SequencesKt$generateSequence$1:
 kotlin.sequences.SequencesKt__SequencesKt:
     public static kotlin.sequences.Sequence asSequence(java.util.Iterator)
     public static final kotlin.sequences.Sequence constrainOnce(kotlin.sequences.Sequence)
-kotlin.sequences.SequencesKt___SequencesKt$asIterable$$inlined$Iterable$1
 kotlin.sequences.SequencesKt___SequencesKt$filterNotNull$1:
     public final java.lang.Boolean invoke$8()
 kotlin.sequences.SequencesKt___SequencesKt
@@ -53208,14 +53212,13 @@ kotlin.text.MatcherMatchResult$groups$1$iterator$1
 kotlin.text.MatcherMatchResult$groups$1
 kotlin.text.MatcherMatchResult:
     public final kotlin.text.MatcherMatchResult$groups$1 groups
-    public final java.util.List getGroupValues()
     public static java.util.regex.MatchResult getMatchResult()
-    public static java.lang.String getValue()
     public static kotlin.text.MatcherMatchResult next()
 kotlin.text.Regex$Companion
 kotlin.text.Regex:
     public static final kotlin.text.Regex$Companion Companion
     static void <clinit>()
+    public static boolean containsMatchIn()
     public static kotlin.text.MatcherMatchResult find()
     public static boolean matches()
     public static java.lang.String replace()
@@ -53228,9 +53231,8 @@ kotlin.text.StringsKt:
 kotlin.text.StringsKt__IndentKt$getIndentFunction$1
 kotlin.text.StringsKt__IndentKt$getIndentFunction$2
 kotlin.text.StringsKt__StringNumberConversionsKt
-kotlin.text.StringsKt__StringsJVMKt:
-    public static boolean endsWith$default(java.lang.String,java.lang.String)
-kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$1
+kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$1:
+    public final kotlin.Pair invoke()
 kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$2:
     public final kotlin.Pair invoke()
 kotlin.text.StringsKt__StringsKt$splitToSequence$1:
@@ -53239,7 +53241,7 @@ kotlin.text.StringsKt__StringsKt:
     public static boolean contains$default(java.lang.CharSequence)
     public static synthetic boolean contains$default(java.lang.CharSequence,java.lang.String)
     public static synthetic int indexOf$StringsKt__StringsKt$default(java.lang.CharSequence,java.lang.String,int,int,boolean)
-    public static final void requireNonNegativeLimit(int)
+    public static final java.lang.String substring(java.lang.String,kotlin.ranges.IntRange)
 kotlin.text.StringsKt___StringsKt
 kotlin.time.Duration$Companion
 kotlin.time.Duration

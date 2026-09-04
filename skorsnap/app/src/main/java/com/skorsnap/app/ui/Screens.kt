@@ -67,6 +67,7 @@ import com.skorsnap.app.data.MarketOption
 import kotlin.math.pow
 import com.skorsnap.app.data.Strategy
 import com.skorsnap.app.data.Leg
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.SavedSlip
@@ -2383,7 +2384,9 @@ private fun PriceRow(leg: Leg, odds: Map<String, Double>, onOdds: (Double) -> Un
                     if (leg.edge > 0) {
                         "Melbet bayar lebih tinggi — untung %+d%%".format(leg.edgePercent)
                     } else {
-                        "Melbet bayar di bawah minimal — rugi %d%%".format(leg.edgePercent)
+                        // abs: edgePercent is already negative, and "rugi -13%"
+                        // reads as a profit.
+                        "Melbet bayar di bawah minimal — rugi %d%%".format(abs(leg.edgePercent))
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (leg.edge > 0) Green else Rose,
@@ -2436,9 +2439,12 @@ private fun ValueCard(slip: Slip, onBest: () -> Unit) {
         Spacer(Modifier.height(12.dp))
         if (!slip.priced) {
             Text(
-                "Isi kolom Odds di tiap leg dengan harga dari Melbet, nanti dihitungkan " +
-                    "apakah parlay ini menguntungkan atau tidak. Diketik saja — kirim " +
-                    "screenshot odds ke model itu boros token dan bisa salah baca angka.",
+                "Belum ada harga di parlay ini. Paling gampang: ikutkan screenshot " +
+                    "layar odds Melbet waktu menganalisis — harganya dibaca sendiri, " +
+                    "dipakai untuk menghitung peluang, dan langsung masuk ke sini. " +
+                    "Kalau layar itu tidak ikut terfoto, salin seluruh daftar market " +
+                    "Melbet ke kotak tempel di bawah; format aslinya sudah dimengerti, " +
+                    "termasuk M1 / X / M2 dan baris Over-Under yang jadi satu.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Amber,
             )

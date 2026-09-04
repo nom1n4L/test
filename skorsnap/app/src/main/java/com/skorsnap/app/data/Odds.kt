@@ -4,18 +4,30 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Reads a block of prices pasted or typed from a bookmaker, and works out which
- * of the app's markets each one refers to.
+ * Reads a block of prices copied from a bookmaker, and works out which of the app's
+ * markets each one refers to.
  *
- * Typing prices one field at a time is why the swap feature was useless: with a
- * single price entered there is nothing to swap to. Pasting a whole market list
- * gives the comparison something to compare.
+ * The first version of this was written against a format nobody uses — one market
+ * per line, the app's own wording, the price at the end. Real Melbet text looks
+ * like this:
  *
- * Names never match exactly — a book says "Total Over 2.5" where the app says
- * "Over 2.5", and "1X" where the app says "1X (tuan rumah atau seri)" — so the
- * matching is by tokens rather than by string equality, and anything unmatched is
- * reported rather than dropped. A price silently attached to the wrong market is
- * the one failure here that loses money without showing itself.
+ * ```
+ * * M1 2.05
+ * * X 3.40
+ * * 2X 1.19
+ * * (0.5) Over: 1.016 | (0.5) Under: 12.5
+ * ```
+ *
+ * Three things there broke it, and every one of them threw away a price in silence:
+ * a bullet in front, shorthand names the app has never heard of, and two markets on
+ * one line separated by a pipe. Two lines out of a whole coupon were recognised, and
+ * because the market maths needs complete Over/Under and 1X2 sets to remove the
+ * bookmaker's fee, nothing downstream ran at all.
+ *
+ * So: lines are split into segments, bullets and decoration are stripped, bookmaker
+ * shorthand is translated before matching, and anything still unrecognised is
+ * reported rather than dropped. A price attached to the wrong market is the one
+ * failure here that loses money without showing itself.
  */
 object Odds {
 
@@ -28,29 +40,86 @@ object Odds {
     )
 
     /**
+     * What bookmakers call things, in the app's own words.
+     *
+     * Melbet writes "M1" where the app writes "Tuan rumah menang", and no amount of
+     * word matching bridges that: the two share no letters. The table is the bridge.
+     * Keys are matched against the whole cleaned label, lowercased.
+     */
+    private val ALIASES: Map<String, String> = mapOf(
+        "m1" to "Tuan rumah menang",
+        "1" to "Tuan rumah menang",
+        "w1" to "Tuan rumah menang",
+        "home" to "Tuan rumah menang",
+        "x" to "Seri",
+        "draw" to "Seri",
+        "seri" to "Seri",
+        "m2" to "Tandang menang",
+        "2" to "Tandang menang",
+        "w2" to "Tandang menang",
+        "away" to "Tandang menang",
+        "1x" to "1X (tuan rumah atau seri)",
+        "12" to "12 (tidak seri)",
+        "x2" to "X2 (seri atau tandang)",
+        "2x" to "X2 (seri atau tandang)",
+        "gg" to "Kedua tim cetak gol (BTTS) - Ya",
+        "btts" to "Kedua tim cetak gol (BTTS) - Ya",
+        "btts ya" to "Kedua tim cetak gol (BTTS) - Ya",
+        "both teams to score" to "Kedua tim cetak gol (BTTS) - Ya",
+        "ng" to "Kedua tim cetak gol (BTTS) - Tidak",
+        "btts tidak" to "Kedua tim cetak gol (BTTS) - Tidak",
+    )
+
+    /**
      * Pulls name/price pairs out of free text.
      *
-     * Tolerant on purpose: the text arrives pasted from a betting app, typed by
-     * hand, or somewhere between, with commas or dots for decimals and colons,
-     * dashes or nothing between name and number.
+     * A line can carry more than one market. Melbet prints an Over/Under pair on one
+     * row separated by a pipe, and taking only the last number on such a row loses
+     * the Over price and mislabels the Under — which is worse than losing both,
+     * because the survivor is wrong rather than missing.
      */
-    fun parse(text: String): List<Entry> = text.lines().mapNotNull { raw ->
-        val line = raw.trim().removeSuffix(",").removeSuffix(";")
-        if (line.isBlank()) return@mapNotNull null
-
-        // The price is the last number on the line: a market name can contain
-        // numbers of its own ("Over 2.5", "Handicap -1"), and the price never
-        // comes first.
-        val match = Regex("""(\d+[.,]\d+|\d+)\s*$""").find(line) ?: return@mapNotNull null
-        val price = match.value.replace(',', '.').toDoubleOrNull() ?: return@mapNotNull null
-        // Below evens is not a price a book offers; more likely a stray number.
-        if (price <= 1.0 || price > 1000) return@mapNotNull null
-
-        val label = line.substring(0, match.range.first)
-            .trim().trimEnd(':', '-', '=', '·', '|').trim()
-        if (label.isBlank()) return@mapNotNull null
-        Entry(label, price)
+    fun parse(text: String): List<Entry> = text.lines().flatMap { raw ->
+        segments(raw).mapNotNull { segment -> entry(segment) }
     }
+
+    /**
+     * Splits one line into the markets it mentions.
+     *
+     * Only where the split produces parts that each carry their own price. A market
+     * name can contain a pipe or a slash for other reasons, and splitting those
+     * would turn one readable line into two unreadable ones.
+     */
+    private fun segments(raw: String): List<String> {
+        val line = raw.trim()
+        if (line.isBlank()) return emptyList()
+        val parts = line.split('|', '\t').map { it.trim() }.filter { it.isNotBlank() }
+        return if (parts.size > 1 && parts.count { PRICE.containsMatchIn(it) } == parts.size) parts
+        else listOf(line)
+    }
+
+    /** The price at the end of a segment, and whatever came before it as the name. */
+    private fun entry(segment: String): Entry? {
+        val cleaned = segment.trim().trimEnd(',', ';')
+        val found = PRICE.find(cleaned) ?: return null
+        val price = found.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
+        // Below evens is not a price a book offers; above 1000 is not a price at all.
+        if (price <= 1.0 || price > 1000) return null
+
+        val label = clean(cleaned.substring(0, found.range.first))
+        if (label.isBlank()) return null
+        return Entry(label, price)
+    }
+
+    /** A trailing number, optionally after a colon or equals. */
+    private val PRICE = Regex("""[:=]?\s*(\d+[.,]\d+|\d+)\s*$""")
+
+    /** Strips list bullets and separators that carry no meaning. */
+    private fun clean(label: String): String = label
+        .trim()
+        .trimStart('*', '-', '•', '·', '+', '>')
+        .trim()
+        .trimEnd(':', '-', '=', '·', '|', '.')
+        .trim()
 
     /**
      * Attaches each price to a market of this match.
@@ -59,13 +128,18 @@ object Odds {
      * and where several markets qualify the most specific wins — "Babak 1 Over 2.5"
      * beats "Over 2.5" for a line that mentions the first half, while a bare
      * "over 2.5" matches only the plain one.
+     *
+     * Shorthand is resolved first, and exactly: "1" means the home win, but "1" also
+     * appears inside "Babak 1 Over 2.5", so an alias is only used when it is the
+     * whole label rather than a word within it.
      */
     fun match(entries: List<Entry>, markets: List<MarketOption>): Matched {
         val pairs = LinkedHashMap<String, Double>()
         val missed = ArrayList<Entry>()
 
         entries.forEach { entry ->
-            val words = tokens(entry.label)
+            val expanded = ALIASES[entry.label.lowercase().trim()] ?: entry.label
+            val words = tokens(expanded)
             val candidates = markets.filter { market ->
                 val needed = tokens(market.name)
                 needed.isNotEmpty() && words.containsAll(needed)
@@ -75,6 +149,35 @@ object Odds {
         }
         return Matched(pairs, missed)
     }
+
+    /**
+     * Words that carry meaning, normalised.
+     *
+     * Decimal points are kept — 2.5 and 1.5 are different markets — while commas
+     * become points so "2,25" and "2.25" are the same number.
+     *
+     * The app's own names carry a gloss in brackets ("1X (tuan rumah atau seri)")
+     * that no bookmaker repeats, so a trailing bracket is dropped. Only a trailing
+     * one: Melbet writes the line first, as "(0.5) Over", and cutting at the first
+     * bracket there left nothing at all to match on.
+     */
+    internal fun tokens(name: String): Set<String> = name
+        .replace(Regex("""\s*\([^)]*\)\s*$"""), "")
+        .lowercase()
+        .replace(',', '.')
+        .replace(Regex("""[^a-z0-9. ]"""), " ")
+        .split(' ')
+        .map { it.trim('.') }
+        .filter { it.isNotBlank() && it !in NOISE }
+        .toSet()
+
+    /**
+     * Words that appear on both sides often enough to match anything.
+     *
+     * Left in, they let "Total corner" match a plain "Total" line and attach a
+     * corner price to a goals market.
+     */
+    private val NOISE = setOf("dan", "atau", "the", "di", "ke", "market", "pasaran")
 
     /**
      * Says, per price, which market it landed on and whether it pays enough.
@@ -101,30 +204,4 @@ object Odds {
             append(". Pakai nama yang mirip nama market di daftar analisis.\n")
         }
     }
-
-    /**
-     * Words that carry meaning, normalised.
-     *
-     * Decimal points are kept — 2.5 and 1.5 are different markets — while commas
-     * become points so "2,25" and "2.25" are the same number. Bracketed glosses in
-     * the app's own names ("1X (tuan rumah atau seri)") are stripped, since a
-     * bookmaker will never repeat them.
-     */
-    internal fun tokens(name: String): Set<String> = name
-        .substringBefore('(')
-        .lowercase()
-        .replace(',', '.')
-        .replace(Regex("""[^a-z0-9. ]"""), " ")
-        .split(' ')
-        .map { it.trim('.') }
-        .filter { it.isNotBlank() && it !in NOISE }
-        .toSet()
-
-    /**
-     * Words that appear on both sides often enough to match anything.
-     *
-     * Left in, they let "Total corner" match a plain "Total" line and attach a
-     * corner price to a goals market.
-     */
-    private val NOISE = setOf("dan", "atau", "the", "di", "ke", "market", "pasaran")
 }

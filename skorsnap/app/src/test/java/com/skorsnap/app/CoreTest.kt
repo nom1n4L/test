@@ -1939,6 +1939,124 @@ class CoreTest {
         entries.forEach { println("  ${it.label} → ${it.price}") }
     }
 
+    // ------------------------------------------------ format asli bandar
+
+    /**
+     * The coupon the user actually pasted, verbatim from their screen.
+     *
+     * Everything below the first two lines came back as "tidak dikenali" in the
+     * shipped app: bullets in front, shorthand the app had never heard of, and an
+     * Over/Under pair sharing one row behind a pipe. Two prices out of eleven were
+     * recognised, no complete set survived, and so the whole market calculation
+     * silently did nothing. Written as a test because it was written as an excuse
+     * once already.
+     */
+    @Test
+    fun theRealMelbetCouponIsRead() {
+        val pasted = """
+        * M1 2.05
+        * X 3.40
+        * M2 3.10
+        * 1X 1.29
+        * 12 1.19
+        * 2X 1.62
+        * (0.5) Over: 1.016 | (0.5) Under: 12.5
+        * (2.5) Over: 1.85 | (2.5) Under: 1.95
+        * GG 1.72
+        * NG 2.02
+        """.trimIndent()
+
+        val entries = Odds.parse(pasted)
+        assert(entries.size == 12) { "terbaca ${entries.size} dari 12: ${entries.map { it.label }}" }
+        // The pipe row is two markets, not one; taking the last number alone lost
+        // the Over price and mislabelled the Under.
+        assert(entries.any { it.label == "(0.5) Over" && it.price == 1.016 }) {
+            "sisi Over di baris berpipa hilang: ${entries.map { it.label }}"
+        }
+        assert(entries.any { it.label == "(0.5) Under" && it.price == 12.5 })
+        assert(entries.first().label == "M1") { "bullet tidak dibuang: ${entries.first().label}" }
+
+        val markets = listOf(
+            MarketOption("Tuan rumah menang", 0.45, "w", "Hasil Akhir"),
+            MarketOption("Seri", 0.28, "w", "Hasil Akhir"),
+            MarketOption("Tandang menang", 0.27, "w", "Hasil Akhir"),
+            MarketOption("1X (tuan rumah atau seri)", 0.73, "w", "Double Chance"),
+            MarketOption("12 (tidak seri)", 0.72, "w", "Double Chance"),
+            MarketOption("X2 (seri atau tandang)", 0.55, "w", "Double Chance"),
+            MarketOption("Over 0.5", 0.93, "w", "Total Gol"),
+            MarketOption("Under 0.5", 0.07, "w", "Total Gol"),
+            MarketOption("Over 2.5", 0.52, "w", "Total Gol"),
+            MarketOption("Under 2.5", 0.48, "w", "Total Gol"),
+            MarketOption("Kedua tim cetak gol (BTTS) - Ya", 0.56, "w", "Total Gol"),
+            MarketOption("Kedua tim cetak gol (BTTS) - Tidak", 0.44, "w", "Total Gol"),
+            MarketOption("Babak 1 Over 0.5", 0.70, "w", "Total Babak 1"),
+        )
+        val matched = Odds.match(entries, markets)
+        assert(matched.unmatched.isEmpty()) {
+            "masih ada yang tidak dikenali: ${matched.unmatched.map { it.label }}"
+        }
+        assert(matched.pairs["Hasil Akhir|Tuan rumah menang"] == 2.05) { "M1 tidak dikenali" }
+        assert(matched.pairs["Hasil Akhir|Seri"] == 3.40) { "X tidak dikenali" }
+        assert(matched.pairs["Double Chance|X2 (seri atau tandang)"] == 1.62) { "2X salah pasang" }
+        assert(matched.pairs["Total Gol|Over 0.5"] == 1.016) { "(0.5) Over salah pasang" }
+        assert(matched.pairs["Total Gol|Over 2.5"] == 1.85)
+        assert(matched.pairs["Total Gol|Kedua tim cetak gol (BTTS) - Ya"] == 1.72) { "GG" }
+        assert(matched.pairs["Total Gol|Kedua tim cetak gol (BTTS) - Tidak"] == 2.02) { "NG" }
+        // "(0.5) Over" must not reach the first-half market, which needs its own word.
+        assert("Total Babak 1|Babak 1 Over 0.5" !in matched.pairs) {
+            "harga laga penuh nempel ke market babak 1"
+        }
+        assert(matched.pairs.size == 12) { "hanya ${matched.pairs.size} yang nempel" }
+        println("Kupon Melbet asli: 12 harga terbaca, 12 nempel, 0 tidak dikenali.")
+    }
+
+    /**
+     * And with the coupon read, the market maths finally has complete sets to work
+     * with — which is what the parsing failure had been quietly starving.
+     */
+    @Test
+    fun aReadableCouponFeedsTheMarketCalculation() {
+        val markets = listOf(
+            MarketOption("Tuan rumah menang", 0.45, "w", "Hasil Akhir"),
+            MarketOption("Seri", 0.28, "w", "Hasil Akhir"),
+            MarketOption("Tandang menang", 0.27, "w", "Hasil Akhir"),
+            MarketOption("Over 2.5", 0.62, "w", "Total Gol"),
+            MarketOption("Under 2.5", 0.38, "w", "Total Gol"),
+        )
+        val matched = Odds.match(
+            Odds.parse("* M1 2.05\n* X 3.40\n* M2 3.10\n* (2.5) Over: 1.85 | (2.5) Under: 1.95"),
+            markets,
+        )
+        val m = MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.45, probDraw = 0.28, probAway = 0.27,
+            xgHome = 1.4, xgAway = 1.1, markets = markets,
+            pick = "Over 2.5", pickProb = 0.62, confidence = "sedang", confidenceWhy = "",
+            prices = matched.pairs,
+        )
+        val fair = Devig.fair(m.prices, m.markets)
+        assert(fair.size == 2) { "set lengkap yang terbentuk: ${fair.map { it.label }}" }
+        val blended = Devig.blend(m)
+        assert(blended.marketBlended) { "pasaran tidak ikut dihitung padahal set-nya lengkap" }
+        val over = blended.markets.first { it.name == "Over 2.5" }
+        assert(over.marketProb != null && over.prob < 0.62) {
+            "model bilang 62%, pasaran jauh lebih rendah, tapi angkanya tidak turun"
+        }
+        println(
+            "Dari kupon: Over 2.5 model 62% → pasaran ${(over.marketProb!! * 100).roundToInt()}% " +
+                "→ dipakai ${(over.prob * 100).roundToInt()}%"
+        )
+    }
+
+    /** A line that merely contains a pipe is one market, not two. */
+    @Test
+    fun onlyRowsWhereBothHalvesArePricedAreSplit() {
+        val entries = Odds.parse("Tuan rumah | Tandang menang 2.10")
+        assert(entries.size == 1) { "baris dipecah padahal cuma satu harga: $entries" }
+        assert(entries.single().price == 2.10)
+    }
+
     // ------------------------------------------------ pasaran ikut dihitung
 
     private fun priced(vararg rows: Triple<String, Double, String>): MatchPrediction {
