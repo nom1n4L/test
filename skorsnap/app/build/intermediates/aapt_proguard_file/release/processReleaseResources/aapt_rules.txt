@@ -2,3 +2,4 @@
 -keep class androidx.profileinstaller.ProfileInstallReceiver { <init>(); }
 -keep class androidx.startup.InitializationProvider { <init>(); }
 -keep class com.skorsnap.app.MainActivity { <init>(); }
+-keep class com.skorsnap.app.capture.CaptureService { <init>(); }

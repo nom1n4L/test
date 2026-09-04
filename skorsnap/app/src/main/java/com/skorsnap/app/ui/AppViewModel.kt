@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.skorsnap.app.capture.CaptureBus
 import com.skorsnap.app.data.Analyst
 import com.skorsnap.app.data.Appetite
 import com.skorsnap.app.data.Football
@@ -61,6 +62,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
+
+    /** True while the floating capture button is on screen. */
+    val capturing: StateFlow<Boolean> = CaptureBus.running
+
+    val captureProblem: StateFlow<String?> = CaptureBus.problem
+
+    init {
+        // Screenshots taken by the floating button join the staging area exactly as
+        // picked images do, so every path below this — band splitting, analysis,
+        // token accounting — is the one already in use rather than a second one.
+        viewModelScope.launch {
+            CaptureBus.shots.collect { shots ->
+                if (shots.isNotEmpty()) _staged.value = _staged.value + CaptureBus.take()
+            }
+        }
+    }
 
     /**
      * How low a probability the user wants to be pointed at.

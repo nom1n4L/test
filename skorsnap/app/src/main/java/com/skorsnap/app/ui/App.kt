@@ -39,7 +39,11 @@ import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Appetite
 
 @Composable
-fun App(vm: AppViewModel) {
+fun App(
+    vm: AppViewModel,
+    onStartCapture: () -> Unit = {},
+    onStopCapture: () -> Unit = {},
+) {
     val screen by vm.screen.collectAsStateWithLifecycle()
     val matches by vm.matches.collectAsStateWithLifecycle()
     val staged by vm.staged.collectAsStateWithLifecycle()
@@ -55,6 +59,8 @@ fun App(vm: AppViewModel) {
     val fixturesBusy by vm.fixturesBusy.collectAsStateWithLifecycle()
     val footballReport by vm.footballReport.collectAsStateWithLifecycle()
     val fetchedOdds by vm.fetchedOdds.collectAsStateWithLifecycle()
+    val capturing by vm.capturing.collectAsStateWithLifecycle()
+    val captureProblem by vm.captureProblem.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
@@ -106,6 +112,10 @@ fun App(vm: AppViewModel) {
                     },
                     onRemove = vm::removeStaged,
                     onAnalyse = vm::analyse,
+                    capturing = capturing,
+                    captureProblem = captureProblem,
+                    onStartCapture = onStartCapture,
+                    onStopCapture = onStopCapture,
                 )
                 // Same screen, different destination: the images join an existing
                 // analysis instead of starting a new one, so the mode is fixed to

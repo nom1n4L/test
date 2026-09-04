@@ -375,6 +375,10 @@ fun AddScreen(
     onAnalyse: (String) -> Unit,
     /** What the previous pass said it still needed, when this is a second look. */
     wanted: List<String> = emptyList(),
+    capturing: Boolean = false,
+    captureProblem: String? = null,
+    onStartCapture: () -> Unit = {},
+    onStopCapture: () -> Unit = {},
 ) {
     var note by remember { mutableStateOf("") }
 
@@ -439,6 +443,43 @@ fun AddScreen(
                         "1X2, double chance, total gol, total babak 1, total per tim, " +
                             "kombinasi hasil + total, handicap Asia dan Eropa."
                 },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Card(
+            title = "Tangkap Layar Langsung",
+            subtitle = if (capturing) {
+                "Tombol 📸 sudah aktif. Buka aplikasi statistikmu, tekan tombolnya di " +
+                    "tiap halaman yang mau dibaca, lalu kembali ke sini."
+            } else {
+                "Tidak perlu screenshot manual. Nyalakan sekali, lalu tinggal tekan " +
+                    "tombol melayang di aplikasi mana pun."
+            },
+        ) {
+            Button(
+                onClick = { if (capturing) onStopCapture() else onStartCapture() },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (capturing) Rose else Green
+                ),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    if (capturing) "Matikan tombol tangkap" else "Nyalakan tangkap layar",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            captureProblem?.let {
+                Spacer(Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Amber)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Android akan minta dua izin: tampil di atas aplikasi lain, dan rekam " +
+                    "layar. Selama aktif ada notifikasi permanen — itu memang harus ada, " +
+                    "supaya jelas kapan layarmu sedang bisa ditangkap. Gambarnya tetap di " +
+                    "HP sampai kamu tekan Analisis.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

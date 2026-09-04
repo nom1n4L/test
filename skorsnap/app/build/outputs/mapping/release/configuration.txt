@@ -3,6 +3,7 @@
 -keep class androidx.profileinstaller.ProfileInstallReceiver { <init>(); }
 -keep class androidx.startup.InitializationProvider { <init>(); }
 -keep class com.skorsnap.app.MainActivity { <init>(); }
+-keep class com.skorsnap.app.capture.CaptureService { <init>(); }
 
 # End of content from /home/user/test/skorsnap/app/build/intermediates/aapt_proguard_file/release/processReleaseResources/aapt_rules.txt
 # The proguard configuration file for the following section is /home/user/test/skorsnap/app/build/intermediates/default_proguard_files/global/proguard-android-optimize.txt-8.7.3
