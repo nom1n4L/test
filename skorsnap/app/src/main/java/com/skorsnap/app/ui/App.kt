@@ -192,6 +192,7 @@ fun App(
                     oddsReport = oddsReport,
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onClear = { vm.clearSelection() },
+                    appetite = appetite,
                 )
                 // Built from the observed match list rather than a plain call into
                 // the view model. vm.report() read the flow's value directly, which

@@ -172,7 +172,17 @@ class Analyst(private val apiKey: String) {
             }
             post(model, constrained.toString())
         }
-        enforceSafePick(Grid.fill(parse(reply).copy(mode = mode)), appetite.floor)
+        // Order matters. The prices are folded in first, so the grid derives its
+        // missing markets from goal expectations that already reflect the market;
+        // then value picks among the result; then the safe-band rule has the last
+        // word, because a floor the user set is not something value may overrule.
+        enforceSafePick(
+            Value.apply(
+                Grid.fill(Devig.blend(parse(reply).copy(mode = mode))),
+                appetite.floor,
+            ),
+            appetite.floor,
+        )
     }
 
     /**

@@ -141,6 +141,10 @@ class Store(context: Context) {
             JSONObject().apply { m.marketOutcomes.forEach { (k, v) -> put(k, v.name) } }
         )
         put("prices", JSONObject().apply { m.prices.forEach { (k, v) -> put(k, v) } })
+        put("market_blended", m.marketBlended)
+        put("value_pick", m.valuePick)
+        put("value_was", m.valueWas)
+        put("value_edge", m.valueEdge)
         put("mode", m.mode.name)
         put("backed", m.backed)
         put("model", m.model)
@@ -153,6 +157,11 @@ class Store(context: Context) {
                         JSONObject().put("name", it.name).put("prob", it.prob)
                             .put("why", it.why).put("group", it.group)
                             .put("derived", it.derived)
+                            // Written only when they exist: JSONObject.put with a
+                            // null Double drops the key, and optDouble hands back
+                            // the default, so absent stays absent on the way back.
+                            .put("model_prob", it.modelProb ?: JSONObject.NULL)
+                            .put("market_prob", it.marketProb ?: JSONObject.NULL)
                     )
                 }
             }
@@ -175,6 +184,8 @@ class Store(context: Context) {
                         m.optString("why"),
                         m.optString("group").ifBlank { "Lainnya" },
                         m.optBoolean("derived", false),
+                        modelProb = m.optDouble("model_prob").takeIf { !it.isNaN() },
+                        marketProb = m.optDouble("market_prob").takeIf { !it.isNaN() },
                     )
                 )
             }
@@ -213,6 +224,10 @@ class Store(context: Context) {
                     saved.optDouble(k, 0.0).takeIf { it > 1.0 }?.let { k to it }
                 }.toMap()
             }.orEmpty(),
+            marketBlended = o.optBoolean("market_blended", false),
+            valuePick = o.optBoolean("value_pick", false),
+            valueWas = o.optString("value_was"),
+            valueEdge = o.optDouble("value_edge", 0.0),
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
             backed = o.optString("backed"),
             model = o.optString("model"),

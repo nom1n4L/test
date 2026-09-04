@@ -39,6 +39,16 @@ data class MarketOption(
      * model actually judged is preferred when recommending.
      */
     val derived: Boolean = false,
+    /**
+     * What the model said before the bookmaker's price was folded in, and what the
+     * price implied once its fee was removed.
+     *
+     * Both kept so the screen can show the move. Presenting a blended number with
+     * no trace of where it came from would leave the reasoning above it arguing for
+     * a figure that is no longer on the page. Null when no price was available.
+     */
+    val modelProb: Double? = null,
+    val marketProb: Double? = null,
 ) {
     val percent: Int get() = Math.round(prob * 100).toInt()
 
@@ -190,6 +200,14 @@ data class MatchPrediction(
      * do the app's job. Empty when no price screen was among the images.
      */
     val prices: Map<String, Double> = emptyMap(),
+    /** True once the bookmaker's prices have been folded into the probabilities. */
+    val marketBlended: Boolean = false,
+    /** Set when the recommendation was chosen by value rather than by probability. */
+    val valuePick: Boolean = false,
+    /** What the model itself had recommended before value took over. */
+    val valueWas: String = "",
+    /** The expected return that won it, per unit staked. */
+    val valueEdge: Double = 0.0,
     val raw: String = "",
 ) {
     val title: String get() = if (home.isBlank()) "Pertandingan" else "$home vs $away"

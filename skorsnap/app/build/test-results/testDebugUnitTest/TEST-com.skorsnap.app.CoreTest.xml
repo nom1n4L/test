@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.skorsnap.app.CoreTest" tests="128" skipped="0" failures="0" errors="0" timestamp="2026-09-04T09:11:21.677Z" hostname="vm" time="0.372">
+<testsuite name="com.skorsnap.app.CoreTest" tests="138" skipped="0" failures="0" errors="0" timestamp="2026-09-04T09:32:00.165Z" hostname="vm" time="0.397">
   <properties/>
-  <testcase name="theBriefHoldsUpOnAFreePlanWithNoSeasonStats" classname="com.skorsnap.app.CoreTest" time="0.069"/>
+  <testcase name="theBriefHoldsUpOnAFreePlanWithNoSeasonStats" classname="com.skorsnap.app.CoreTest" time="0.066"/>
   <testcase name="theReaderGetsNoThinkingBudgetAndModestRoom" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="nothingIsSwappedWhenNoAlternativeClearsEither" classname="com.skorsnap.app.CoreTest" time="0.004"/>
-  <testcase name="theDoubtsAreWrittenBeforeTheNumbersTheyShouldMove" classname="com.skorsnap.app.CoreTest" time="0.012"/>
+  <testcase name="theDoubtsAreWrittenBeforeTheNumbersTheyShouldMove" classname="com.skorsnap.app.CoreTest" time="0.008"/>
   <testcase name="everyPastedPriceIsReportedAgainstItsOwnMinimum" classname="com.skorsnap.app.CoreTest" time="0.018"/>
-  <testcase name="doubtsMustBeRaisedInBothDirections" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theAppsNumberIsTheMinimumPriceNotTheOffer" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <testcase name="theCoachStaysQuietUntilThereIsSomethingToSay" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="oldRecordsSurviveWithoutInventingResults" classname="com.skorsnap.app.CoreTest" time="0.004"/>
-  <testcase name="theFirstHalfCornerAnchorMatchesTheAppsOwnMaths" classname="com.skorsnap.app.CoreTest" time="0.004"/>
+  <testcase name="doubtsMustBeRaisedInBothDirections" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theAppsNumberIsTheMinimumPriceNotTheOffer" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theCoachStaysQuietUntilThereIsSomethingToSay" classname="com.skorsnap.app.CoreTest" time="0.007"/>
+  <testcase name="oldRecordsSurviveWithoutInventingResults" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theFirstHalfCornerAnchorMatchesTheAppsOwnMaths" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <testcase name="duplicateLegsAreCollapsed" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="anUnreadableMatchIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="theFocusedModeDoesNotLeakOtherMarkets" classname="com.skorsnap.app.CoreTest" time="0.002"/>
@@ -20,115 +20,125 @@
   <testcase name="theSplitFindsTheMarketTheAverageHides" classname="com.skorsnap.app.CoreTest" time="0.007"/>
   <testcase name="aRecommendationInsideTheBandIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="oddsAreReadAfterTheProbabilitiesAreCommitted" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="aBadlyPricedLegIsNamed" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aBadlyPricedLegIsNamed" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="anUnchangedScreenIsNotKeptTwice" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theExactMarketSplitSeparatesOppositeBets" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theExactMarketSplitSeparatesOppositeBets" classname="com.skorsnap.app.CoreTest" time="0.003"/>
   <testcase name="derivedMarketsAgreeWithEachOther" classname="com.skorsnap.app.CoreTest" time="0.017"/>
   <testcase name="aHandPickedLegOverridesTheStrategy" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="survivesAStraySentenceBeforeTheJson" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theChainSurvivesTheRoundTrip" classname="com.skorsnap.app.CoreTest" time="0.006"/>
+  <testcase name="probabilitiesMultiplyAcrossLegs" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theChainSurvivesTheRoundTrip" classname="com.skorsnap.app.CoreTest" time="0.007"/>
   <testcase name="theEnforcedPickFollowsTheChosenFloor" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="textStatsAreFarCheaperThanTheSameNumbersAsAnImage" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aMatchWithNothingSafeIsSkippedNotPadded" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theMoreSpecificMarketWinsAndTheRestAreReported" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theOmniVariantsAreFilteredOut" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="markingInTheSafeListSettlesTheRoleItFills" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aThinSliceIsNotFlagged" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="textStatsAreFarCheaperThanTheSameNumbersAsAnImage" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="aMatchWithNothingSafeIsSkippedNotPadded" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theMoreSpecificMarketWinsAndTheRestAreReported" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theOmniVariantsAreFilteredOut" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="markingInTheSafeListSettlesTheRoleItFills" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="aThinSliceIsNotFlagged" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="theBiggerThinkingBudgetStillLeavesRoomForTheAnswer" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theBriefOnlyMentionsParlaysWhenTheyAddSomething" classname="com.skorsnap.app.CoreTest" time="0.006"/>
-  <testcase name="cappedThinkingLeavesRoomForTheAnswer" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aliasesLeadAndPreviewsTrail" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="withoutRealPricesNeitherStrategyIsBetterValue" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aMatchThatWantsMoreDataSaysSo" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theBriefOnlyMentionsParlaysWhenTheyAddSomething" classname="com.skorsnap.app.CoreTest" time="0.008"/>
+  <testcase name="cappedThinkingLeavesRoomForTheAnswer" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="impossiblePricesAreThrownAway" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="aliasesLeadAndPreviewsTrail" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="withoutRealPricesNeitherStrategyIsBetterValue" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="aMatchThatWantsMoreDataSaysSo" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="thePromptCoversTheMarketsAsked" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aOneSidedLosingHabitIsNamedNotJustCalledOverconfident" classname="com.skorsnap.app.CoreTest" time="0.007"/>
-  <testcase name="eachStrategyTakesADifferentMarket" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aLegThatAlreadyClearsIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aOneSidedLosingHabitIsNamedNotJustCalledOverconfident" classname="com.skorsnap.app.CoreTest" time="0.008"/>
+  <testcase name="doubleChanceIsDeviggedAgainstTwoNotOne" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="eachStrategyTakesADifferentMarket" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="aLegThatAlreadyClearsIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="aScrolledScreenIsKept" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="retiredModelsHandGoogleTheirOwnReplacement" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <testcase name="theOldWrongAnchorIsGone" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="theChainIsRequiredNotOptional" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.006"/>
-  <testcase name="everyGroupInThePromptIsOneTheScreenKnows" classname="com.skorsnap.app.CoreTest" time="0.004"/>
-  <testcase name="reportsTheGapBetweenPromisedAndDelivered" classname="com.skorsnap.app.CoreTest" time="0.004"/>
-  <testcase name="thinkingIsBoundedBeforeTheExpensiveRetry" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="backingTheRecommendationCountsOnce" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="parsesACleanReply" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="withPricesInTheAppPicksTheBetThatPaysNotTheLikeliest" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="everyGroupInThePromptIsOneTheScreenKnows" classname="com.skorsnap.app.CoreTest" time="0.003"/>
+  <testcase name="reportsTheGapBetweenPromisedAndDelivered" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="thinkingIsBoundedBeforeTheExpensiveRetry" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="backingTheRecommendationCountsOnce" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="marketsAreGroupedInCatalogueOrder" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theCoachFlagsAnOverconfidentMarketAndSaysHowMany" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theCoachFlagsAnOverconfidentMarketAndSaysHowMany" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <testcase name="multigoalBandsAreConsistentWithTheOverLines" classname="com.skorsnap.app.CoreTest" time="0.003"/>
   <testcase name="theAnswerIsWrittenLastSoItAccountsForEverythingAbove" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theFirstHalfCountsAreNotHalvedTwice" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theFirstHalfCountsAreNotHalvedTwice" classname="com.skorsnap.app.CoreTest" time="0.006"/>
   <testcase name="theWarningPointsTheRightWayForEitherSide" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="aSignatureSurvivesOddScreenSizes" classname="com.skorsnap.app.CoreTest" time="0.006"/>
+  <testcase name="aSignatureSurvivesOddScreenSizes" classname="com.skorsnap.app.CoreTest" time="0.003"/>
   <testcase name="theModelIsToldToUseFirstHalfNumbers" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="cornerModeGetsItsOwnCatalogue" classname="com.skorsnap.app.CoreTest" time="0.012"/>
-  <testcase name="theSwapLabelDoesNotThrowOnItsOwnPercentSign" classname="com.skorsnap.app.CoreTest" time="0.005"/>
-  <testcase name="ordinaryScreenshotsAreNotSliced" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="cornerModeGetsItsOwnCatalogue" classname="com.skorsnap.app.CoreTest" time="0.003"/>
+  <testcase name="theSwapLabelDoesNotThrowOnItsOwnPercentSign" classname="com.skorsnap.app.CoreTest" time="0.006"/>
+  <testcase name="ordinaryScreenshotsAreNotSliced" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="theFocusedModeReturnsExactlyTheOnePair" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="everyGroupIsCoveredWhateverTheModelReturns" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="refusesGarbageInsteadOfInventing" classname="com.skorsnap.app.CoreTest" time="0.003"/>
+  <testcase name="everyGroupIsCoveredWhateverTheModelReturns" classname="com.skorsnap.app.CoreTest" time="0.004"/>
+  <testcase name="refusesGarbageInsteadOfInventing" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="bandsCoverALongCaptureWithoutGaps" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theDoubtsSurviveTheRoundTrip" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theDoubtsSurviveTheRoundTrip" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="theRecordFollowsTheBetNotTheRecommendation" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="precisionTightensAsResultsAccumulate" classname="com.skorsnap.app.CoreTest" time="0.003"/>
   <testcase name="aRecommendationAboveTheBandIsAlsoReplaced" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theGridIsFittedToTheModelsOwnCall" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="theSwapPicksTheBestPricedMarketNotTheLikeliest" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="onlyOffersModelsThatCanReadAScreenshot" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theSafeListRunsHighestFirstAndExcludesTheRest" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <testcase name="higherPayingMeansHigherOddsAndLowerChance" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aRecommendationBelowTheBandIsReplaced" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theGridIsFittedToTheModelsOwnCall" classname="com.skorsnap.app.CoreTest" time="0.004"/>
+  <testcase name="theSwapPicksTheBestPricedMarketNotTheLikeliest" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="onlyOffersModelsThatCanReadAScreenshot" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theSafeListRunsHighestFirstAndExcludesTheRest" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="higherPayingMeansHigherOddsAndLowerChance" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="aRecommendationBelowTheBandIsReplaced" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <testcase name="structuralReasoningIsAllowedButInventedNumbersAreNot" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theThinkingRulesReachTheModel" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theThinkingRulesReachTheModel" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="appetiteNeverChangesTheProbabilitiesThemselves" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="withNothingSafeTheAppDoesNotInventOne" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="realPricesDecideWhetherASlipIsWorthTaking" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="withNothingSafeTheAppDoesNotInventOne" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="realPricesDecideWhetherASlipIsWorthTaking" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="everySaveFormatStillReadsBack" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theComparisonRefusesToCallAWinnerTooEarly" classname="com.skorsnap.app.CoreTest" time="0.003"/>
+  <testcase name="theComparisonRefusesToCallAWinnerTooEarly" classname="com.skorsnap.app.CoreTest" time="0.005"/>
   <testcase name="elevenFromTwelveIsNotYetEvidence" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="fixturesAreReadFromTheFeedShape" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="oneMatchCanContributeSeveralObservations" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theBlendMovesTowardsTheMarketWithoutBecomingIt" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="fixturesAreReadFromTheFeedShape" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="oneMatchCanContributeSeveralObservations" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="theDefaultModelIsAnAliasThatCannotRetire" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="pendingMatchesStayOutOfTheRecord" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="responseSchemaCoversEveryFieldTheParserNeeds" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theViewModelCannotHandScreensUnobservedData" classname="com.skorsnap.app.CoreTest" time="0.007"/>
-  <testcase name="sixLegsIsTheCaseTheUserAsksFor" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theViewModelCannotHandScreensUnobservedData" classname="com.skorsnap.app.CoreTest" time="0.009"/>
+  <testcase name="sixLegsIsTheCaseTheUserAsksFor" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="theHardRulesAboutMovingTheNumberAreStated" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aFixtureWithoutPricesSaysSoRatherThanGoingBlank" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="aFixtureWithoutPricesSaysSoRatherThanGoingBlank" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="theParlayReportCountsSlipsNotLegs" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="pricesSeenOnScreenLandOnTheirMarkets" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theParlayReportRefusesToConcludeEarly" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="aMalformedFeedDegradesInsteadOfCrashing" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="oneMatchNowAnswersTwoQuestions" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="aLowerFloorOpensTheMarketsThatActuallyPay" classname="com.skorsnap.app.CoreTest" time="0.004"/>
+  <testcase name="anImpossiblyGenerousPriceIsRefusedNotRecommended" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theParlayReportRefusesToConcludeEarly" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aMalformedFeedDegradesInsteadOfCrashing" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="oneMatchNowAnswersTwoQuestions" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aLowerFloorOpensTheMarketsThatActuallyPay" classname="com.skorsnap.app.CoreTest" time="0.005"/>
   <testcase name="noPriceScreenLeavesTheMarketsUnpriced" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="aPartialChangeIsKeptRatherThanMissed" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aPartialChangeIsKeptRatherThanMissed" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theResultBlendIsCarriedIntoTheGoalExpectations" classname="com.skorsnap.app.CoreTest" time="0.004"/>
   <testcase name="theRevisionInvitesTheModelToChangeItsMind" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theModelTestLeavesRoomToActuallyAnswer" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theModelTestLeavesRoomToActuallyAnswer" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="theSwapMessageIsReturnedSoItCannotBeOverwritten" classname="com.skorsnap.app.CoreTest" time="0.014"/>
-  <testcase name="aPageAsTextCostsAFractionOfThePageAsAnImage" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="ignoresImpossibleProbabilities" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theComparisonOnlyCountsMatchesWhereBothAreKnown" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="aPageAsTextCostsAFractionOfThePageAsAnImage" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theBookmakersFeeIsRemovedBeforeTheOddsAreBelieved" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="ignoresImpossibleProbabilities" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theComparisonOnlyCountsMatchesWhereBothAreKnown" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="aLonePriceIsNotUsed" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="aPastedMarketListIsRead" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theReaderIsToldToCopyNotToThink" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theReaderIsToldToCopyNotToThink" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="valueNeverReachesUnderTheSafetyFloor" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="theWiderCatalogueIsActuallyDerived" classname="com.skorsnap.app.CoreTest" time="0.002"/>
   <testcase name="putsTheUsefulModelsFirst" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theTwoHandicapFamiliesBothSurvive" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="theModelsOwnNumberIsNeverOverwritten" classname="com.skorsnap.app.CoreTest" time="0.002"/>
-  <testcase name="noAppetiteEverRecommendsAnUnbettablePrice" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theMoneyIsCountedOnlyWhereAStakeWasEntered" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theShrinkageExamplesInThePromptAreArithmeticallyRight" classname="com.skorsnap.app.CoreTest" time="0.003"/>
-  <testcase name="theSwapRefusesWhenNoPriceBeatsBreakEven" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theTwoHandicapFamiliesBothSurvive" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theModelsOwnNumberIsNeverOverwritten" classname="com.skorsnap.app.CoreTest" time="0.003"/>
+  <testcase name="noAppetiteEverRecommendsAnUnbettablePrice" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="theMoneyIsCountedOnlyWhereAStakeWasEntered" classname="com.skorsnap.app.CoreTest" time="0.0"/>
+  <testcase name="theShrinkageExamplesInThePromptAreArithmeticallyRight" classname="com.skorsnap.app.CoreTest" time="0.005"/>
+  <testcase name="theSwapRefusesWhenNoPriceBeatsBreakEven" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="aBalancedOrWinningRecordIsLeftAlone" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="noSourceMixesAnInterpolatedPercentWithFormat" classname="com.skorsnap.app.CoreTest" time="0.03"/>
+  <testcase name="noSourceMixesAnInterpolatedPercentWithFormat" classname="com.skorsnap.app.CoreTest" time="0.042"/>
+  <testcase name="matchesWithoutPricesAreLeftExactlyAsTheyWere" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="aSuspendedAccountIsExplainedNotDumped" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="theThreeWayDecisionIsSpelledOut" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theThreeWayDecisionIsSpelledOut" classname="com.skorsnap.app.CoreTest" time="0.001"/>
   <testcase name="theSafeBandMatchesTheOneThePickUses" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="pricesAreFlattenedWithTheirMarketNames" classname="com.skorsnap.app.CoreTest" time="0.001"/>
-  <testcase name="theSwapStaysInsideTheChosenBand" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="pricesAreFlattenedWithTheirMarketNames" classname="com.skorsnap.app.CoreTest" time="0.002"/>
+  <testcase name="theSwapStaysInsideTheChosenBand" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <testcase name="aLegPricedBelowItsMinimumIsSwapped" classname="com.skorsnap.app.CoreTest" time="0.0"/>
-  <testcase name="expectedReturnDependsOnlyOnLegCount" classname="com.skorsnap.app.CoreTest" time="0.001"/>
+  <testcase name="expectedReturnDependsOnlyOnLegCount" classname="com.skorsnap.app.CoreTest" time="0.0"/>
   <system-out><![CDATA[
 Setelah margin dibuang, pasar menilai: tuan rumah 47%, seri 30%, tandang 23%.
 Menyalin 3072 token, menganalisis 49152 — dipisah karena bebannya beda.
@@ -202,6 +212,7 @@ Patokan lama yang bikin condong ke Under sudah dicabut.
 Empat langkah penalaran wajib diisi, bukan opsional.
 
 Terbaca: Preston vs Bristol City, pilih Over 1.5 82%, impas di 1.22
+Over 1.5 80% di 1,20 = rugi 4%. BTTS 69% di 1,60 = untung 10%. Dipilih BTTS.
 
 Grup di prompt: [Corner, Corner Babak 1, Corner per Tim, Double Chance, Handicap Asia, Handicap Eropa, Hasil Akhir, Kombinasi Hasil + Total, Multigol, Total Babak 1, Total Gol, Total per Tim]
 
@@ -270,6 +281,7 @@ Tiga format simpanan lama terbaca semua — catatanmu tidak hilang.
 
 11 dari 12: nyata 92%, dijanjikan 78%, sejatinya antara 65% dan 99% (±17 poin)
 Vonis: Baru 12 hasil. Terlalu sedikit untuk menyimpulkan apa pun — beruntung dan pintar terlihat sama di jumlah segini.
+Model 70%, pasaran 50% → dipakai 57%
 
 Jadwal terbaca: Náutico vs Botafogo-SP (Brazil · Serie B), Arsenal vs Chelsea (England · Premier League)
 Satu laga ditandai 3 market → 3 bukti kalibrasi, tapi tetap 1 laga.
@@ -289,6 +301,7 @@ Tanpa harga, briefnya bilang apa adanya — bukan kosong tanpa keterangan.
 
 3 slip selesai, 1 tembus — dipecah per jumlah leg, bukan per market.
 Over 2.5 dibayar 2.05, impas 1.92, untung 7%
+2,60 di peluang 75% = untung 95% — ditolak, itu tanda salah baca.
 4 slip 0 tembus pun belum disimpulkan — parlay jarang tembus, itu wajar.
 Baris tanpa nama tim dibuang, bukan ditampilkan kosong.
 
@@ -298,6 +311,7 @@ Aman      batas 68% → Over 1.5 78%
 Seimbang  batas 55% → Over 1.5 78%, Total gol 2-3 61%
 Berani    batas 42% → Over 1.5 78%, Total gol 2-3 61%, Tuan rumah menang & Over 2.5 47%
 Halaman yang berubah separuh tetap diambil — data hilang lebih mahal.
+1X2 40% → 54%, xG 1.52 vs 0.81
 
 Catatan analisis ulang membawa pembacaan lama dan izin untuk berubah pikiran.
 
@@ -306,6 +320,7 @@ Pesan penukaran leg tidak bisa lagi ketimpa laporan tempel harga.
 
 Satu halaman ≈ 65 token sebagai teks, ~30.000 sebagai gambar.
 12 halaman: 780 token, bukan ~360.000.
+1,90 / 1,90 → margin 5%, adil 50% / 50%
 Peluang mustahil dibuang, bukan ditampilkan.
 Hanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
 

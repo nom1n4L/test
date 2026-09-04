@@ -62,6 +62,7 @@ import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.Coach
 import androidx.compose.ui.graphics.Color
+import com.skorsnap.app.data.Devig
 import com.skorsnap.app.data.MarketOption
 import kotlin.math.pow
 import com.skorsnap.app.data.Strategy
@@ -663,6 +664,10 @@ fun DetailScreen(
             }
         }
 
+        if (match.marketBlended) {
+            item { MarketCard(match) }
+        }
+
         if (match.verdict.isNotBlank()) {
             item { VerdictCard(match, onAddMore) }
         }
@@ -933,6 +938,114 @@ private fun SafeListCard(
  * percentage looks on its own. The app cannot see the bookmaker's prices, so it
  * gives the number to compare them against rather than pretending to judge.
  */
+/**
+ * What the bookmaker's prices did to the analysis.
+ *
+ * Shown because the numbers on every other card have moved, and a probability that
+ * changed for reasons the user cannot see is worse than no probability at all. The
+ * arithmetic is small enough to print in full: what the model read, what the price
+ * implied once the fee was removed, and what came out.
+ */
+@Composable
+private fun MarketCard(match: MatchPrediction) {
+    val moved = match.markets.filter { it.marketProb != null }
+    val gaps = remember(match) { Devig.disagreements(match) }
+
+    Card(
+        title = "Harga Bandar Ikut Dihitung",
+        subtitle = "${moved.size} market dihargai di gambar. Peluangnya bukan cuma bacaan " +
+            "model lagi — harga Melbet dibuang margin bandarnya, lalu digabung " +
+            "${Math.round(Devig.MARKET_WEIGHT * 100)}% pasaran, " +
+            "${Math.round((1 - Devig.MARKET_WEIGHT) * 100)}% model.",
+    ) {
+        Text(
+            "Pasaran diberi bobot lebih besar karena memang lebih akurat: harga itu " +
+                "hasil ribuan orang yang bertaruh melawan bandar, sementara model cuma " +
+                "membaca beberapa layar statistik. Yang tersisa setelah digabung itulah " +
+                "beda pendapat yang layak dipasang.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        if (match.valuePick) {
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                color = Green.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    "Rekomendasi diganti aplikasi: ${match.valueWas} → ${match.pick}. " +
+                        "Bukan karena peluangnya lebih tinggi, tapi karena bayarannya " +
+                        "lebih pantas — untung ${Math.round(match.valueEdge * 100)}% per " +
+                        "taruhan di harga yang dipasang bandar.",
+                    modifier = Modifier.padding(11.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Green,
+                )
+            }
+        }
+
+        if (gaps.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Surface(
+                color = Amber.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(Modifier.padding(11.dp)) {
+                    Text(
+                        "Beda jauh dengan pasaran — hati-hati",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Amber,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    gaps.take(3).forEach { option ->
+                        Text(
+                            "${option.name}: model ${pct(option.modelProb)}, " +
+                                "pasaran ${pct(option.marketProb)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Selisih sebesar ini biasanya berarti modelnya salah baca, bukan " +
+                            "bandarnya salah harga. Bayaran yang kelihatan terlalu enak " +
+                            "sengaja tidak direkomendasikan.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        moved.sortedByDescending { it.prob }.take(8).forEach { option ->
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(option.name, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "${pct(option.modelProb)} → ${pct(option.marketProb)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "${option.percent}%",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = probColor(option.prob),
+                )
+            }
+        }
+    }
+}
+
+private fun pct(p: Double?): String = if (p == null) "—" else "${Math.round(p * 100)}%"
+
 @Composable
 private fun MarketsCard(match: MatchPrediction) {
     var bySafety by remember { mutableStateOf(true) }
@@ -1885,10 +1998,18 @@ fun SlipScreen(
     onSave: (Slip, Double) -> Unit,
     onOpen: (String) -> Unit,
     onClear: () -> Unit,
+    appetite: Appetite = Appetite.SAFE,
 ) {
-    val slip = remember(matches, strategy, odds, chosen) {
-        val built = Parlay.build(matches, strategy, chosen)
-        built.copy(legs = built.legs.map { it.copy(odds = odds["${it.matchId}|${it.market}"] ?: 0.0) })
+    val slip = remember(matches, strategy, odds, chosen, appetite) {
+        val built = Parlay.build(matches, strategy, chosen, appetite.floor)
+        // A hand-typed price wins; otherwise the leg keeps the one the analysis read
+        // off the screenshots. Overwriting with 0.0 when the map has no entry threw
+        // that away on every app restart, before the seeding runs.
+        built.copy(
+            legs = built.legs.map { leg ->
+                odds["${leg.matchId}|${leg.market}"]?.let { leg.copy(odds = it) } ?: leg
+            }
+        )
     }
     val skipped = remember(matches, strategy, chosen) { Parlay.skipped(matches, strategy, chosen) }
     var stake by rememberSaveable { mutableStateOf("") }

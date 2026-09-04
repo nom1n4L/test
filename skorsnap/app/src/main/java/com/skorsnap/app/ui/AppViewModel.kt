@@ -214,7 +214,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
 
     /** How the parlay screen takes one market from each selected match. */
-    private val _strategy = MutableStateFlow(Strategy.RECOMMENDED)
+    // Value rather than the bare recommendation, now that the prices arrive with the
+    // analysis: ranking by what a bet returns is the whole reason for collecting
+    // them. Falls back to the recommendation per match when no price was read.
+    private val _strategy = MutableStateFlow(Strategy.VALUE)
     val strategy: StateFlow<Strategy> = _strategy.asStateFlow()
 
     /**
@@ -647,7 +650,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Why a leg stayed put, which is as worth saying as why it moved. */
     private fun nothingSwapped(match: MatchPrediction, matchId: String): String {
         val currentName = _chosen.value[matchId]
-            ?: Parlay.build(listOf(match), _strategy.value).legs.firstOrNull()?.market
+            ?: Parlay.build(listOf(match), _strategy.value, floor = _appetite.value.floor)
+                .legs.firstOrNull()?.market
         val current = match.markets.firstOrNull { it.name == currentName }
         val price = current?.let { _legOdds.value["$matchId|${it.name}"] } ?: 0.0
         return when {
@@ -673,7 +677,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun autoSwap(matchId: String): String? {
         val match = _matches.value.firstOrNull { it.id == matchId } ?: return null
         val currentName = _chosen.value[matchId]
-            ?: Parlay.build(listOf(match), _strategy.value).legs.firstOrNull()?.market
+            ?: Parlay.build(listOf(match), _strategy.value, floor = _appetite.value.floor)
+                .legs.firstOrNull()?.market
         val current = match.markets.firstOrNull { it.name == currentName }
         val better = Parlay.swapIfUnderpriced(match, current, _legOdds.value, _appetite.value.floor)
             ?: return null

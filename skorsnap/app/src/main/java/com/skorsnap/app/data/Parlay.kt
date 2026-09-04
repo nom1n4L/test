@@ -6,11 +6,13 @@ import kotlin.math.roundToInt
 /**
  * How a leg is chosen from each match.
  *
- * The three differ only in which market they take, and the difference is a trade,
- * not a ranking: a shorter price is likelier to land and pays less. Naming them
- * plainly is the point — "value" as a label for the longer prices would be a lie,
- * because whether a price is value depends on what the bookmaker pays for it, and
- * that is not knowable from the analysis alone.
+ * The first three differ only in which market they take, and the difference is a
+ * trade, not a ranking: a shorter price is likelier to land and pays less. None of
+ * them is "value" — a longer price is not better value, only longer.
+ *
+ * [Strategy.VALUE] is the exception, and it earns the name because it has something
+ * the others do not: the bookmaker's actual price, read off the screenshots. Value
+ * is price against probability, so it is only nameable once the price is known.
  */
 enum class Strategy(val label: String, val note: String) {
     RECOMMENDED(
@@ -26,14 +28,29 @@ enum class Strategy(val label: String, val note: String) {
         "Peluang terendah yang masih di rentang aman. Bayarannya naik, tembusnya lebih jarang — " +
             "ini menaikkan bayaran, bukan menaikkan nilai.",
     ),
+    /**
+     * The one that uses the prices rather than displaying them.
+     *
+     * The other three rank by probability and leave the user to check whether the
+     * book pays enough for it. This one ranks by what the bet actually returns, out
+     * of the markets that still clear the safe band — which is what the prices were
+     * being collected for in the first place.
+     */
+    VALUE(
+        "Nilai terbaik",
+        "Bayaran tertinggi dibanding peluangnya, dari harga yang terbaca di gambar. " +
+            "Masih di rentang aman — yang berubah cuma cara memilihnya, dari 'paling " +
+            "mungkin tembus' jadi 'paling untung kalau dipasang'.",
+    ),
 }
 
 /**
- * One line of a slip: a match, the market taken from it, and optionally the price
- * the bookmaker is actually offering.
+ * One line of a slip: a match, the market taken from it, and the price the
+ * bookmaker is offering.
  *
- * The price is entered by hand and starts empty. Everything except [edge] works
- * without it; nothing pretends to know it.
+ * The price comes from the analysis when a bookmaker screen was among the
+ * screenshots, and can still be typed in when it was not. Everything except [edge]
+ * works without it; nothing pretends to know it.
  */
 data class Leg(
     val matchId: String,
@@ -242,6 +259,7 @@ object Parlay {
         matches: List<MatchPrediction>,
         strategy: Strategy,
         chosen: Map<String, String> = emptyMap(),
+        floor: Double = MarketOption.SAFE_LOW,
     ): Slip = Slip(
         matches.distinctBy { it.id }.mapNotNull { m ->
             val safe = m.safePicks()
@@ -250,6 +268,11 @@ object Parlay {
                 Strategy.RECOMMENDED -> m.markets.firstOrNull { it.name == m.pick }
                 Strategy.SAFEST -> safe.firstOrNull()
                 Strategy.HIGHER_PAYING -> safe.lastOrNull()
+                // Falls back to the recommendation when this match had no price
+                // screen: a leg dropped for want of odds would silently shrink the
+                // slip, which reads as the app losing a match the user selected.
+                Strategy.VALUE ->
+                    Value.best(m, floor)?.option ?: m.markets.firstOrNull { it.name == m.pick }
             } ?: return@mapNotNull null
             Leg(
                 matchId = m.id,
@@ -259,6 +282,9 @@ object Parlay {
                 group = option.group,
                 prob = option.prob,
                 thin = m.thin,
+                // The price the analysis already read off the screenshots, so the
+                // slip arrives priced instead of waiting to be typed into.
+                odds = m.priceOf(option) ?: 0.0,
             )
         }
     )

@@ -7,6 +7,8 @@ import com.skorsnap.app.data.Migration
 import org.json.JSONObject
 import com.skorsnap.app.capture.Frames
 import com.skorsnap.app.data.Coach
+import com.skorsnap.app.data.Devig
+import com.skorsnap.app.data.Value
 import com.skorsnap.app.data.Football
 import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.MarketOption
@@ -21,6 +23,7 @@ import com.skorsnap.app.data.Odds
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.priceLabel
 import com.skorsnap.app.data.twoDecimals
+import kotlin.math.roundToInt
 import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.Strategy
@@ -1934,6 +1937,218 @@ class CoreTest {
         assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
         println()
         entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    // ------------------------------------------------ pasaran ikut dihitung
+
+    private fun priced(vararg rows: Triple<String, Double, String>): MatchPrediction {
+        val markets = rows.map { (name, prob, group) -> MarketOption(name, prob, "w", group) }
+        return MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.40, probDraw = 0.30, probAway = 0.30,
+            xgHome = 1.3, xgAway = 1.1, markets = markets,
+            pick = markets.first().name, pickProb = markets.first().prob,
+            confidence = "sedang", confidenceWhy = "",
+        )
+    }
+
+    /**
+     * The fee comes off before anything else. A book at 1.90/1.90 is not saying both
+     * sides are 53% likely; it is saying 50/50 and charging 5.3% for the privilege.
+     */
+    @Test
+    fun theBookmakersFeeIsRemovedBeforeTheOddsAreBelieved() {
+        val m = priced(
+            Triple("Over 2.5", 0.60, "Total Gol"),
+            Triple("Under 2.5", 0.40, "Total Gol"),
+        ).copy(prices = mapOf("Total Gol|Over 2.5" to 1.90, "Total Gol|Under 2.5" to 1.90))
+
+        val fair = Devig.fair(m.prices, m.markets).single()
+        assert(abs(fair.margin - 0.0526) < 0.001) { "margin salah: ${fair.margin}" }
+        fair.probs.values.forEach {
+            assert(abs(it - 0.5) < 1e-9) { "setelah margin dibuang harusnya 50/50, dapat $it" }
+        }
+        assert(abs(fair.probs.values.sum() - 1.0) < 1e-9) { "tidak berjumlah 1,0" }
+        println("1,90 / 1,90 → margin ${(fair.margin * 100).roundToInt()}%, adil 50% / 50%")
+    }
+
+    /** Double Chance covers two results out of three, so a fair book sums to 2. */
+    @Test
+    fun doubleChanceIsDeviggedAgainstTwoNotOne() {
+        val m = priced(
+            Triple("1X (tuan rumah atau seri)", 0.70, "Double Chance"),
+            Triple("12 (tidak seri)", 0.70, "Double Chance"),
+            Triple("X2 (seri atau tandang)", 0.60, "Double Chance"),
+        ).copy(
+            prices = mapOf(
+                "Double Chance|1X (tuan rumah atau seri)" to 1.40,
+                "Double Chance|12 (tidak seri)" to 1.35,
+                "Double Chance|X2 (seri atau tandang)" to 1.80,
+            )
+        )
+        val fair = Devig.fair(m.prices, m.markets).single()
+        assert(abs(fair.probs.values.sum() - 2.0) < 1e-9) {
+            "Double Chance harus berjumlah 2,0, dapat ${fair.probs.values.sum()}"
+        }
+        assert(fair.probs.values.all { it < 1.0 }) { "ada peluang di atas 100%: ${fair.probs}" }
+    }
+
+    /** An incomplete set says nothing: one price alone cannot separate fee from odds. */
+    @Test
+    fun aLonePriceIsNotUsed() {
+        val m = priced(
+            Triple("Over 2.5", 0.60, "Total Gol"),
+            Triple("Under 2.5", 0.40, "Total Gol"),
+        ).copy(prices = mapOf("Total Gol|Over 2.5" to 1.90))
+        assert(Devig.fair(m.prices, m.markets).isEmpty()) {
+            "satu harga tanpa lawannya tidak boleh dipakai"
+        }
+        assert(Devig.blend(m) == m) { "analisis berubah padahal tidak ada set yang lengkap" }
+    }
+
+    /** A misread price makes an impossible book, and an impossible book is dropped. */
+    @Test
+    fun impossiblePricesAreThrownAway() {
+        val m = priced(
+            Triple("Over 2.5", 0.60, "Total Gol"),
+            Triple("Under 2.5", 0.40, "Total Gol"),
+        )
+        // 4,2 read where 1,42 was printed: the book would be paying out 118%.
+        val misread = m.copy(
+            prices = mapOf("Total Gol|Over 2.5" to 4.2, "Total Gol|Under 2.5" to 4.2)
+        )
+        assert(Devig.fair(misread.prices, misread.markets).isEmpty()) {
+            "harga yang mustahil ikut dipakai"
+        }
+        // And the other way: a book with a 60% margin was misread too.
+        val absurd = m.copy(
+            prices = mapOf("Total Gol|Over 2.5" to 1.2, "Total Gol|Under 2.5" to 1.2)
+        )
+        assert(Devig.fair(absurd.prices, absurd.markets).isEmpty())
+    }
+
+    /**
+     * The blend is a blend, not a surrender. The app keeps a view of its own, or
+     * every edge would be zero by construction and the whole exercise pointless.
+     */
+    @Test
+    fun theBlendMovesTowardsTheMarketWithoutBecomingIt() {
+        val m = priced(
+            Triple("Over 2.5", 0.70, "Total Gol"),
+            Triple("Under 2.5", 0.30, "Total Gol"),
+        ).copy(prices = mapOf("Total Gol|Over 2.5" to 2.00, "Total Gol|Under 2.5" to 2.00))
+
+        val blended = Devig.blend(m)
+        val over = blended.markets.first { it.name == "Over 2.5" }
+        // Market says 50, model said 70, weight 0.65 → 0.65*0.50 + 0.35*0.70 = 0.57.
+        assert(abs(over.prob - 0.57) < 1e-9) { "hasil gabungan salah: ${over.prob}" }
+        assert(over.modelProb == 0.70) { "bacaan model hilang" }
+        assert(over.marketProb == 0.50) { "peluang pasaran tidak disimpan" }
+        assert(over.prob < 0.70 && over.prob > 0.50) { "harusnya di antara model dan pasaran" }
+        assert(blended.marketBlended)
+
+        val under = blended.markets.first { it.name == "Under 2.5" }
+        assert(abs(over.prob + under.prob - 1.0) < 1e-9) {
+            "dua sisi tidak lagi berjumlah 1,0: ${over.prob} + ${under.prob}"
+        }
+        println("Model 70%, pasaran 50% → dipakai ${(over.prob * 100).roundToInt()}%")
+    }
+
+    /** Blending the 1X2 has to move the goal expectations, or the screen contradicts itself. */
+    @Test
+    fun theResultBlendIsCarriedIntoTheGoalExpectations() {
+        val m = priced(
+            Triple("Tuan rumah menang", 0.40, "Hasil Akhir"),
+            Triple("Seri", 0.30, "Hasil Akhir"),
+            Triple("Tandang menang", 0.30, "Hasil Akhir"),
+        ).copy(
+            prices = mapOf(
+                "Hasil Akhir|Tuan rumah menang" to 1.55,
+                "Hasil Akhir|Seri" to 4.00,
+                "Hasil Akhir|Tandang menang" to 6.50,
+            )
+        )
+        val blended = Devig.blend(m)
+        assert(blended.probHome > m.probHome) { "pasaran jagoin tuan rumah, peluangnya tidak naik" }
+        assert(abs(blended.probHome + blended.probDraw + blended.probAway - 1.0) < 1e-9)
+        assert(blended.xgHome > blended.xgAway) { "harapan gol tidak ikut bergeser" }
+        println(
+            "1X2 ${(m.probHome * 100).roundToInt()}% → ${(blended.probHome * 100).roundToInt()}%, " +
+                "xG ${twoDecimals(blended.xgHome)} vs ${twoDecimals(blended.xgAway)}"
+        )
+    }
+
+    /**
+     * The point of the whole thing: with prices in, the app picks the bet that pays,
+     * not the one that is likeliest. An 80% market at 1.20 loses money; a 69% market
+     * at 1.60 makes it.
+     */
+    @Test
+    fun withPricesInTheAppPicksTheBetThatPaysNotTheLikeliest() {
+        val m = priced(
+            Triple("Over 1.5", 0.80, "Total Gol"),
+            Triple("Under 1.5", 0.20, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Ya", 0.69, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Tidak", 0.31, "Total Gol"),
+        ).copy(
+            prices = mapOf(
+                "Total Gol|Over 1.5" to 1.20,
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 1.60,
+            )
+        )
+        val chosen = Value.apply(m, 0.55)
+        assert(chosen.pick == "Kedua tim cetak gol (BTTS) - Ya") {
+            "masih milih yang paling mungkin, bukan yang paling untung: ${chosen.pick}"
+        }
+        assert(chosen.valuePick && chosen.valueWas == "Over 1.5")
+        // 1.60 × 0.69 − 1 = +10.4%, against 1.20 × 0.80 − 1 = −4%.
+        assert(abs(chosen.valueEdge - 0.104) < 0.001) { "untungnya salah: ${chosen.valueEdge}" }
+        println("Over 1.5 80% di 1,20 = rugi 4%. BTTS 69% di 1,60 = untung 10%. Dipilih BTTS.")
+    }
+
+    /** Below the floor is below the floor, whatever it pays. */
+    @Test
+    fun valueNeverReachesUnderTheSafetyFloor() {
+        val m = priced(
+            Triple("Over 1.5", 0.80, "Total Gol"),
+            Triple("Tandang menang", 0.30, "Hasil Akhir"),
+        ).copy(
+            prices = mapOf("Total Gol|Over 1.5" to 1.20, "Hasil Akhir|Tandang menang" to 8.0)
+        )
+        // The 8.0 shot returns +140% and is still not offered: the user set a floor.
+        assert(Value.best(m, 0.68) == null) { "market di bawah batas aman ikut ditawarkan" }
+        assert(Value.apply(m, 0.68).pick == "Over 1.5") { "rekomendasi berubah padahal tidak boleh" }
+    }
+
+    /** A price far better than the model can justify is a warning, not a windfall. */
+    @Test
+    fun anImpossiblyGenerousPriceIsRefusedNotRecommended() {
+        val m = priced(
+            Triple("Over 1.5", 0.80, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Ya", 0.75, "Total Gol"),
+        ).copy(
+            prices = mapOf(
+                "Total Gol|Over 1.5" to 1.30,
+                // 2.60 at 75% would be +95%: the screenshot was misread, not a gift.
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 2.60,
+            )
+        )
+        val best = Value.best(m, 0.68)
+        assert(best?.option?.name == "Over 1.5") { "bayaran mustahil ikut direkomendasikan: $best" }
+        println("2,60 di peluang 75% = untung 95% — ditolak, itu tanda salah baca.")
+    }
+
+    /** Nothing changes for a match with no prices: this feature must not touch it. */
+    @Test
+    fun matchesWithoutPricesAreLeftExactlyAsTheyWere() {
+        val m = priced(
+            Triple("Over 1.5", 0.80, "Total Gol"),
+            Triple("Under 1.5", 0.20, "Total Gol"),
+        )
+        assert(Devig.blend(m) == m)
+        assert(Value.apply(m, 0.68) == m)
+        assert(!m.marketBlended && !m.valuePick)
     }
 
     // ------------------------------------------------ harga dari gambar
