@@ -198,6 +198,22 @@ object Grid {
         add("Tuan rumah menang & Over 1.5", "Kombinasi Hasil + Total", sum(m) { i, j -> i > j && i + j > 1.5 })
         add("Tandang menang & Over 1.5", "Kombinasi Hasil + Total", sum(m) { i, j -> i < j && i + j > 1.5 })
         add("12 & Over 2.5", "Kombinasi Hasil + Total", sum(m) { i, j -> i != j && i + j > 2.5 })
+        // The combinations that actually pay. They sit well below the old 68% floor,
+        // which is why the app never suggested them however good the reasoning was.
+        add("Tuan rumah menang & Over 2.5", "Kombinasi Hasil + Total", sum(m) { i, j -> i > j && i + j > 2.5 })
+        add("Tandang menang & Over 2.5", "Kombinasi Hasil + Total", sum(m) { i, j -> i < j && i + j > 2.5 })
+        add("Tuan rumah menang & Under 2.5", "Kombinasi Hasil + Total", sum(m) { i, j -> i > j && i + j < 2.5 })
+        add("Tandang menang & Under 2.5", "Kombinasi Hasil + Total", sum(m) { i, j -> i < j && i + j < 2.5 })
+        add("Tuan rumah menang & BTTS Ya", "Kombinasi Hasil + Total", sum(m) { i, j -> i > j && i >= 1 && j >= 1 })
+        add("Tandang menang & BTTS Ya", "Kombinasi Hasil + Total", sum(m) { i, j -> i < j && i >= 1 && j >= 1 })
+        add("1X & BTTS Ya", "Kombinasi Hasil + Total", sum(m) { i, j -> i >= j && i >= 1 && j >= 1 })
+        add("X2 & BTTS Ya", "Kombinasi Hasil + Total", sum(m) { i, j -> i <= j && i >= 1 && j >= 1 })
+
+        // Multigoal: a band rather than a line, priced far better than the plain
+        // Over it overlaps with.
+        for ((lo, hi) in listOf(1 to 3, 2 to 3, 2 to 4, 3 to 5)) {
+            add("Total gol $lo-$hi", "Multigol", sum(m) { i, j -> i + j in lo..hi })
+        }
 
         val byTwo = sum(m) { i, j -> i - j >= 2 }
         val byOne = sum(m) { i, j -> i - j == 1 }

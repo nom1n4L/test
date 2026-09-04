@@ -7,6 +7,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Base64
+import kotlin.math.roundToInt
 
 /**
  * Reads a match's statistics out of screenshots and turns them into probabilities,
@@ -94,6 +95,7 @@ class Analyst(private val apiKey: String) {
         history: List<MatchPrediction> = emptyList(),
         slips: List<SavedSlip> = emptyList(),
         previous: MatchPrediction? = null,
+        appetite: Appetite = Appetite.SAFE,
     ): MatchPrediction = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
         if (images.isEmpty()) throw AnalystException("Belum ada gambar.")
@@ -112,6 +114,7 @@ class Analyst(private val apiKey: String) {
             )
         }
         parts.put(JSONObject().put("text", userPrompt(note, mode)))
+        parts.put(JSONObject().put("text", appetiteNote(appetite)))
         // The model's own track record, so a market it has been overconfident on
         // does not get the same number again. See Coach for what this can and
         // cannot do.
@@ -162,7 +165,7 @@ class Analyst(private val apiKey: String) {
             }
             post(model, constrained.toString())
         }
-        enforceSafePick(Grid.fill(parse(reply).copy(mode = mode)))
+        enforceSafePick(Grid.fill(parse(reply).copy(mode = mode)), appetite.floor)
     }
 
     /**
@@ -177,19 +180,54 @@ class Analyst(private val apiKey: String) {
      * When the pick is replaced the app says so rather than quietly presenting its
      * own choice as the model's.
      */
-    internal fun enforceSafePick(p: MatchPrediction): MatchPrediction {
+    internal fun enforceSafePick(
+        p: MatchPrediction,
+        floor: Double = MarketOption.SAFE_LOW,
+    ): MatchPrediction {
         val current = p.markets.firstOrNull { it.name == p.pick }
-        if (current != null && current.safe) return p
+        if (current != null && current.inBand(floor)) return p
 
         // A market the model actually looked at beats one the app worked out, even
         // when the arithmetic one reads higher: the model saw the screenshots.
-        val safe = p.safePicks()
+        val safe = p.safePicks(floor)
         val best = safe.firstOrNull { !it.derived } ?: safe.firstOrNull() ?: return p
         return p.copy(
             pick = best.name,
             pickProb = best.prob,
             pickCorrected = true,
         )
+    }
+
+    /**
+     * How low a probability this user wants to be pointed at.
+     *
+     * Separated from the honesty rules on purpose. The probabilities themselves must
+     * not move with appetite — that would be dishonesty dressed as boldness. What
+     * moves is which market gets recommended out of the same honest set, and the
+     * cost of moving that floor is stated plainly so a lower one is a choice rather
+     * than a surprise.
+     */
+    private fun appetiteNote(appetite: Appetite): String = when (appetite) {
+        Appetite.SAFE ->
+            "SELERA RISIKO: AMAN. Rekomendasikan hanya market dengan peluang 68% ke " +
+                "atas. Kalau tidak ada yang sampai 68%, katakan lewatkan."
+        Appetite.BALANCED, Appetite.BOLD -> {
+            val floor = (appetite.floor * 100).roundToInt()
+            "SELERA RISIKO: ${appetite.label.uppercase()}. Pengguna ini SENGAJA meminta " +
+                "market yang bayarannya lebih baik, jadi jangan otomatis memilih " +
+                "peluang tertinggi. Batas bawah rekomendasi turun ke $floor%.\n" +
+                "- Market seperti \"Tuan rumah menang & Over 2.5\", \"Total gol 2-3\", " +
+                "\"Menang & BTTS Ya\", atau handicap boleh direkomendasikan meski " +
+                "peluangnya 45-65%, ASALKAN alasannya kuat dari angka di gambar.\n" +
+                "- Pilih market yang paling didukung mekanisme, bukan yang angkanya " +
+                "paling besar. Over 0.5 memang hampir pasti tembus, tapi bayarannya " +
+                "tidak sepadan dan bukan itu yang dicari pengguna ini.\n" +
+                "- JANGAN menaikkan angka peluang supaya sebuah market terlihat layak. " +
+                "Peluangnya tetap jujur; yang berubah cuma market mana yang kamu " +
+                "rekomendasikan.\n" +
+                "- Di \"verdict\", sebutkan bahwa ini pilihan bayaran lebih tinggi dan " +
+                "wajar lebih sering meleset."
+        }
     }
 
     /**
@@ -704,9 +742,16 @@ Isi market-market berikut, pakai "group" persis seperti judulnya:
 - "Tuan rumah Over 0.5", "Tuan rumah Over 1.5", "Tuan rumah Over 2.5"
 - "Tandang Over 0.5", "Tandang Over 1.5", "Tandang Over 2.5"
 
+[Multigol]
+- "Total gol 1-3", "Total gol 2-3", "Total gol 2-4", "Total gol 3-5"
+
 [Kombinasi Hasil + Total]
 - "1X & Over 2.5", "1X & Under 2.5", "X2 & Over 2.5", "X2 & Under 2.5"
 - "Tuan rumah menang & Over 1.5", "Tandang menang & Over 1.5"
+- "Tuan rumah menang & Over 2.5", "Tandang menang & Over 2.5"
+- "Tuan rumah menang & Under 2.5", "Tandang menang & Under 2.5"
+- "Tuan rumah menang & BTTS Ya", "Tandang menang & BTTS Ya"
+- "1X & BTTS Ya", "X2 & BTTS Ya"
 - "12 & Over 2.5"
 
 [Handicap Asia]

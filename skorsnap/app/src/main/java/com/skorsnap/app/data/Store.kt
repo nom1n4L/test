@@ -24,6 +24,11 @@ class Store(context: Context) {
             .ifBlank { Analyst.DEFAULT_MODEL }
         set(v) = prefs.edit().putString("model", v).apply()
 
+    var appetite: Appetite
+        get() = runCatching { Appetite.valueOf(prefs.getString("appetite", "").orEmpty()) }
+            .getOrDefault(Appetite.SAFE)
+        set(v) = prefs.edit().putString("appetite", v.name).apply()
+
     fun load(): List<MatchPrediction> {
         val raw = prefs.getString("matches", null) ?: return emptyList()
         return runCatching {

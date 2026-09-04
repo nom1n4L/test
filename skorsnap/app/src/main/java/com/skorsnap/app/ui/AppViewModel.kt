@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.skorsnap.app.data.Analyst
+import com.skorsnap.app.data.Appetite
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Lens
@@ -58,6 +59,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
+
+    /**
+     * How low a probability the user wants to be pointed at.
+     *
+     * Kept as a setting because the two complaints behind it contradict each other:
+     * recommendations that were not marked safe, and recommendations that were too
+     * safe to pay anything. Both are fair, so the floor belongs to the user.
+     */
+    private val _appetite = MutableStateFlow(store.appetite)
+    val appetite: StateFlow<Appetite> = _appetite.asStateFlow()
+
+    fun setAppetite(value: Appetite) {
+        store.appetite = value
+        _appetite.value = value
+    }
 
     /** How the parlay screen takes one market from each selected match. */
     private val _strategy = MutableStateFlow(Strategy.RECOMMENDED)
@@ -225,7 +241,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val analyst = Analyst(store.apiKey)
                 val result = analyst
-                    .analyse(images, note, store.model, _mode.value, _matches.value, _slips.value)
+                    .analyse(
+                        images, note, store.model, _mode.value,
+                        _matches.value, _slips.value, null, _appetite.value,
+                    )
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
                 val updated = _matches.value + result
@@ -267,7 +286,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val analyst = Analyst(store.apiKey)
                 val fresh = analyst.analyse(
                     images, note, store.model, previous.mode,
-                    _matches.value, _slips.value, previous,
+                    _matches.value, _slips.value, previous, _appetite.value,
                 ).copy(
                     id = previous.id,
                     model = store.model,

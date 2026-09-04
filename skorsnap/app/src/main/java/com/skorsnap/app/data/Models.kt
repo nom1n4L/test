@@ -50,7 +50,9 @@ data class MarketOption(
     val breakEven: Double get() = if (prob > 1e-9) 1.0 / prob else 0.0
 
     /** High enough to lead with, low enough that a bookmaker will price it. */
-    val safe: Boolean get() = prob in SAFE_LOW..SAFE_HIGH
+    val safe: Boolean get() = inBand(SAFE_LOW)
+
+    fun inBand(floor: Double): Boolean = prob in floor..SAFE_HIGH
 
     companion object {
         /**
@@ -63,6 +65,38 @@ data class MarketOption(
         const val SAFE_LOW = 0.68
         const val SAFE_HIGH = 0.92
     }
+}
+
+/**
+ * How low a probability the user is willing to be pointed at.
+ *
+ * The floor was fixed at 68% because an earlier complaint was that
+ * recommendations landed on markets nothing called safe. The opposite complaint
+ * followed: a 68% floor rules out every market that pays properly, so the app only
+ * ever suggested short prices. Both readings are reasonable and they contradict
+ * each other, so this is the user's choice rather than a number picked for them.
+ *
+ * The ceiling does not move. Above 92% the price is under 1.10, which is not worth
+ * staking whatever the appetite.
+ */
+enum class Appetite(val label: String, val floor: Double, val note: String) {
+    SAFE(
+        "Aman",
+        0.68,
+        "Cuma market 68% ke atas. Paling sering tembus, bayarannya paling kecil.",
+    ),
+    BALANCED(
+        "Seimbang",
+        0.55,
+        "Turun sampai 55%. Membuka market seperti Menang & Over 2.5 atau total gol " +
+            "2-3 yang bayarannya jauh lebih baik, dengan risiko meleset lebih sering.",
+    ),
+    BOLD(
+        "Berani",
+        0.42,
+        "Turun sampai 42%. Bayarannya besar dan memang lebih sering meleset — " +
+            "hanya masuk akal kalau kamu memasang kecil dan konsisten.",
+    ),
 }
 
 /** How a followed pick actually turned out. */
@@ -219,9 +253,9 @@ data class MatchPrediction(
     /** The user backed something the app did not recommend. */
     val divergent: Boolean get() = backed.isNotBlank() && backed != pick
 
-    /** Safe-band markets, strongest first — the shortlist worth leading with. */
-    fun safePicks(): List<MarketOption> =
-        markets.filter { it.safe }.sortedByDescending { it.prob }
+    /** In-band markets, strongest first — the shortlist worth leading with. */
+    fun safePicks(floor: Double = MarketOption.SAFE_LOW): List<MarketOption> =
+        markets.filter { it.inBand(floor) }.sortedByDescending { it.prob }
 
     /** Markets under their headings, in the order the catalogue lists them. */
     fun grouped(): List<Pair<String, List<MarketOption>>> =
@@ -295,6 +329,7 @@ object Markets {
         "Total Gol",
         "Total Babak 1",
         "Total per Tim",
+        "Multigol",
         "Kombinasi Hasil + Total",
         "Handicap Asia",
         "Handicap Eropa",

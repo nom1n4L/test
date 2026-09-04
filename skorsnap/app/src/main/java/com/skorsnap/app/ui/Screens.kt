@@ -71,6 +71,7 @@ import com.skorsnap.app.data.SlipReport
 import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.priceLabel
 import com.skorsnap.app.data.twoDecimals
+import com.skorsnap.app.data.Appetite
 
 @Composable
 fun Card(
@@ -539,6 +540,7 @@ fun DetailScreen(
     onBacked: (String) -> Unit,
     onAddMore: () -> Unit,
     onDelete: () -> Unit,
+    appetite: Appetite = Appetite.SAFE,
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -630,7 +632,7 @@ fun DetailScreen(
         if (match.mode == Mode.CORNER_1H) {
             item { OneMarketCard(match, onMarkMarket) }
         } else {
-            item { SafeListCard(match, onMarkMarket) }
+            item { SafeListCard(match, appetite, onMarkMarket) }
 
             item {
                 Card(title = "Hasil Akhir") {
@@ -671,15 +673,21 @@ fun DetailScreen(
  * calls safe.
  */
 @Composable
-private fun SafeListCard(match: MatchPrediction, onMark: (MarketOption, Outcome) -> Unit) {
-    val safe = remember(match) { match.safePicks() }
+private fun SafeListCard(
+    match: MatchPrediction,
+    appetite: Appetite,
+    onMark: (MarketOption, Outcome) -> Unit,
+) {
+    val safe = remember(match, appetite) { match.safePicks(appetite.floor) }
     if (safe.isEmpty()) {
-        Card(title = "Tidak Ada yang Masuk Rentang Aman") {
+        Card(title = "Tidak Ada yang Masuk Rentang") {
             Text(
-                "Tidak satu pun market di laga ini jatuh di 68-92%. Yang di bawah 68% " +
+                "Tidak satu pun market di laga ini jatuh di " +
+                    "${Math.round(appetite.floor * 100)}-92%. Yang di bawah batas itu " +
                     "terlalu dekat lempar koin, yang di atas 92% odds-nya terlalu kecil " +
                     "untuk dipasang.\n\nHari seperti ini memang ada. Melewatkannya adalah " +
-                    "keputusan yang sah.",
+                    "keputusan yang sah — atau turunkan batasnya di Pengaturan kalau kamu " +
+                    "memang mencari bayaran lebih besar.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -689,7 +697,8 @@ private fun SafeListCard(match: MatchPrediction, onMark: (MarketOption, Outcome)
 
     Card(
         title = "Pilihan Aman (${safe.size})",
-        subtitle = "Peluang tertinggi di atas. Semua di rentang 68-92%. " +
+        subtitle = "Peluang tertinggi di atas. Semua di rentang " +
+            "${Math.round(appetite.floor * 100)}-92%. " +
             "Tandai hasilnya setelah laga selesai — tiap tanda jadi bahan koreksi " +
             "buat analisis berikutnya.",
     ) {
@@ -1966,6 +1975,7 @@ fun SettingsScreen(vm: AppViewModel) {
     val modelsBusy by vm.modelsBusy.collectAsStateWithLifecycle()
     val report by vm.modelReport.collectAsStateWithLifecycle()
     val usage by vm.lastUsage.collectAsStateWithLifecycle()
+    val appetite by vm.appetite.collectAsStateWithLifecycle()
     var model by remember(available) { mutableStateOf(vm.store.model) }
 
     Column(
@@ -2126,6 +2136,53 @@ fun SettingsScreen(vm: AppViewModel) {
                     }
                 }
             }
+        }
+
+        Card(
+            title = "3. Selera Risiko",
+            subtitle = "Seberapa rendah peluang yang boleh direkomendasikan. " +
+                "Ini tidak mengubah angkanya — cuma market mana yang dipilih.",
+        ) {
+            Appetite.entries.forEach { option ->
+                val on = appetite == option
+                Surface(
+                    color = if (on) Sky.copy(alpha = 0.18f)
+                    else MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+                        .clickable { vm.setAppetite(option) },
+                ) {
+                    Column(Modifier.padding(11.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                option.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                                color = if (on) Sky else MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "batas ${Math.round(option.floor * 100)}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Text(
+                            option.note,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Menurunkan batas berarti lebih sering meleset — itu memang harga dari " +
+                    "bayaran yang lebih besar, bukan tanda prediksinya memburuk. " +
+                    "Rapor akurasimu yang akan menjawab apakah pilihan ini menguntungkan.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Amber,
+            )
         }
 
         Card(title = "Kalau Semua Model Gagal") {

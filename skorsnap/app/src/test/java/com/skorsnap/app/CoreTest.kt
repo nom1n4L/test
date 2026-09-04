@@ -1,6 +1,7 @@
 package com.skorsnap.app
 
 import com.skorsnap.app.data.Analyst
+import com.skorsnap.app.data.Appetite
 import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Migration
 import org.json.JSONObject
@@ -1475,6 +1476,99 @@ class CoreTest {
         assert(note.contains("jangan minta hal yang sama dua kali")) { "bisa memutar terus" }
         println()
         println("Catatan analisis ulang membawa pembacaan lama dan izin untuk berubah pikiran.")
+    }
+
+    // ------------------------------------------------ selera risiko & market luas
+
+    private fun spread() = match(0.5).copy(
+        pick = "Over 0.5",
+        markets = listOf(
+            MarketOption("Over 0.5", 0.94, "", "Total Gol"),
+            MarketOption("Over 1.5", 0.78, "", "Total Gol"),
+            MarketOption("Total gol 2-3", 0.61, "", "Multigol"),
+            MarketOption("Tuan rumah menang & Over 2.5", 0.47, "", "Kombinasi Hasil + Total"),
+            MarketOption("Skor 3-1", 0.06, "", "Lainnya"),
+        ),
+    )
+
+    /**
+     * The 68% floor is what made every recommendation a short price: the markets
+     * that pay sit below it by construction. Lowering the floor opens them without
+     * touching a single probability.
+     */
+    @Test
+    fun aLowerFloorOpensTheMarketsThatActuallyPay() {
+        val m = spread()
+        assert(m.safePicks(Appetite.SAFE.floor).map { it.name } == listOf("Over 1.5"))
+        assert(m.safePicks(Appetite.BALANCED.floor).map { it.name } ==
+            listOf("Over 1.5", "Total gol 2-3"))
+        assert(m.safePicks(Appetite.BOLD.floor).map { it.name } ==
+            listOf("Over 1.5", "Total gol 2-3", "Tuan rumah menang & Over 2.5"))
+        println()
+        Appetite.entries.forEach {
+            println("${it.label.padEnd(9)} batas ${Math.round(it.floor * 100)}% → " +
+                m.safePicks(it.floor).joinToString { o -> "${o.name} ${o.percent}%" })
+        }
+    }
+
+    /** The ceiling never moves: above 92% the price is not worth staking. */
+    @Test
+    fun noAppetiteEverRecommendsAnUnbettablePrice() {
+        val m = spread()
+        Appetite.entries.forEach {
+            assert(m.safePicks(it.floor).none { o -> o.prob > 0.92 }) {
+                "${it.label} merekomendasikan odds di bawah 1,09"
+            }
+        }
+        println("Tidak ada selera risiko yang merekomendasikan 94% — odds-nya 1,06.")
+    }
+
+    @Test
+    fun theEnforcedPickFollowsTheChosenFloor() {
+        val m = spread().copy(pick = "Skor 3-1", pickProb = 0.06)
+        val safe = Analyst("k").enforceSafePick(m, Appetite.SAFE.floor)
+        val bold = Analyst("k").enforceSafePick(m, Appetite.BOLD.floor)
+        assert(safe.pick == "Over 1.5") { "aman malah memilih ${safe.pick}" }
+        assert(bold.pick == "Over 1.5") { "berani seharusnya tetap ambil yang tertinggi dulu" }
+        assert(safe.pickCorrected && bold.pickCorrected)
+        println("Pilihan 6% diganti; batas mana pun tidak akan membiarkannya lewat.")
+    }
+
+    /**
+     * The probabilities must not move with appetite. Boldness is about which market
+     * is recommended, not about inflating numbers to justify one.
+     */
+    @Test
+    fun appetiteNeverChangesTheProbabilitiesThemselves() {
+        val m = spread()
+        val before = m.markets.map { it.prob }
+        Appetite.entries.forEach { m.safePicks(it.floor) }
+        assert(m.markets.map { it.prob } == before) { "angka peluang ikut berubah" }
+        println("Angka peluangnya identik di semua selera risiko — yang berubah cuma pilihannya.")
+    }
+
+    @Test
+    fun theWiderCatalogueIsActuallyDerived() {
+        val names = Grid.matchMarkets(1.7, 1.2, 0.48, 0.26, 0.26).map { it.name }
+        listOf(
+            "Total gol 2-3", "Total gol 2-4", "Total gol 1-3", "Total gol 3-5",
+            "Tuan rumah menang & Over 2.5", "Tandang menang & Over 2.5",
+            "Tuan rumah menang & BTTS Ya", "1X & BTTS Ya",
+        ).forEach { assert(it in names) { "market baru tidak ikut dihitung: $it" } }
+        assert("Multigol" in Markets.order) { "Multigol tidak punya judul kelompok" }
+        println()
+        println("Katalog jadi ${names.size} market, termasuk Multigol dan Menang & Over 2.5.")
+    }
+
+    @Test
+    fun multigoalBandsAreConsistentWithTheOverLines() {
+        val m = Grid.matchMarkets(1.7, 1.2, 0.48, 0.26, 0.26).associateBy { it.name }
+        val twoToThree = m["Total gol 2-3"]!!.prob
+        val over15 = m["Over 1.5"]!!.prob
+        assert(twoToThree < over15) { "2-3 tidak boleh lebih besar dari Over 1.5" }
+        assert(m["Total gol 2-4"]!!.prob > twoToThree) { "2-4 harus mencakup 2-3" }
+        println("Total gol 2-3 %d%% < 2-4 %d%% < Over 1.5 %d%% — bandnya konsisten."
+            .format(m["Total gol 2-3"]!!.percent, m["Total gol 2-4"]!!.percent, m["Over 1.5"]!!.percent))
     }
 
     @Test

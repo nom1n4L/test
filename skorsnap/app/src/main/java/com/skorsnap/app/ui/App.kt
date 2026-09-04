@@ -36,6 +36,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.MarketOption
 import com.skorsnap.app.data.Parlay
+import com.skorsnap.app.data.Appetite
 
 @Composable
 fun App(vm: AppViewModel) {
@@ -49,6 +50,7 @@ fun App(vm: AppViewModel) {
     val legOdds by vm.legOdds.collectAsStateWithLifecycle()
     val chosen by vm.chosen.collectAsStateWithLifecycle()
     val slips by vm.slips.collectAsStateWithLifecycle()
+    val appetite by vm.appetite.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
@@ -141,6 +143,7 @@ fun App(vm: AppViewModel) {
                             onBacked = { vm.setBacked(s.id, it) },
                             onAddMore = { vm.go(Screen.AddMore(s.id)) },
                             onDelete = { vm.remove(s.id) },
+                            appetite = appetite,
                         )
                     }
                 }
