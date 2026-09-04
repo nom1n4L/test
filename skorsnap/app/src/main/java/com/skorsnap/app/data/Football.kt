@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.roundToInt
 
 /**
  * Fixtures, team statistics and prices from API-Football.
@@ -14,10 +15,12 @@ import java.net.URL
  * numbers arrive as numbers. A screenshot costs roughly thirty thousand tokens and
  * can be misread; the same statistics as text cost about a thousand and cannot.
  *
- * What this cannot supply is the first-half corner split, which no free provider
- * carries and which is exactly what the user's corner strategy runs on. So this
- * supplements the screenshots rather than replacing them, and the analysis says
- * which numbers came from where.
+ * Measured against a real free key rather than assumed, because the documentation
+ * is unreachable from here and the limits turned out to matter: today's fixtures
+ * and odds are served, while season aggregates, past dates and a team's recent
+ * matches are not. Per-fixture statistics do include corners, but with no way to
+ * enumerate a team's history there is no route to an average — so screenshots stay
+ * essential for corners, and the brief says so rather than inventing a number.
  *
  * The response shapes are handled defensively throughout: the documentation is
  * behind a block from here, so every field is read with a fallback and [probe]
@@ -50,36 +53,55 @@ class Football(private val apiKey: String) {
     }
 
     /**
-     * Both teams' season statistics, written out for the model to read.
+     * Everything this fixture's data can supply, written out for the model to read.
      *
-     * Costs two requests. The minute bands matter more than the totals here: a side
-     * that concedes most of its goals after the break is a different bet in the
-     * first half from one that starts slowly, and that split is invisible in a
-     * season average.
+     * On a paid plan that includes both sides' season aggregates. On the free plan
+     * those come back "try from 2022 to 2024" and are skipped, leaving the market
+     * prices — which are the more useful half anyway, and which the free plan does
+     * serve.
      */
     suspend fun statsBrief(fixture: Fixture): String = withContext(Dispatchers.IO) {
-        val home = teamStats(fixture.homeId, fixture.leagueId, fixture.season)
-        val away = teamStats(fixture.awayId, fixture.leagueId, fixture.season)
+        val prices = runCatching { odds(fixture.id) }.getOrDefault(emptyMap())
+        val season = runCatching { teamStats(fixture.homeId, fixture.leagueId, fixture.season) }
+            .getOrNull()
+        val awaySeason = runCatching { teamStats(fixture.awayId, fixture.leagueId, fixture.season) }
+            .getOrNull()
+
         buildString {
-            append("STATISTIK RESMI DARI API-FOOTBALL (bukan dari gambar, tidak perlu dibaca ulang).\n")
-            append("Liga: ${fixture.where}, musim ${fixture.season}.\n\n")
-            append("TUAN RUMAH — ${fixture.home}\n")
-            append(home)
-            append("\nTANDANG — ${fixture.away}\n")
-            append(away)
+            append("DATA RESMI DARI API-FOOTBALL untuk laga ini. Angka di sini sudah pasti " +
+                "benar — tidak perlu dibaca ulang dari gambar.\n")
+            append("${fixture.home} vs ${fixture.away} — ${fixture.where}, ${fixture.kickoff}.\n\n")
+
+            if (season != null || awaySeason != null) {
+                append("STATISTIK MUSIM\n")
+                season?.let { append("TUAN RUMAH — ${fixture.home}\n$it") }
+                awaySeason?.let { append("TANDANG — ${fixture.away}\n$it") }
+                append("\n")
+            }
+
+            append(marketBrief(prices))
+
             append(
-                "\nCATATAN PENTING: sumber ini TIDAK memuat statistik sepak pojok sama " +
-                    "sekali, dan tidak memuat pecahan babak pertama untuk corner. Kalau " +
-                    "analisis ini soal corner dan tidak ada gambar yang memuatnya, katakan " +
-                    "di \"need_more\" bahwa kamu butuh statistik corner, dan jangan " +
-                    "mengarang angkanya."
+                "\nYANG TIDAK ADA DI SUMBER INI: statistik sepak pojok, dan semua pecahan " +
+                    "babak pertama. Kalau analisis ini soal corner dan tidak ada gambar yang " +
+                    "memuat angkanya, tulis di \"need_more\" bahwa kamu butuh statistik " +
+                    "corner babak 1. Jangan mengarang angkanya dari harga bandar."
             )
         }
     }
 
-    private suspend fun teamStats(teamId: Long, leagueId: Long, season: Int): String {
+    /**
+     * Season aggregates, where the plan allows them.
+     *
+     * The free plan answers "try from 2022 to 2024" for a current season, so this
+     * returns null rather than an empty block: a paid plan gets real numbers and a
+     * free one simply gets a brief without this section, instead of a heading with
+     * nothing under it.
+     */
+    private suspend fun teamStats(teamId: Long, leagueId: Long, season: Int): String? {
         val json = get("teams/statistics?team=$teamId&league=$leagueId&season=$season")
-        val r = json.optJSONObject("response") ?: return "  (statistik tidak tersedia)\n"
+        (json.opt("errors") as? JSONObject)?.takeIf { it.length() > 0 }?.let { return null }
+        val r = json.optJSONObject("response")?.takeIf { it.length() > 0 } ?: return null
         val fixtures = r.optJSONObject("fixtures") ?: JSONObject()
         val goals = r.optJSONObject("goals") ?: JSONObject()
         val scored = goals.optJSONObject("for") ?: JSONObject()
@@ -155,6 +177,11 @@ class Football(private val apiKey: String) {
             } else {
                 append("Tidak ada pertandingan di tanggal itu — coba tanggal lain.")
             }
+            append(
+                "\n\nCatatan paket gratis: hanya jadwal HARI INI yang bisa diambil, dan " +
+                    "statistik musim berjalan tidak dibuka. Yang dipakai aplikasi ini dari " +
+                    "sumber tersebut adalah daftar pertandingan dan harga bandar."
+            )
         }
     }
 
@@ -230,6 +257,47 @@ class Football(private val apiKey: String) {
                     country = league.optString("country"),
                     season = league.optInt("season"),
                     kickoff = fx.optString("date").take(16).replace("T", " "),
+                )
+            }
+        }
+
+        /**
+         * The market's own view, with the bookmaker's margin taken out.
+         *
+         * This is the single most useful thing the free plan can supply. Prices are a
+         * consensus forecast that is hard to beat — SofaScore's published "AI"
+         * probabilities land within a few points of them — so handing them over as a
+         * starting point is more honest, and more accurate, than asking a model to
+         * guess a base rate from a team name.
+         *
+         * They are labelled as the market's view rather than as evidence about the
+         * teams, because a price is what other people believe, not what happened.
+         */
+        fun marketBrief(prices: Map<String, Double>): String {
+            if (prices.isEmpty()) return "HARGA BANDAR: tidak tersedia untuk laga ini.\n"
+            val oneXTwo = listOf("Match Winner: Home", "Match Winner: Draw", "Match Winner: Away")
+                .mapNotNull { prices[it] }
+            return buildString {
+                append("HARGA BANDAR (pasar taruhan, margin belum dibuang):\n")
+                prices.entries.take(30).forEach { (name, price) ->
+                    append("  $name = $price\n")
+                }
+                if (oneXTwo.size == 3) {
+                    val raw = oneXTwo.map { 1.0 / it }
+                    val sum = raw.sum()
+                    val fair = raw.map { (it / sum * 100).roundToInt() }
+                    append(
+                        "\nSetelah margin dibuang, pasar menilai: tuan rumah ${fair[0]}%, " +
+                            "seri ${fair[1]}%, tandang ${fair[2]}%.\n"
+                    )
+                }
+                append(
+                    "\nCARA MEMAKAI HARGA INI: pasar adalah perkiraan gabungan banyak orang dan " +
+                        "sulit dikalahkan, jadi jadikan titik awal, bukan lawan. Kalau angkamu " +
+                        "jauh berbeda dari pasar, kamu harus punya alasan konkret dari gambar — " +
+                        "kalau tidak punya, dekatkan angkamu ke pasar. Tapi ingat harga sudah " +
+                        "memuat margin bandar, jadi persentase mentah dari odds selalu " +
+                        "kebesaran.\n"
                 )
             }
         }

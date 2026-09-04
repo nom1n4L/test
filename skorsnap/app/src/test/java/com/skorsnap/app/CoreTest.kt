@@ -1749,6 +1749,35 @@ class CoreTest {
         println("Statistik sebagai teks ≈ $roughTokens token, versus ~30.000 untuk screenshot.")
     }
 
+    /**
+     * Verified against a real free key rather than assumed: today's fixtures and
+     * odds are served, season aggregates and past dates are not. The brief has to
+     * stay useful under those limits instead of printing an empty heading.
+     */
+    @Test
+    fun theBriefHoldsUpOnAFreePlanWithNoSeasonStats() {
+        val prices = mapOf(
+            "Match Winner: Home" to 1.96,
+            "Match Winner: Draw" to 3.10,
+            "Match Winner: Away" to 4.10,
+            "Goals Over/Under: Over 2.5" to 2.25,
+        )
+        val brief = Football.marketBrief(prices)
+        assert(brief.contains("47%")) { "pasar tidak dihitung tanpa margin:\n$brief" }
+        assert(brief.contains("30%") && brief.contains("23%"))
+        assert(brief.contains("titik awal")) { "tidak diberi tahu cara memakai harga" }
+        assert(!brief.contains("STATISTIK MUSIM")) { "menampilkan bagian yang kosong" }
+        println()
+        println(brief.lines().first { it.contains("pasar menilai") })
+    }
+
+    @Test
+    fun aFixtureWithoutPricesSaysSoRatherThanGoingBlank() {
+        val brief = Football.marketBrief(emptyMap())
+        assert(brief.contains("tidak tersedia")) { "diam saja saat harga tidak ada: $brief" }
+        println("Tanpa harga, briefnya bilang apa adanya — bukan kosong tanpa keterangan.")
+    }
+
     @Test
     fun ignoresImpossibleProbabilities() {
         val json = """{"markets":[{"name":"Baik","prob":0.7,"why":""},

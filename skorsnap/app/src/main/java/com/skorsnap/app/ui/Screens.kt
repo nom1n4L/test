@@ -1534,8 +1534,9 @@ fun BrowseScreen(
             item {
                 Card(
                     title = "Analisis ${fx.title}",
-                    subtitle = "Statistik liga diambil otomatis. Tambahkan screenshot " +
-                        "kalau butuh data corner — sumber ini tidak punya itu.",
+                    subtitle = "Harga bandar diambil otomatis dan dipakai sebagai " +
+                        "titik awal. Tambahkan screenshot untuk statistik corner — " +
+                        "sumber ini tidak punya itu.",
                 ) {
                     ImageStrip(staged, onPick, onRemove)
                     Spacer(Modifier.height(10.dp))
@@ -1560,8 +1561,9 @@ fun BrowseScreen(
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Memakai 3 permintaan dari jatah harianmu: statistik dua tim dan " +
-                            "harga bandar.",
+                        "Memakai 1-3 permintaan dari jatah harianmu. Di paket gratis " +
+                            "yang terambil adalah harga bandar; statistik musim hanya " +
+                            "terbuka di paket berbayar.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -2481,8 +2483,11 @@ fun SettingsScreen(vm: AppViewModel) {
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "Sumber ini TIDAK punya statistik sepak pojok sama sekali. Untuk analisis " +
-                    "corner, screenshot FootyStats-mu tetap lebih lengkap — pakai keduanya.",
+                "Sudah kuuji dengan kunci gratis sungguhan: yang terbuka adalah jadwal " +
+                    "hari ini dan harga bandar. Statistik musim, tanggal lampau, dan " +
+                    "riwayat laga sebuah tim TERKUNCI di paket gratis — jadi rata-rata " +
+                    "corner tidak bisa dihitung otomatis. Screenshot FootyStats-mu tetap " +
+                    "diperlukan untuk itu.",
                 style = MaterialTheme.typography.labelSmall,
                 color = Amber,
             )
