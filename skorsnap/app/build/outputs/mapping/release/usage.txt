@@ -19374,13 +19374,24 @@ com.skorsnap.app.data.MatchPrediction:
     public final java.lang.String getRaw()
 com.skorsnap.app.data.Migration:
     public static final int $stable
+com.skorsnap.app.data.Odds$Entry:
+    public static final int $stable
+    public final java.lang.String component1()
+    public final double component2()
+    public final com.skorsnap.app.data.Odds$Entry copy(java.lang.String,double)
+    public static synthetic com.skorsnap.app.data.Odds$Entry copy$default(com.skorsnap.app.data.Odds$Entry,java.lang.String,double,int,java.lang.Object)
+com.skorsnap.app.data.Odds$Matched:
+    public final java.util.Map component1()
+    public final java.util.List component2()
+    public final com.skorsnap.app.data.Odds$Matched copy(java.util.Map,java.util.List)
+    public static synthetic com.skorsnap.app.data.Odds$Matched copy$default(com.skorsnap.app.data.Odds$Matched,java.util.Map,java.util.List,int,java.lang.Object)
 com.skorsnap.app.data.Outcome:
     public static kotlin.enums.EnumEntries getEntries()
 com.skorsnap.app.data.Parlay:
     public static final int $stable
     public static final double MARGIN
-    public static synthetic com.skorsnap.app.data.Slip build$default(com.skorsnap.app.data.Parlay,java.util.List,com.skorsnap.app.data.Strategy,java.util.Map,int,java.lang.Object)
     public static synthetic java.util.List skipped$default(com.skorsnap.app.data.Parlay,java.util.List,com.skorsnap.app.data.Strategy,java.util.Map,int,java.lang.Object)
+    public static synthetic com.skorsnap.app.data.MarketOption swapIfUnderpriced$default(com.skorsnap.app.data.Parlay,com.skorsnap.app.data.MatchPrediction,com.skorsnap.app.data.MarketOption,java.util.Map,double,int,java.lang.Object)
 com.skorsnap.app.data.Report:
     public synthetic void <init>(java.util.List,com.skorsnap.app.data.Lens,int,kotlin.jvm.internal.DefaultConstructorMarker)
     public final java.util.List component1()
@@ -20258,7 +20269,6 @@ kotlin.collections.ArraysKt___ArraysKt:
     private static final short component5(short[])
     private static final boolean component5(boolean[])
     public static final boolean contains(byte[],byte)
-    public static final boolean contains(char[],char)
     public static final synthetic boolean contains(double[],double)
     public static final synthetic boolean contains(float[],float)
     public static final boolean contains(int[],int)
@@ -20628,7 +20638,6 @@ kotlin.collections.ArraysKt___ArraysKt:
     public static final java.util.Map groupByTo(boolean[],java.util.Map,kotlin.jvm.functions.Function1,kotlin.jvm.functions.Function1)
     public static final kotlin.collections.Grouping groupingBy(java.lang.Object[],kotlin.jvm.functions.Function1)
     public static final int indexOf(byte[],byte)
-    public static final int indexOf(char[],char)
     public static final synthetic int indexOf(double[],double)
     public static final synthetic int indexOf(float[],float)
     public static final int indexOf(int[],int)
@@ -23630,7 +23639,6 @@ kotlin.sequences.SequencesKt___SequencesJvmKt:
     private static final java.math.BigInteger sumOfBigInteger(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)
     public static final java.util.SortedSet toSortedSet(kotlin.sequences.Sequence)
     public static final java.util.SortedSet toSortedSet(kotlin.sequences.Sequence,java.util.Comparator)
-kotlin.sequences.SequencesKt___SequencesKt$asIterable$$inlined$Iterable$1
 kotlin.sequences.SequencesKt___SequencesKt$distinct$1
 kotlin.sequences.SequencesKt___SequencesKt$elementAt$1
 kotlin.sequences.SequencesKt___SequencesKt$filterIndexed$1
@@ -23666,7 +23674,6 @@ kotlin.sequences.SequencesKt___SequencesKt:
     public static final boolean all(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)
     public static final boolean any(kotlin.sequences.Sequence)
     public static final boolean any(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)
-    public static final java.lang.Iterable asIterable(kotlin.sequences.Sequence)
     private static final kotlin.sequences.Sequence asSequence(kotlin.sequences.Sequence)
     public static final java.util.Map associate(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)
     public static final java.util.Map associateBy(kotlin.sequences.Sequence,kotlin.jvm.functions.Function1)
@@ -23958,13 +23965,11 @@ kotlin.text.MatchResult$Destructured
 kotlin.text.MatchResult:
     public abstract kotlin.text.MatchResult$Destructured getDestructured()
     public abstract kotlin.text.MatchGroupCollection getGroups()
-    public abstract java.lang.String getValue()
 kotlin.text.MatcherMatchResult$groups$1:
     public kotlin.text.MatchGroup get(java.lang.String)
 kotlin.text.MatcherMatchResult:
     public kotlin.text.MatchResult$Destructured getDestructured()
     public kotlin.text.MatchGroupCollection getGroups()
-    public java.lang.String getValue()
 kotlin.text.Regex$Companion:
     public static final synthetic int access$ensureUnicodeCase(kotlin.text.Regex$Companion,int)
     private final int ensureUnicodeCase(int)
@@ -24202,7 +24207,6 @@ kotlin.text.StringsKt__StringsJVMKt:
     private static final java.lang.String uppercase(java.lang.String)
     private static final java.lang.String uppercase(java.lang.String,java.util.Locale)
 kotlin.text.StringsKt__StringsKt$iterator$1
-kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$1
 kotlin.text.StringsKt__StringsKt$splitToSequence$2
 kotlin.text.StringsKt__StringsKt:
     public void <init>()
@@ -24213,9 +24217,7 @@ kotlin.text.StringsKt__StringsKt:
     private static final boolean contains(java.lang.CharSequence,kotlin.text.Regex)
     public static final boolean contentEqualsIgnoreCaseImpl(java.lang.CharSequence,java.lang.CharSequence)
     public static final boolean endsWith(java.lang.CharSequence,char,boolean)
-    public static final boolean endsWith(java.lang.CharSequence,java.lang.CharSequence,boolean)
     public static synthetic boolean endsWith$default(java.lang.CharSequence,char,boolean,int,java.lang.Object)
-    public static synthetic boolean endsWith$default(java.lang.CharSequence,java.lang.CharSequence,boolean,int,java.lang.Object)
     public static final kotlin.Pair findAnyOf(java.lang.CharSequence,java.util.Collection,int,boolean)
     public static synthetic kotlin.Pair findAnyOf$default(java.lang.CharSequence,java.util.Collection,int,boolean,int,java.lang.Object)
     public static final kotlin.Pair findLastAnyOf(java.lang.CharSequence,java.util.Collection,int,boolean)
@@ -24246,15 +24248,12 @@ kotlin.text.StringsKt__StringsKt:
     public static final java.lang.String padStart(java.lang.String,int,char)
     public static synthetic java.lang.CharSequence padStart$default(java.lang.CharSequence,int,char,int,java.lang.Object)
     public static synthetic java.lang.String padStart$default(java.lang.String,int,char,int,java.lang.Object)
-    private static final kotlin.sequences.Sequence rangesDelimitedBy$StringsKt__StringsKt(java.lang.CharSequence,char[],int,boolean,int)
-    static synthetic kotlin.sequences.Sequence rangesDelimitedBy$StringsKt__StringsKt$default(java.lang.CharSequence,char[],int,boolean,int,int,java.lang.Object)
     public static final java.lang.CharSequence removePrefix(java.lang.CharSequence,java.lang.CharSequence)
     public static final java.lang.CharSequence removeRange(java.lang.CharSequence,int,int)
     public static final java.lang.CharSequence removeRange(java.lang.CharSequence,kotlin.ranges.IntRange)
     private static final java.lang.String removeRange(java.lang.String,int,int)
     private static final java.lang.String removeRange(java.lang.String,kotlin.ranges.IntRange)
     public static final java.lang.CharSequence removeSuffix(java.lang.CharSequence,java.lang.CharSequence)
-    public static final java.lang.String removeSuffix(java.lang.String,java.lang.CharSequence)
     public static final java.lang.CharSequence removeSurrounding(java.lang.CharSequence,java.lang.CharSequence)
     public static final java.lang.CharSequence removeSurrounding(java.lang.CharSequence,java.lang.CharSequence,java.lang.CharSequence)
     public static final java.lang.String removeSurrounding(java.lang.String,java.lang.CharSequence)
@@ -24284,11 +24283,8 @@ kotlin.text.StringsKt__StringsKt:
     private static final java.lang.String replaceRange(java.lang.String,int,int,java.lang.CharSequence)
     private static final java.lang.String replaceRange(java.lang.String,kotlin.ranges.IntRange,java.lang.CharSequence)
     private static final java.util.List split(java.lang.CharSequence,kotlin.text.Regex,int)
-    public static final java.util.List split(java.lang.CharSequence,char[],boolean,int)
     public static final java.util.List split(java.lang.CharSequence,java.lang.String[],boolean,int)
-    private static final java.util.List split$StringsKt__StringsKt(java.lang.CharSequence,java.lang.String,boolean,int)
     static synthetic java.util.List split$default(java.lang.CharSequence,kotlin.text.Regex,int,int,java.lang.Object)
-    public static synthetic java.util.List split$default(java.lang.CharSequence,char[],boolean,int,int,java.lang.Object)
     public static synthetic java.util.List split$default(java.lang.CharSequence,java.lang.String[],boolean,int,int,java.lang.Object)
     private static final kotlin.sequences.Sequence splitToSequence(java.lang.CharSequence,kotlin.text.Regex,int)
     public static final kotlin.sequences.Sequence splitToSequence(java.lang.CharSequence,char[],boolean,int)
@@ -24315,13 +24311,11 @@ kotlin.text.StringsKt__StringsKt:
     public static final varargs java.lang.CharSequence trim(java.lang.CharSequence,char[])
     private static final java.lang.String trim(java.lang.String)
     public static final java.lang.String trim(java.lang.String,kotlin.jvm.functions.Function1)
-    public static final varargs java.lang.String trim(java.lang.String,char[])
     public static final java.lang.CharSequence trimEnd(java.lang.CharSequence)
     public static final java.lang.CharSequence trimEnd(java.lang.CharSequence,kotlin.jvm.functions.Function1)
     public static final varargs java.lang.CharSequence trimEnd(java.lang.CharSequence,char[])
     private static final java.lang.String trimEnd(java.lang.String)
     public static final java.lang.String trimEnd(java.lang.String,kotlin.jvm.functions.Function1)
-    public static final varargs java.lang.String trimEnd(java.lang.String,char[])
     public static final java.lang.CharSequence trimStart(java.lang.CharSequence)
     public static final java.lang.CharSequence trimStart(java.lang.CharSequence,kotlin.jvm.functions.Function1)
     public static final varargs java.lang.CharSequence trimStart(java.lang.CharSequence,char[])
@@ -26924,7 +26918,7 @@ androidx.collection.LongSparseArray:
 androidx.collection.LongSparseArrayKt:
     public static final synthetic java.lang.Object access$getDELETED$p()
 androidx.collection.LruCache
-androidx.collection.MutableFloatSet$$InternalSyntheticThrowCCEIfNotNull$302$43182fb1594507a514bf18492a0543eba5365d3c2285497da49e3ee6a9723e21$0
+androidx.collection.MutableFloatSet$$InternalSyntheticThrowCCEIfNotNull$303$43182fb1594507a514bf18492a0543eba5365d3c2285497da49e3ee6a9723e21$0
 androidx.collection.MutableFloatSet
 androidx.collection.MutableIntIntMap$$InternalSyntheticBackport$1$15e6104ff01201a6d281f1a20f2f41326c8b1162e7d385980a10e8baa0db7760$0
 androidx.collection.MutableIntIntMap:
@@ -27744,7 +27738,7 @@ androidx.compose.animation.core.TransitionKt$SeekableStateObserver$2$1:
     public final void invoke$7()
 androidx.compose.animation.core.TransitionKt$SeekableStateObserver$2:
     public static androidx.compose.runtime.snapshots.SnapshotStateObserver invoke()
-androidx.compose.animation.core.TransitionKt$SeekableTransitionStateTotalDurationChanged$1$$InternalSyntheticOutline$303$5b87162324b9c91d90dfa8e687b3420dbfcde098c4f8c6f2c9a396cb91339b00$0
+androidx.compose.animation.core.TransitionKt$SeekableTransitionStateTotalDurationChanged$1$$InternalSyntheticOutline$304$5b87162324b9c91d90dfa8e687b3420dbfcde098c4f8c6f2c9a396cb91339b00$0
 androidx.compose.animation.core.TransitionKt$SeekableTransitionStateTotalDurationChanged$1$$InternalSyntheticThrowCCEIfNotNull$16$5b87162324b9c91d90dfa8e687b3420dbfcde098c4f8c6f2c9a396cb91339b00$0
 androidx.compose.animation.core.TransitionKt$SeekableTransitionStateTotalDurationChanged$1
 androidx.compose.animation.core.TransitionKt$createChildTransitionInternal$1$1:
@@ -37064,10 +37058,10 @@ androidx.compose.ui.platform.AndroidComposeView:
 androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticLambda$2$c2bede89dd047365e56b025d4954e8b2c5f680c5fc614d2ac7466fdcab6c6930$0:
     public final synthetic androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$sortByGeometryGroupings$2 f$0
 androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$182$429b99719615f26f70d2226afaa7db04a7ad05455862d34ba7d22b40d257d829$0
-androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$185$5b888b6b8a06c044ebff764588480198db071ec6f17d78b86d37ef1d3b96bbab$0
-androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$185$5b888b6b8a06c044ebff764588480198db071ec6f17d78b86d37ef1d3b96bbab$1
-androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$187$a4d911081e3242b8e95ee28be239d6f311aa2e66f7281e89afd4af97344dfc3d$0
-androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$200$bff73fa7caf3b225f6b2aadaabc481e2b4e504d6be55b70a69a81294130418d1$0
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$186$5b888b6b8a06c044ebff764588480198db071ec6f17d78b86d37ef1d3b96bbab$0
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$186$5b888b6b8a06c044ebff764588480198db071ec6f17d78b86d37ef1d3b96bbab$1
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$188$a4d911081e3242b8e95ee28be239d6f311aa2e66f7281e89afd4af97344dfc3d$0
+androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$$InternalSyntheticThrowCCEIfNotNull$201$bff73fa7caf3b225f6b2aadaabc481e2b4e504d6be55b70a69a81294130418d1$0
 androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$Api24Impl:
     public static final androidx.compose.ui.platform.AndroidComposeViewAccessibilityDelegateCompat$Api24Impl INSTANCE
     static void <clinit>()
@@ -40253,7 +40247,7 @@ androidx.lifecycle.RepeatOnLifecycleKt$repeatOnLifecycle$3:
     public final java.lang.Object invoke$4()
 androidx.lifecycle.RepeatOnLifecycleKt
 androidx.lifecycle.ReportFragment$ActivityInitializationListener
-androidx.lifecycle.ReportFragment$Companion$$InternalSyntheticThrowCCEIfNotNull$191$6606f6a9d6c00feabd13f693204c7c685bcfd577a1c056fdbb01af5d22a24ba7$0
+androidx.lifecycle.ReportFragment$Companion$$InternalSyntheticThrowCCEIfNotNull$192$6606f6a9d6c00feabd13f693204c7c685bcfd577a1c056fdbb01af5d22a24ba7$0
 androidx.lifecycle.ReportFragment$Companion:
     public static androidx.lifecycle.ReportFragment get()
 androidx.lifecycle.ReportFragment$LifecycleCallbacks$Companion:
@@ -40721,7 +40715,7 @@ com.skorsnap.app.data.MatchPrediction:
     public static java.lang.String getLeague()
     public static java.util.Map getMarketOutcomes()
     public static java.util.List getMarkets()
-    public static com.skorsnap.app.data.Mode getMode()
+    public final com.skorsnap.app.data.Mode getMode()
     public static java.lang.String getModel()
     public final java.util.List getNeedMore()
     public static java.lang.String getPick()
@@ -40754,6 +40748,16 @@ com.skorsnap.app.data.Migration:
 com.skorsnap.app.data.Mode:
     public static java.lang.String getLabel()
     public static java.lang.String getShort()
+com.skorsnap.app.data.Odds$Entry:
+    static void <clinit>()
+    public static java.lang.String getLabel()
+    public static double getPrice()
+com.skorsnap.app.data.Odds$Matched
+com.skorsnap.app.data.Odds:
+    public static final int $stable
+    public static final com.skorsnap.app.data.Odds INSTANCE
+    public static com.skorsnap.app.data.Odds$Matched match()
+    public static java.util.List parse()
 com.skorsnap.app.data.Outcome:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
 com.skorsnap.app.data.Parlay$WhenMappings
@@ -40763,6 +40767,7 @@ com.skorsnap.app.data.Parlay:
     public static com.skorsnap.app.data.Leg bestPriced()
     public static java.util.List marginTable()
     public static java.util.List skipped()
+    public static com.skorsnap.app.data.MarketOption swapIfUnderpriced()
 com.skorsnap.app.data.ParlayKt
 com.skorsnap.app.data.Report:
     public static final int $stable
@@ -40860,20 +40865,22 @@ com.skorsnap.app.ui.AppKt$App$7$1$17$1:
 com.skorsnap.app.ui.AppKt$App$7$1$27$1:
     public static void invoke$81()
 com.skorsnap.app.ui.AppKt$App$7$1$28$1:
-    public static void invoke$82()
+    public final void invoke$82()
 com.skorsnap.app.ui.AppKt$App$7$1$29$1:
     public static void invoke$83()
 com.skorsnap.app.ui.AppKt$App$7$1$3$1:
     public final void invoke$80()
 com.skorsnap.app.ui.AppKt$App$7$1$30$1:
     public static void invoke$84()
-com.skorsnap.app.ui.AppKt$App$7$1$34$1:
+com.skorsnap.app.ui.AppKt$App$7$1$31$1:
+    public final void invoke$82()
+com.skorsnap.app.ui.AppKt$App$7$1$35$1:
     public final void invoke$80()
-com.skorsnap.app.ui.AppKt$App$7$1$36$1:
+com.skorsnap.app.ui.AppKt$App$7$1$37$1:
     public final void invoke$79()
-com.skorsnap.app.ui.AppKt$App$7$1$40$1:
-    public static void invoke$85()
 com.skorsnap.app.ui.AppKt$App$7$1$41$1:
+    public static void invoke$85()
+com.skorsnap.app.ui.AppKt$App$7$1$42$1:
     public final void invoke$80()
 com.skorsnap.app.ui.AppKt$App$7$1$9$1:
     public static void invoke$86()
@@ -40888,7 +40895,7 @@ com.skorsnap.app.ui.AppKt:
     public static synthetic kotlin.Unit $r8$lambda$Yqw8BOjAVuwLdLpP8gjoxis5qhg()
     public static final kotlin.Unit App$lambda$1$lambda$0()
     public static final kotlin.Unit App$lambda$3$lambda$2()
-    public static final java.util.List access$App$lambda$5(androidx.compose.runtime.MutableState)
+    public static final java.util.List access$App$lambda$5(androidx.compose.runtime.State)
     public static final boolean access$App$lambda$7(androidx.compose.runtime.MutableState)
 com.skorsnap.app.ui.AppViewModel$1$1:
     public static java.lang.Object emit$4()
@@ -40920,6 +40927,7 @@ com.skorsnap.app.ui.AppViewModel:
     static void <clinit>()
     public static void analyse()
     public static void analyseFixture()
+    public static void applyOdds()
     public final void back()
     public static void chooseMarket()
     public static void clearSelection()
@@ -41011,19 +41019,23 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-22$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-23$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-24$1:
-    public final void invoke$40()
+    public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-25$1:
-    public final void invoke$2()
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-26$1:
-    public final void invoke$2()
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-27$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-28$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-29$1:
-    public final void invoke$88()
+    public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-3$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-30$1:
+    public final void invoke$2()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-31$1:
+    public final void invoke$88()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-4$1:
     public final void invoke$88()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-5$1:
@@ -41054,13 +41066,15 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt:
     public static kotlin.jvm.functions.Function3 getLambda-21$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-22$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-23$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-24$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-25$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-26$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-24$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-25$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-26$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-27$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-28$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-29$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-29$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-3$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-30$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-31$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-4$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-5$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-6$app_release()
@@ -41237,6 +41251,10 @@ com.skorsnap.app.ui.ScreensKt$OutcomeCard$1$3:
     public final void invoke$89()
 com.skorsnap.app.ui.ScreensKt$OutcomeCard$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1$2:
+    public final void invoke$40()
+com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReasoningCard$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$1$1$1$2:
@@ -41291,21 +41309,21 @@ com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$8:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$9:
     public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$4:
     public final void invoke$19()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$5
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$6:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$5
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$6:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$7:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$5 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$7:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$5 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$187$lambda$186$$inlined$items$default$8:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$197$lambda$196$$inlined$items$default$8:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SafeListCard$1:
     public final void invoke$2()
@@ -41339,7 +41357,13 @@ com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1$1$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$10$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$10:
+    public final void invoke$88()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$11:
+    public final void invoke$88()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$12:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$1:
     public final void invoke$88()
@@ -41353,27 +41377,31 @@ com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$3:
     public final void invoke$88()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$4:
     public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$5$1:
-    public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$5:
-    public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7$1$1:
-    public final void invoke()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7$2$1:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$6$1$1:
     public final void invoke$80()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$8$1:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7$1:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$8:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7:
     public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$9:
-    public final void invoke$88()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$138$lambda$137$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$138$lambda$137$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$9$1$1:
+    public final void invoke()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$9$2$1:
+    public final void invoke$80()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$138$lambda$137$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$138$lambda$137$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$138$lambda$137$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$4:
+    public final void invoke$19()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$5
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$6:
+    public final java.lang.Object invoke$13()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$7:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$5 $contentType
+    public final java.lang.Object invoke$13()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$141$lambda$140$$inlined$items$default$8:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SortChip$1:
     public final void invoke$2()
@@ -41401,11 +41429,12 @@ com.skorsnap.app.ui.ScreensKt:
     public static final boolean MarketGroup$lambda$52(androidx.compose.runtime.MutableState)
     public static final boolean MarketsCard$lambda$45(androidx.compose.runtime.MutableState)
     public static final boolean StatsReadCard$lambda$114(androidx.compose.runtime.MutableState)
-    public static final boolean access$LegRow$lambda$141(androidx.compose.runtime.MutableState)
+    public static final boolean access$LegRow$lambda$151(androidx.compose.runtime.MutableState)
     public static final void access$MarketsCard$lambda$46(androidx.compose.runtime.MutableState,boolean)
     public static final boolean access$OutcomeCard$lambda$60(androidx.compose.runtime.MutableState)
-    public static final boolean access$SettingsScreen$lambda$161(androidx.compose.runtime.MutableState)
-    public static final boolean access$SettingsScreen$lambda$165(androidx.compose.runtime.MutableState)
+    public static final boolean access$PasteOddsCard$lambda$147(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$171(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$175(androidx.compose.runtime.MutableState)
 kotlin.DeprecationLevel:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
     public static final enum kotlin.DeprecationLevel ERROR
@@ -41504,6 +41533,7 @@ kotlin.collections.ArrayDeque:
     public static void removeRangeShiftPreceding()
     public static void removeRangeShiftSucceeding()
 kotlin.collections.ArraysKt:
+    public static boolean contains(char[],char)
     public static java.lang.Object first(java.lang.Object[])
     public static kotlin.ranges.IntRange getIndices(int[])
     public static int getLastIndex(java.lang.Object[])
@@ -41552,7 +41582,6 @@ kotlin.collections.MapsKt__MapsKt:
     public static java.util.Map emptyMap()
     public static varargs java.util.Map mapOf(kotlin.Pair[])
     public static final java.util.Map optimizeReadOnlyMap(java.util.LinkedHashMap)
-    public static java.util.LinkedHashMap plus(java.util.Map,java.util.Map)
     public static java.util.Map plus(java.util.Map,kotlin.Pair)
     public static final void toMap(java.util.ArrayList,java.util.LinkedHashMap)
 kotlin.collections.MapsKt___MapsKt
@@ -41773,6 +41802,7 @@ kotlin.sequences.SequencesKt__SequencesKt$generateSequence$1:
 kotlin.sequences.SequencesKt__SequencesKt:
     public static kotlin.sequences.Sequence asSequence(java.util.Iterator)
     public static final kotlin.sequences.Sequence constrainOnce(kotlin.sequences.Sequence)
+kotlin.sequences.SequencesKt___SequencesKt$asIterable$$inlined$Iterable$1
 kotlin.sequences.SequencesKt___SequencesKt$filterNotNull$1:
     public final java.lang.Boolean invoke$8()
 kotlin.sequences.SequencesKt___SequencesKt
@@ -41800,6 +41830,7 @@ kotlin.text.MatcherMatchResult:
     public final kotlin.text.MatcherMatchResult$groups$1 groups
     public final java.util.List getGroupValues()
     public static java.util.regex.MatchResult getMatchResult()
+    public static java.lang.String getValue()
     public static kotlin.text.MatcherMatchResult next()
 kotlin.text.Regex$Companion
 kotlin.text.Regex:
@@ -41818,15 +41849,18 @@ kotlin.text.StringsKt__IndentKt$getIndentFunction$1
 kotlin.text.StringsKt__IndentKt$getIndentFunction$2
 kotlin.text.StringsKt__StringNumberConversionsKt
 kotlin.text.StringsKt__StringsJVMKt:
+    public static boolean endsWith$default(java.lang.String,java.lang.String)
     public static boolean startsWith$default(java.lang.String,java.lang.String)
+kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$1
 kotlin.text.StringsKt__StringsKt$rangesDelimitedBy$2:
-    public static kotlin.Pair invoke()
+    public final kotlin.Pair invoke()
 kotlin.text.StringsKt__StringsKt$splitToSequence$1:
     public static java.lang.String invoke$6()
 kotlin.text.StringsKt__StringsKt:
     public static boolean contains$default(java.lang.CharSequence)
     public static synthetic boolean contains$default(java.lang.CharSequence,java.lang.String)
     public static synthetic int indexOf$StringsKt__StringsKt$default(java.lang.CharSequence,java.lang.String,int,int,boolean)
+    public static final void requireNonNegativeLimit(int)
 kotlin.text.StringsKt___StringsKt
 kotlin.time.Duration$Companion
 kotlin.time.Duration
@@ -41921,7 +41955,7 @@ kotlinx.coroutines.CoroutineExceptionHandler:
     static void <clinit>()
 kotlinx.coroutines.CoroutineExceptionHandlerKt:
     public static final java.lang.Throwable handlerException(java.lang.Throwable,java.lang.Throwable)
-kotlinx.coroutines.CoroutineId$$InternalSyntheticThrowCCEIfNotNull$302$a7d8b984f14ef6811fc36f0d030a1c8a7f27075d192601697212118d266ca07a$0
+kotlinx.coroutines.CoroutineId$$InternalSyntheticThrowCCEIfNotNull$303$a7d8b984f14ef6811fc36f0d030a1c8a7f27075d192601697212118d266ca07a$0
 kotlinx.coroutines.CoroutineId$$InternalSyntheticThrowCCEIfNotNull$33$db4fcf294f73e0414b61d779f72a560fad56831e560e6b71def36fecaf64a8d1$0
 kotlinx.coroutines.CoroutineId$Key
 kotlinx.coroutines.CoroutineId
@@ -42298,7 +42332,7 @@ kotlinx.coroutines.flow.ReadonlyStateFlow:
 kotlinx.coroutines.flow.SafeFlow:
     public static java.lang.Object collectSafely()
 kotlinx.coroutines.flow.SharedFlow
-kotlinx.coroutines.flow.SharedFlowImpl$$InternalSyntheticThrowCCEIfNotNull$182$8a81ae7abf994ef8d5da0c3a1e1fcc00bff1251b789a1cb954e12c66d854807b$0
+kotlinx.coroutines.flow.SharedFlowImpl$$InternalSyntheticThrowCCEIfNotNull$184$8a81ae7abf994ef8d5da0c3a1e1fcc00bff1251b789a1cb954e12c66d854807b$0
 kotlinx.coroutines.flow.SharedFlowImpl$WhenMappings
 kotlinx.coroutines.flow.SharedFlowImpl:
     public static void cancelEmitter()
@@ -42344,7 +42378,7 @@ kotlinx.coroutines.flow.StartedWhileSubscribed$command$2:
     public final java.lang.Object invoke$42()
 kotlinx.coroutines.flow.StartedWhileSubscribed:
     public final kotlinx.coroutines.flow.Flow command(kotlinx.coroutines.flow.internal.SubscriptionCountStateFlow)
-kotlinx.coroutines.flow.StateFlowImpl$$InternalSyntheticThrowCCEIfNotNull$182$f1d1f40a1c8fc04c0a8d71575b6c25dc238f9224ed939db2b509a92e2c81cbda$0
+kotlinx.coroutines.flow.StateFlowImpl$$InternalSyntheticThrowCCEIfNotNull$184$f1d1f40a1c8fc04c0a8d71575b6c25dc238f9224ed939db2b509a92e2c81cbda$0
 kotlinx.coroutines.flow.StateFlowImpl:
     public final boolean compareAndSet(androidx.compose.runtime.external.kotlinx.collections.immutable.PersistentSet,androidx.compose.runtime.external.kotlinx.collections.immutable.implementations.persistentOrderedSet.PersistentOrderedSet)
     public static kotlinx.coroutines.flow.StateFlowSlot createSlot()
@@ -42518,7 +42552,7 @@ kotlinx.coroutines.internal.SystemPropsKt:
     public static final boolean systemProp(java.lang.String,boolean)
     public static synthetic long systemProp$default(java.lang.String,long)
 kotlinx.coroutines.internal.SystemPropsKt__SystemProps_commonKt
-kotlinx.coroutines.internal.ThreadContextKt$$InternalSyntheticThrowCCEIfNotNull$302$7c661674ba55b64cfe60deef36cf7e9a62bb95fc2a8f0b63be336db8c26a2201$0
+kotlinx.coroutines.internal.ThreadContextKt$$InternalSyntheticThrowCCEIfNotNull$303$7c661674ba55b64cfe60deef36cf7e9a62bb95fc2a8f0b63be336db8c26a2201$0
 kotlinx.coroutines.internal.ThreadLocalKt
 kotlinx.coroutines.internal.ThreadSafeHeap:
     public final kotlinx.coroutines.EventLoopImplBase$DelayedTask firstImpl()

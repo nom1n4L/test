@@ -11,6 +11,7 @@ import com.skorsnap.app.data.Football
 import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Lens
+import com.skorsnap.app.data.Odds
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Slip
@@ -579,6 +580,54 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setLegOdds(key: String, odds: Double) {
         _legOdds.value =
             if (odds <= 1.0) _legOdds.value - key else _legOdds.value + (key to odds)
+        autoSwap(key.substringBefore('|'))
+    }
+
+    /**
+     * Pastes a whole block of prices at once and reports what could not be placed.
+     *
+     * The swap is only useful when several markets have prices — with one entered
+     * there is nothing to swap to — so this is what makes the feature work at all.
+     */
+    fun applyOdds(matchId: String, text: String) {
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+        val entries = Odds.parse(text)
+        if (entries.isEmpty()) {
+            _message.value = "Tidak ada harga yang terbaca. Satu market per baris, " +
+                "harganya di akhir baris."
+            return
+        }
+        val matched = Odds.match(entries, match.markets)
+        _legOdds.value = _legOdds.value + matched.pairs.mapKeys { "$matchId|${it.key.substringAfter('|')}" }
+        autoSwap(matchId)
+        _message.value = buildString {
+            append("${matched.pairs.size} harga terpasang")
+            if (matched.unmatched.isNotEmpty()) {
+                append(". Tidak dikenali: ")
+                append(matched.unmatched.take(5).joinToString { it.label })
+                if (matched.unmatched.size > 5) append(", dan ${matched.unmatched.size - 5} lagi")
+            }
+            append(".")
+        }
+    }
+
+    /**
+     * Moves a leg off a market the bookmaker underpays for.
+     *
+     * Runs on every price change, so entering 1.27 against a market that needs 1.30
+     * moves the leg by itself rather than leaving a losing bet in the slip with a
+     * warning next to it.
+     */
+    private fun autoSwap(matchId: String) {
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+        val currentName = _chosen.value[matchId]
+            ?: Parlay.build(listOf(match), _strategy.value).legs.firstOrNull()?.market
+        val current = match.markets.firstOrNull { it.name == currentName }
+        val better = Parlay.swapIfUnderpriced(match, current, _legOdds.value, _appetite.value.floor)
+            ?: return
+        _chosen.value = _chosen.value + (matchId to better.name)
+        _message.value = "${match.title}: ${current?.name ?: "leg"} harganya di bawah " +
+            "minimal, diganti ke ${better.name}."
     }
 
     fun toggle(id: String) {

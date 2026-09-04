@@ -17,6 +17,7 @@ import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Leg
+import com.skorsnap.app.data.Odds
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.priceLabel
 import com.skorsnap.app.data.SavedSlip
@@ -1910,6 +1911,98 @@ class CoreTest {
         }
         println("Menyalin ${Analyst.EXTRACT_OUTPUT_TOKENS} token, menganalisis " +
             "${Analyst.MAX_OUTPUT_TOKENS} — dipisah karena bebannya beda.")
+    }
+
+    // ------------------------------------------------ tempel odds & tukar sendiri
+
+    @Test
+    fun aPastedMarketListIsRead() {
+        val pasted = """
+        Over 2.5  2,25
+        Under 2.5: 1.61
+        1X - 1,22
+        Kedua tim cetak gol Ya 1,90
+        Handicap Asia Tuan rumah -0.5 = 2,05
+
+        Bertaruh secara bertanggung jawab 18+
+        """.trimIndent()
+        val entries = Odds.parse(pasted)
+        assert(entries.size == 5) { "terbaca ${entries.size}: ${entries.map { it.label }}" }
+        assert(entries[0].price == 2.25) { "koma desimal tidak terbaca" }
+        assert(entries[1].price == 1.61)
+        assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
+        println()
+        entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    /**
+     * A price attached to the wrong market is the failure that loses money without
+     * showing itself, so the more specific market always wins and anything
+     * unrecognised is reported rather than guessed at.
+     */
+    @Test
+    fun theMoreSpecificMarketWinsAndTheRestAreReported() {
+        val markets = listOf(
+            MarketOption("Over 2.5", 0.52, "", "Total Gol"),
+            MarketOption("Babak 1 Over 2.5", 0.18, "", "Total Babak 1"),
+            MarketOption("1X (tuan rumah atau seri)", 0.74, "", "Double Chance"),
+        )
+        val matched = Odds.match(
+            Odds.parse("Over 2.5 2,25\nBabak 1 Over 2.5 6,50\n1X 1,22\nTendangan bebas 3,00"),
+            markets,
+        )
+        assert(matched.pairs["Total Gol|Over 2.5"] == 2.25) { "salah pasang: ${matched.pairs}" }
+        assert(matched.pairs["Total Babak 1|Babak 1 Over 2.5"] == 6.50) {
+            "market babak 1 tertukar dengan market laga penuh"
+        }
+        assert(matched.pairs["Double Chance|1X (tuan rumah atau seri)"] == 1.22) {
+            "nama bandar yang lebih pendek tidak dikenali"
+        }
+        assert(matched.unmatched.single().label.contains("Tendangan")) {
+            "market asing malah dipasang: ${matched.unmatched}"
+        }
+        println("Babak 1 tidak tertukar dengan laga penuh; yang asing dilaporkan.")
+    }
+
+    /** The case from the request: 1.27 entered where 1.30 is needed. */
+    @Test
+    fun aLegPricedBelowItsMinimumIsSwapped() {
+        val m = choice("1", "Over 1.5", "Over 1.5" to 0.77, "BTTS" to 0.70, "DC" to 0.88)
+        // Over 1.5 needs 1.30 and is offered 1.27; BTTS needs 1.43 and gets 1.70.
+        val odds = mapOf("1|Over 1.5" to 1.27, "1|BTTS" to 1.70)
+        val swap = Parlay.swapIfUnderpriced(m, m.markets.first { it.name == "Over 1.5" }, odds)
+        assert(swap?.name == "BTTS") { "tidak diganti, dapat ${swap?.name}" }
+        println()
+        println("Over 1.5 butuh 1,30 dibayar 1,27 → diganti ke BTTS (butuh 1,43, dibayar 1,70).")
+    }
+
+    @Test
+    fun aLegThatAlreadyClearsIsLeftAlone() {
+        val m = choice("1", "Over 1.5", "Over 1.5" to 0.77, "BTTS" to 0.70)
+        val odds = mapOf("1|Over 1.5" to 1.45, "1|BTTS" to 1.90)
+        val swap = Parlay.swapIfUnderpriced(m, m.markets.first { it.name == "Over 1.5" }, odds)
+        assert(swap == null) { "leg yang sudah untung malah diganti ke ${swap?.name}" }
+        println("Leg yang harganya sudah di atas minimal tidak diutak-atik.")
+    }
+
+    @Test
+    fun nothingIsSwappedWhenNoAlternativeClearsEither() {
+        val m = choice("1", "Over 1.5", "Over 1.5" to 0.77, "BTTS" to 0.70)
+        val odds = mapOf("1|Over 1.5" to 1.27, "1|BTTS" to 1.35)
+        assert(Parlay.swapIfUnderpriced(m, m.markets.first(), odds) == null) {
+            "menukar rugi dengan rugi"
+        }
+        println("Kalau semua di bawah minimal, tidak ada yang ditukar — bukan asal pindah.")
+    }
+
+    /** A generous price on a coin flip is still a coin flip. */
+    @Test
+    fun theSwapStaysInsideTheChosenBand() {
+        val m = choice("1", "Over 1.5", "Over 1.5" to 0.77, "Skor tepat" to 0.11)
+        val odds = mapOf("1|Over 1.5" to 1.27, "1|Skor tepat" to 15.0)
+        val safe = Parlay.swapIfUnderpriced(m, m.markets.first(), odds, Appetite.SAFE.floor)
+        assert(safe == null) { "pindah ke market 11% cuma karena bayarannya besar" }
+        println("Bayaran 15,00 di market 11% tetap ditolak — di luar rentang aman.")
     }
 
     @Test

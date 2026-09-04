@@ -1852,6 +1852,7 @@ fun SlipScreen(
     onBest: () -> Unit,
     odds: Map<String, Double>,
     onOdds: (String, Double) -> Unit,
+    onPasteOdds: (String, String) -> Unit,
     onSave: (Slip, Double) -> Unit,
     onOpen: (String) -> Unit,
     onClear: () -> Unit,
@@ -1964,6 +1965,10 @@ fun SlipScreen(
 
         item { ValueCard(slip, onBest) }
 
+        items(slip.legs, key = { "paste-${it.matchId}" }) { leg ->
+            PasteOddsCard(leg) { onPasteOdds(leg.matchId, it) }
+        }
+
         if (slip.weakLegs.isNotEmpty()) {
             item {
                 Surface(
@@ -2033,6 +2038,60 @@ fun SlipScreen(
                 Text("Kosongkan pilihan", style = MaterialTheme.typography.labelSmall)
             }
         }
+    }
+}
+
+/**
+ * A whole market list, pasted at once.
+ *
+ * Typing one price at a time is why the swap was useless: with a single price
+ * entered there is nothing to swap to. Pasting the book's list gives the
+ * comparison something to compare, and the app then moves the leg by itself.
+ */
+@Composable
+private fun PasteOddsCard(leg: Leg, onPaste: (String) -> Unit) {
+    var text by remember(leg.matchId) { mutableStateOf("") }
+    var open by remember(leg.matchId) { mutableStateOf(false) }
+
+    Card(
+        title = "Tempel Odds — ${leg.home} vs ${leg.away}",
+        subtitle = "Satu market per baris, harganya di akhir. Setelah terpasang, leg " +
+            "yang harganya di bawah minimal diganti sendiri.",
+    ) {
+        TextButton(onClick = { open = !open }) {
+            Text(
+                if (open) "Tutup" else "Buka kotak tempel",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        if (!open) return@Card
+        OutlinedTextField(
+            value = text,
+            onValueChange = { text = it },
+            label = { Text("Tempel daftar odds dari Melbet") },
+            modifier = Modifier.fillMaxWidth().height(180.dp),
+            textStyle = MaterialTheme.typography.labelSmall,
+        )
+        Spacer(Modifier.height(8.dp))
+        Button(
+            onClick = { onPaste(text) },
+            enabled = text.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Pasang harga ini", style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Contoh yang terbaca:\n" +
+                "Over 2.5  2,25\n" +
+                "Under 2.5: 1,61\n" +
+                "1X - 1,22\n" +
+                "Kedua tim cetak gol Ya 1,90\n\n" +
+                "Nama tidak harus persis. Yang tidak dikenali akan disebutkan, bukan " +
+                "dipasang asal — harga di market yang salah itu rugi yang tidak kelihatan.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

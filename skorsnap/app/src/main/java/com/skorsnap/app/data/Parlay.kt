@@ -280,6 +280,42 @@ object Parlay {
      * bookmaker pays furthest above the break-even price, and that can only be known
      * for markets whose price the user has actually looked up.
      */
+    /**
+     * Swaps a leg whose price does not clear its break-even for one that does.
+     *
+     * Entering 1.27 against a market that needs 1.30 is a losing bet however good
+     * the reading behind it, and leaving it in the slip while merely saying so is
+     * half an answer. This picks the priced market with the most room above its own
+     * break-even, so the decision is made on the gap between the app's number and
+     * the bookmaker's rather than on either alone.
+     *
+     * Returns null when nothing should change: either the current leg already
+     * clears, or no alternative with a price does. It never swaps into a market
+     * outside the user's appetite band — a generous price on a coin flip is still a
+     * coin flip.
+     */
+    fun swapIfUnderpriced(
+        match: MatchPrediction,
+        current: MarketOption?,
+        odds: Map<String, Double>,
+        floor: Double = MarketOption.SAFE_LOW,
+    ): MarketOption? {
+        val price = current?.let { odds["${match.id}|${it.name}"] } ?: 0.0
+        if (current != null && price > 1.0 && price * current.prob - 1.0 > 0) return null
+
+        val better = match.markets
+            .filter { it.inBand(floor) && it.name != current?.name }
+            .mapNotNull { option ->
+                val quoted = odds["${match.id}|${option.name}"] ?: return@mapNotNull null
+                if (quoted <= 1.0) return@mapNotNull null
+                val edge = quoted * option.prob - 1.0
+                if (edge <= 0) null else option to edge
+            }
+            .maxByOrNull { it.second }
+            ?.first
+        return better
+    }
+
     fun bestPriced(match: MatchPrediction, odds: Map<String, Double>): Leg? =
         match.markets
             .mapNotNull { option ->

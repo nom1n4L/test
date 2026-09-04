@@ -176,6 +176,7 @@ fun App(
                     onSave = vm::saveSlip,
                     odds = legOdds,
                     onOdds = vm::setLegOdds,
+                    onPasteOdds = vm::applyOdds,
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onClear = { vm.clearSelection() },
                 )
