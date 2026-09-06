@@ -1940,6 +1940,130 @@ class CoreTest {
         entries.forEach { println("  ${it.label} → ${it.price}") }
     }
 
+    // ------------------------------------------------ bentuk-bentuk kupon
+
+    /**
+     * Copying from the bookmaker's own screen gives two columns, which paste as
+     * alternating lines. Read one line at a time, every price is lost: the name has
+     * no number and the number has no name.
+     */
+    @Test
+    fun aNameAndItsPriceOnSeparateLinesAreStillOnePrice() {
+        val entries = Odds.parse("M1\n2.05\nX\n3.40\nM2\n3.10")
+        assert(entries.size == 3) { "terbaca ${entries.size}: ${entries.map { it.label to it.price }}" }
+        assert(entries[0].label == "M1" && entries[0].price == 2.05)
+        assert(entries[2].label == "M2" && entries[2].price == 3.10)
+
+        // And the whole thing works end to end from that shape alone.
+        val m = Offline.analyse("A", "B", "M1\n2.05\nX\n3.40\nM2\n3.10", "id-x").match
+        assert(m != null) { "format dua kolom masih gagal" }
+        assert(m!!.markets.size >= 50)
+        println("Format dua kolom: ${entries.size} harga, ${m.markets.size} market.")
+    }
+
+    /** A stray column of numbers is not a price list, and must not be read as one. */
+    @Test
+    fun looseNumbersAreNotTurnedIntoMarkets() {
+        assert(Odds.parse("3.22\n4.00\n2.15").isEmpty()) {
+            "angka tanpa nama ikut dibaca sebagai harga"
+        }
+    }
+
+    /** The shapes Melbet prints for handicaps, team totals and the first half. */
+    @Test
+    fun theShorthandFormsAreTranslated() {
+        val cases = mapOf(
+            "H1(-0.5)" to "Tuan rumah -0.5",
+            "H2(+0.5)" to "Tandang +0.5",
+            "H2(1)" to "Tandang +1",
+            "Handicap 1 (-1)" to "Tuan rumah -1",
+            "Total 1 Over(1.5)" to "Tuan rumah Over 1.5",
+            "Total 2 Over (0.5)" to "Tandang Over 0.5",
+            "1H Over (0.5)" to "Babak 1 Over 0.5",
+            "1st Half Total Under (1.5)" to "Babak 1 Under 1.5",
+            "(2.5) Over" to "Over 2.5",
+            "Total Under (3.5)" to "Under 3.5",
+            "GG" to "Kedua tim cetak gol (BTTS) - Ya",
+        )
+        cases.forEach { (written, expected) ->
+            assert(Odds.expand(written) == expected) {
+                "\"$written\" jadi \"${Odds.expand(written)}\", seharusnya \"$expected\""
+            }
+        }
+        println("${cases.size} bentuk singkatan Melbet diterjemahkan.")
+    }
+
+    /** Nothing that is already the app's own wording may be mangled by the table. */
+    @Test
+    fun theAppsOwnNamesSurviveTranslationUntouched() {
+        listOf(
+            "Over 2.5", "Under 0.5", "Babak 1 Over 1.5", "Tuan rumah menang",
+            "Tuan rumah Over 1.5", "Kedua tim cetak gol (BTTS) - Ya",
+        ).forEach {
+            assert(Odds.expand(it) == it) { "\"$it\" berubah jadi \"${Odds.expand(it)}\"" }
+        }
+    }
+
+    /**
+     * The reading has to be inspectable before it is used. This is the answer to
+     * "takut rusak": a misread price will always be possible, a misread price used
+     * without the user seeing it should not be.
+     */
+    @Test
+    fun theReadingCanBeInspectedBeforeAnythingUsesIt() {
+        val reading = Offline.preview("* M1 2.05\n* X 3.40\n* M2 3.10\n* Kartu merah 8.0")
+        assert(reading.rows.size == 4) { "baris terbaca: ${reading.rows.size}" }
+        assert(reading.understood.size == 3)
+        assert(reading.strange.single().label == "Kartu merah") {
+            "baris asing tidak dilaporkan: ${reading.strange}"
+        }
+        val row = reading.understood.first { it.market == "Tuan rumah menang" }
+        assert(row.label == "M1") { "tidak menunjukkan apa yang ditulis pengguna" }
+        assert(row.price == 2.05)
+        assert(Offline.hasAnchor(reading))
+        println("Pratinjau: ${reading.understood.size} dimengerti, ${reading.strange.size} tidak.")
+    }
+
+    /** A row thrown out after inspection really is left out of the arithmetic. */
+    @Test
+    fun aDiscardedRowIsNotUsed() {
+        val coupon = "* M1 2.05\n* X 3.40\n* M2 3.10\n* (2.5) Over: 2.60 | (2.5) Under: 1.50"
+        val kept = Offline.analyse("A", "B", coupon, "id-a").match!!
+        assert(kept.prices.containsKey("Total Gol|Over 2.5"))
+
+        val without = Offline.analyse(
+            "A", "B", coupon, "id-b", dropped = setOf("Total Gol|Over 2.5"),
+        ).match!!
+        assert(!without.prices.containsKey("Total Gol|Over 2.5")) {
+            "baris yang dibuang tetap dipakai: ${without.prices.keys}"
+        }
+        assert(without.pick != "Over 2.5") { "masih merekomendasikan harga yang dibuang" }
+    }
+
+    /**
+     * A misread digit usually shows up in the arithmetic before it shows up in the
+     * result, and the app now says so instead of dropping the set in silence.
+     */
+    @Test
+    fun anImpossibleSetIsExplainedNotJustDiscarded() {
+        // 1.42 read as 4.2 on both sides: the book would be paying above cost.
+        val reading = Offline.preview("* (2.5) Over: 4.2 | (2.5) Under: 4.2")
+        val warnings = Offline.warnings(reading)
+        assert(warnings.isNotEmpty()) { "harga mustahil dibuang tanpa penjelasan" }
+        assert(warnings.single().contains("salah baca")) { warnings.single() }
+        println(warnings.single())
+    }
+
+    /** Two prices claiming the same market cannot both be right, and it says so. */
+    @Test
+    fun twoPricesForOneMarketAreReportedAsAConflict() {
+        val reading = Offline.preview("* M1 2.05\n* Tuan rumah menang 2.35")
+        assert(reading.conflicts.size == 1) { "bentrokan tidak terdeteksi: ${reading.conflicts}" }
+        assert(reading.conflicts.single().contains("2.05"))
+        assert(reading.conflicts.single().contains("2.35"))
+        println(reading.conflicts.single())
+    }
+
     // ------------------------------------------------ tanpa AI
 
     /**

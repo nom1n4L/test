@@ -633,9 +633,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * No key, no credit, no network. Kept synchronous because it is arithmetic on a
      * few dozen numbers — a spinner here would be theatre.
      */
-    fun analyseOffline(home: String, away: String, coupon: String) {
+    fun analyseOffline(
+        home: String,
+        away: String,
+        coupon: String,
+        dropped: Set<String> = emptySet(),
+    ) {
         val result = com.skorsnap.app.data.Offline.analyse(
-            home, away, coupon, java.util.UUID.randomUUID().toString(),
+            home, away, coupon, java.util.UUID.randomUUID().toString(), dropped,
         )
         val match = result.match
         if (match == null) {

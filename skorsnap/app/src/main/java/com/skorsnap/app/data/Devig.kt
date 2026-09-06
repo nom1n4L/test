@@ -1,6 +1,7 @@
 package com.skorsnap.app.data
 
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Turns bookmaker prices into probabilities, and folds them into the model's read.
@@ -104,7 +105,10 @@ object Devig {
                 val line = over.name.substringAfter("Over ").trim()
                 val prefix = over.name.substringBefore("Over ")
                 val under = "${prefix}Under $line"
-                keys(over.name, under)?.let { out.add(Set(it, 1.0, "${prefix}$line".trim())) }
+                // Named for the reader, not for the code: a warning that begins
+                // "2.5:" says nothing about which market went wrong.
+                val label = if (prefix.isBlank()) "Total $line" else "$prefix$line".trim()
+                keys(over.name, under)?.let { out.add(Set(it, 1.0, label)) }
             }
 
         // Asian and European handicaps: the home line and its away mirror.
@@ -204,6 +208,37 @@ object Devig {
             marketBlended = true,
         )
     }
+
+    /**
+     * Complete sets that had to be thrown away, and why.
+     *
+     * [fair] drops these silently, which is correct for the arithmetic and wrong for
+     * the user: a set dropped for an impossible margin is the strongest evidence
+     * available that a digit was misread, and staying quiet about it is how a wrong
+     * number becomes a wrong bet.
+     */
+    fun rejected(prices: Map<String, Double>, markets: List<MarketOption>): List<String> =
+        sets(prices, markets).mapNotNull { set ->
+            val raw = set.keys.map { key ->
+                val price = prices[key] ?: return@mapNotNull null
+                if (price <= 1.0) return@mapNotNull null
+                1.0 / price
+            }
+            val sum = raw.sum()
+            if (sum <= 0.0) return@mapNotNull null
+            val margin = (sum - set.target) / set.target
+            when {
+                margin < MIN_MARGIN ->
+                    "${set.label}: harga-harganya terlalu besar — bandar seolah membayar " +
+                        "${(-margin * 100).roundToInt()}% di atas modal. Tidak ada bandar " +
+                        "begitu, jadi ada angka yang salah baca. Set ini tidak dipakai."
+                margin > MAX_MARGIN ->
+                    "${set.label}: margin bandarnya terbaca " +
+                        "${(margin * 100).roundToInt()}%, jauh di atas wajar. Kemungkinan " +
+                        "besar salah satu harganya salah baca. Set ini tidak dipakai."
+                else -> null
+            }
+        }
 
     /** Markets where the model and the book disagree far more than either can justify. */
     fun disagreements(match: MatchPrediction): List<MarketOption> =

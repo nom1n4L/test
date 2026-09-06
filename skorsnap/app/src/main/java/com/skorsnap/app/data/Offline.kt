@@ -42,6 +42,24 @@ object Offline {
     private fun catalogue(): List<MarketOption> =
         Grid.matchMarkets(1.35, 1.15, 0.40, 0.28, 0.32)
 
+    /**
+     * What the app made of a coupon, before anything is computed from it.
+     *
+     * Exposed so the screen can show the reading and let the user throw out a row
+     * that is wrong. The fear this answers is not "a price might be misread" — that
+     * will always be possible — but "a misread price will be used and I will never
+     * know".
+     */
+    fun preview(coupon: String): Odds.Reading = Odds.read(coupon, catalogue())
+
+    /** Sets that had to be dropped because their prices cannot both be right. */
+    fun warnings(reading: Odds.Reading): List<String> =
+        reading.conflicts + Devig.rejected(reading.prices, catalogue())
+
+    /** Whether the anchor is present, which is the one hard requirement. */
+    fun hasAnchor(reading: Odds.Reading): Boolean =
+        Devig.fair(reading.prices, catalogue()).any { it.label == "Hasil Akhir" }
+
     data class Result(
         val match: MatchPrediction?,
         /** Why it could not be done, when it could not. */
@@ -57,16 +75,24 @@ object Offline {
      * but not who scores them, and guessing the split would put a number on the
      * screen that came from nowhere.
      */
-    fun analyse(home: String, away: String, coupon: String, id: String): Result {
-        val entries = Odds.parse(coupon)
-        if (entries.isEmpty()) {
+    fun analyse(
+        home: String,
+        away: String,
+        coupon: String,
+        id: String,
+        /** Rows the user threw out after seeing what the app made of them. */
+        dropped: Set<String> = emptySet(),
+    ): Result {
+        val reference = catalogue()
+        val reading = Odds.read(coupon, reference)
+        if (reading.rows.isEmpty()) {
             return Result(null, "Tidak ada harga yang terbaca dari teks itu.")
         }
 
-        val reference = catalogue()
-        val matched = Odds.match(entries, reference)
-        val prices = matched.pairs
-        val unmatched = matched.unmatched.map { it.label }
+        val prices = reading.understood
+            .filterNot { "${it.group}|${it.market}" in dropped }
+            .associate { "${it.group}|${it.market}" to it.price }
+        val unmatched = reading.strange.map { it.label }
 
         val fair = Devig.fair(prices, reference)
         val result = fair.firstOrNull { it.label == "Hasil Akhir" }
