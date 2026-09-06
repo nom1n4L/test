@@ -63,6 +63,7 @@ import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.Coach
 import androidx.compose.ui.graphics.Color
 import com.skorsnap.app.data.Devig
+import com.skorsnap.app.data.Grid
 import com.skorsnap.app.data.Offline
 import com.skorsnap.app.data.MarketOption
 import kotlin.math.pow
@@ -366,7 +367,7 @@ fun AddScreen(
     onMode: (Mode) -> Unit,
     onPick: () -> Unit,
     onRemove: (Int) -> Unit,
-    onAnalyse: (String) -> Unit,
+    onAnalyse: (String, String, Set<String>) -> Unit,
     /** What the previous pass said it still needed, when this is a second look. */
     wanted: List<String> = emptyList(),
     capturing: Boolean = false,
@@ -377,6 +378,11 @@ fun AddScreen(
     onStopCapture: () -> Unit = {},
 ) {
     var note by remember { mutableStateOf("") }
+    var coupon by rememberSaveable { mutableStateOf("") }
+    var dropped by rememberSaveable { mutableStateOf(setOf<String>()) }
+    // Matched against the catalogue here: there is no analysis yet, and the names
+    // the grid can produce are the same names it will produce afterwards.
+    val catalogue = remember { Grid.matchMarkets(1.35, 1.15, 0.40, 0.28, 0.32) }
 
     Column(
         Modifier
@@ -601,6 +607,18 @@ fun AddScreen(
             }
         }
 
+        CouponCard(
+            coupon = coupon,
+            onCoupon = { coupon = it },
+            markets = catalogue,
+            dropped = dropped,
+            onToggleDrop = { dropped = if (it in dropped) dropped - it else dropped + it },
+            title = "Odds Melbet (opsional)",
+            subtitle = "Tempel daftar harganya di sini, bukan difoto. Model boleh salah " +
+                "baca digit dari gambar; teks yang diketik tidak bisa. Harga ini dipakai " +
+                "untuk menajamkan peluang dan memilih market yang bayarannya pantas.",
+        )
+
         // Shown for captured pages too, not only for picked images. The analysis
         // has always accepted pages on their own, but the button lived inside the
         // images branch — so anyone who used the capture button read a dozen
@@ -618,7 +636,7 @@ fun AddScreen(
             )
 
             Button(
-                onClick = { onAnalyse(note) },
+                onClick = { onAnalyse(note, coupon, dropped) },
                 enabled = !busy,
                 colors = ButtonDefaults.buttonColors(containerColor = Green),
                 modifier = Modifier.fillMaxWidth(),
@@ -644,6 +662,98 @@ fun AddScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * The coupon box, with its reading shown before anything uses it.
+ *
+ * One composable for both paths. The reader that handles Melbet's real formats and
+ * the table that lets a misreading be caught existed only on the free path, while
+ * the AI path asked the vision model to transcribe prices off an image — which is
+ * the one job a text parser does strictly better, since it cannot invent a digit
+ * that is not there.
+ */
+@Composable
+fun CouponCard(
+    coupon: String,
+    onCoupon: (String) -> Unit,
+    markets: List<com.skorsnap.app.data.MarketOption>,
+    dropped: Set<String>,
+    onToggleDrop: (String) -> Unit,
+    title: String,
+    subtitle: String,
+) {
+    val reading = remember(coupon, markets) { Offline.preview(coupon, markets) }
+    val warnings = remember(reading, markets) { Offline.warnings(reading, markets) }
+
+    Card(title = title, subtitle = subtitle) {
+        OutlinedTextField(
+            value = coupon,
+            onValueChange = onCoupon,
+            label = { Text("Tempel daftar market Melbet") },
+            placeholder = {
+                Text(
+                    "* M1 2.05\n* X 3.40\n* M2 3.10\n* (2.5) Over: 1.85 | (2.5) Under: 1.95",
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            },
+            modifier = Modifier.fillMaxWidth().height(180.dp),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+
+        if (reading.rows.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "${reading.understood.size} harga terbaca — periksa dulu:",
+                style = MaterialTheme.typography.labelSmall,
+                color = Sky,
+            )
+            reading.rows.forEach { row ->
+                val key = "${row.group}|${row.market}"
+                val out = row.market == null || key in dropped
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            row.market ?: "tidak dikenali",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when {
+                                row.market == null -> Amber
+                                key in dropped -> MaterialTheme.colorScheme.onSurfaceVariant
+                                else -> MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+                        Text(
+                            "kamu tulis: ${row.label}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        twoDecimals(row.price),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (out) MaterialTheme.colorScheme.onSurfaceVariant else Sky,
+                    )
+                    if (row.market != null) {
+                        TextButton(onClick = { onToggleDrop(key) }) {
+                            Text(
+                                if (key in dropped) "Pakai" else "Buang",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (key in dropped) Green else Rose,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        warnings.forEach {
+            Spacer(Modifier.height(8.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = Amber)
         }
     }
 }
@@ -851,6 +961,7 @@ fun DetailScreen(
     onMarkMarket: (MarketOption, Outcome) -> Unit,
     onBacked: (String) -> Unit,
     onAddMore: () -> Unit,
+    onCoupon: (String, Set<String>) -> Unit = { _, _ -> },
     onDelete: () -> Unit,
     appetite: Appetite = Appetite.SAFE,
     prices: Map<String, Double> = emptyMap(),
@@ -882,6 +993,35 @@ fun DetailScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = Amber,
                         )
+                    }
+                }
+            }
+        }
+
+        item {
+            var coupon by rememberSaveable(match.id) { mutableStateOf("") }
+            var dropped by rememberSaveable(match.id) { mutableStateOf(setOf<String>()) }
+            Column {
+                CouponCard(
+                    coupon = coupon,
+                    onCoupon = { coupon = it },
+                    markets = match.markets,
+                    dropped = dropped,
+                    onToggleDrop = { dropped = if (it in dropped) dropped - it else dropped + it },
+                    title = if (match.marketBlended) "Perbarui Odds Melbet" else "Tempel Odds Melbet",
+                    subtitle = "Gratis dan tanpa memanggil AI lagi. Harganya dipakai untuk " +
+                        "menajamkan peluang dan memilih ulang market yang bayarannya pantas — " +
+                        "jadi analisis yang sudah dibayar sekali bisa dihargai ulang " +
+                        "berkali-kali saat odds bergerak.",
+                )
+                if (coupon.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = { onCoupon(coupon, dropped) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Green),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Pakai harga ini — gratis")
                     }
                 }
             }

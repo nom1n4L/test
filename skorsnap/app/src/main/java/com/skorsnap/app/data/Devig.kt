@@ -172,12 +172,37 @@ object Devig {
      * probability printed above it.
      */
     fun blend(match: MatchPrediction, weight: Double = MARKET_WEIGHT): MatchPrediction {
-        if (match.prices.isEmpty()) return match
-        val fairProbs = marketProbs(match.prices, match.markets)
+        // Idempotent on purpose. Prices can now be attached long after the analysis
+        // — pasted from a coupon days later, at no cost — and blending an already
+        // blended number would drag it towards the market a second time, further
+        // each paste. So the model's own reading is recovered first, and every
+        // blend starts from there.
+        val baseline = match.markets.map { it.copy(prob = it.modelProb ?: it.prob) }
+
+        fun baseProb(name: String, fallback: Double) =
+            baseline.firstOrNull { it.name == name }?.prob ?: fallback
+
+        if (match.prices.isEmpty()) {
+            return if (match.marketBlended) {
+                val h = baseProb("Tuan rumah menang", match.probHome)
+                val d = baseProb("Seri", match.probDraw)
+                val a = baseProb("Tandang menang", match.probAway)
+                val total = (h + d + a).takeIf { it > 0.0 } ?: 1.0
+                match.copy(
+                    markets = baseline.map { it.copy(modelProb = null, marketProb = null) }
+                        .sortedByDescending { it.prob },
+                    probHome = h / total, probDraw = d / total, probAway = a / total,
+                    marketBlended = false,
+                )
+            } else match
+        }
+
+        val fairProbs = marketProbs(match.prices, baseline)
         if (fairProbs.isEmpty()) return match
 
-        val moved = match.markets.map { option ->
-            val market = fairProbs["${option.group}|${option.name}"] ?: return@map option
+        val moved = baseline.map { option ->
+            val market = fairProbs["${option.group}|${option.name}"]
+                ?: return@map option.copy(modelProb = null, marketProb = null)
             option.copy(
                 prob = weight * market + (1 - weight) * option.prob,
                 modelProb = option.prob,
@@ -188,9 +213,9 @@ object Devig {
         fun probOf(name: String, fallback: Double) =
             moved.firstOrNull { it.name == name }?.prob ?: fallback
 
-        val pH = probOf("Tuan rumah menang", match.probHome)
-        val pD = probOf("Seri", match.probDraw)
-        val pA = probOf("Tandang menang", match.probAway)
+        val pH = probOf("Tuan rumah menang", baseProb("Tuan rumah menang", match.probHome))
+        val pD = probOf("Seri", baseProb("Seri", match.probDraw))
+        val pA = probOf("Tandang menang", baseProb("Tandang menang", match.probAway))
         val total = pH + pD + pA
         val (h, d, a) =
             if (total > 0.0) Triple(pH / total, pD / total, pA / total)

@@ -68,23 +68,38 @@ object Value {
      * recommendation look unstable for no gain.
      */
     fun apply(match: MatchPrediction, floor: Double): MatchPrediction {
-        val best = best(match, floor) ?: return match
-        if (best.option.name == match.pick) return match
+        // Idempotent, for the same reason as the blend: prices arrive late and more
+        // than once. Without restoring the model's own pick first, a second pass
+        // would record the previous value pick as "what the model recommended", and
+        // the screen would claim a swap that never happened.
+        val start =
+            if (!match.valuePick || match.valueWas.isBlank()) match
+            else match.copy(
+                pick = match.valueWas,
+                pickProb = match.markets.firstOrNull { it.name == match.valueWas }?.prob
+                    ?: match.pickProb,
+                valuePick = false,
+                valueWas = "",
+                valueEdge = 0.0,
+            )
 
-        val current = match.markets.firstOrNull { it.name == match.pick }
+        val best = best(start, floor) ?: return start
+        if (best.option.name == start.pick) return start
+
+        val current = start.markets.firstOrNull { it.name == start.pick }
         val currentEdge = current?.let { option ->
-            match.priceOf(option)?.let { it * option.prob - 1.0 }
+            start.priceOf(option)?.let { it * option.prob - 1.0 }
         }
         // An unpriced recommendation loses to a priced one: the whole point is to
         // recommend something whose payout is known to cover it.
-        if (currentEdge != null && currentEdge >= best.edge) return match
+        if (currentEdge != null && currentEdge >= best.edge) return start
 
-        return match.copy(
+        return start.copy(
             pick = best.option.name,
             pickProb = best.option.prob,
             pickCorrected = true,
             valuePick = true,
-            valueWas = match.pick,
+            valueWas = start.pick,
             valueEdge = best.edge,
         )
     }

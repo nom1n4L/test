@@ -1940,6 +1940,124 @@ class CoreTest {
         entries.forEach { println("  ${it.label} → ${it.price}") }
     }
 
+    // ------------------------------------------------ dua jalur digabung
+
+    /**
+     * Prices now arrive late and more than once — pasted days after the analysis, at
+     * no cost, as the odds move. Blending an already blended number would drag it
+     * towards the market again on every paste, a little further each time, and
+     * nothing on the screen would look wrong.
+     */
+    @Test
+    fun pastingTheSameCouponTwiceChangesNothingTheSecondTime() {
+        val markets = listOf(
+            MarketOption("Tuan rumah menang", 0.50, "w", "Hasil Akhir"),
+            MarketOption("Seri", 0.25, "w", "Hasil Akhir"),
+            MarketOption("Tandang menang", 0.25, "w", "Hasil Akhir"),
+            MarketOption("Over 2.5", 0.70, "w", "Total Gol"),
+            MarketOption("Under 2.5", 0.30, "w", "Total Gol"),
+        )
+        val prices = mapOf(
+            "Total Gol|Over 2.5" to 2.00, "Total Gol|Under 2.5" to 2.00,
+        )
+        val m = MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.50, probDraw = 0.25, probAway = 0.25,
+            xgHome = 1.5, xgAway = 1.0, markets = markets,
+            pick = "Over 2.5", pickProb = 0.70, confidence = "sedang", confidenceWhy = "",
+            prices = prices,
+        )
+
+        val once = Devig.blend(m)
+        val twice = Devig.blend(once)
+        val over1 = once.markets.first { it.name == "Over 2.5" }
+        val over2 = twice.markets.first { it.name == "Over 2.5" }
+
+        assert(abs(over1.prob - 0.57) < 1e-9) { "sekali blend salah: ${over1.prob}" }
+        assert(abs(over2.prob - over1.prob) < 1e-9) {
+            "blend kedua menggeser lagi: ${over1.prob} → ${over2.prob}"
+        }
+        assert(over2.modelProb == 0.70) { "bacaan model ikut tergeser: ${over2.modelProb}" }
+        println("Tempel dua kali: ${(over1.prob * 100).roundToInt()}% lalu tetap " +
+            "${(over2.prob * 100).roundToInt()}%.")
+    }
+
+    /** Re-pricing must not record the previous value pick as the model's own choice. */
+    @Test
+    fun repricingKeepsTheModelsOriginalRecommendation() {
+        val markets = listOf(
+            MarketOption("Over 1.5", 0.80, "w", "Total Gol"),
+            MarketOption("Kedua tim cetak gol (BTTS) - Ya", 0.69, "w", "Total Gol"),
+        )
+        val m = MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.4, probDraw = 0.3, probAway = 0.3,
+            xgHome = 1.4, xgAway = 1.2, markets = markets,
+            pick = "Over 1.5", pickProb = 0.80, confidence = "sedang", confidenceWhy = "",
+            prices = mapOf(
+                "Total Gol|Over 1.5" to 1.20,
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 1.60,
+            ),
+        )
+        val once = Value.apply(m, 0.55)
+        val twice = Value.apply(once, 0.55)
+        assert(once.valueWas == "Over 1.5")
+        assert(twice.valueWas == "Over 1.5") {
+            "pass kedua mencatat pilihan value sebagai pilihan model: ${twice.valueWas}"
+        }
+        assert(twice.pick == once.pick)
+        assert(abs(twice.valueEdge - once.valueEdge) < 1e-9)
+    }
+
+    /** Removing the prices puts the model's own numbers back, not a half-blended one. */
+    @Test
+    fun clearingThePricesRestoresTheModelsReading() {
+        val markets = listOf(
+            MarketOption("Over 2.5", 0.70, "w", "Total Gol"),
+            MarketOption("Under 2.5", 0.30, "w", "Total Gol"),
+        )
+        val m = MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.4, probDraw = 0.3, probAway = 0.3,
+            xgHome = 1.4, xgAway = 1.2, markets = markets,
+            pick = "Over 2.5", pickProb = 0.70, confidence = "sedang", confidenceWhy = "",
+            prices = mapOf("Total Gol|Over 2.5" to 2.00, "Total Gol|Under 2.5" to 2.00),
+        )
+        val blended = Devig.blend(m)
+        val cleared = Devig.blend(blended.copy(prices = emptyMap()))
+        val over = cleared.markets.first { it.name == "Over 2.5" }
+        assert(abs(over.prob - 0.70) < 1e-9) { "tidak kembali ke angka model: ${over.prob}" }
+        assert(over.modelProb == null && over.marketProb == null)
+        assert(!cleared.marketBlended)
+    }
+
+    /**
+     * The two paths share one reader. The coupon parser handles Melbet's real
+     * shapes; asking a vision model to transcribe the same prices off an image is
+     * the one job it does strictly worse, since it can read 1.42 as 4.2 and be
+     * entirely confident about it.
+     */
+    @Test
+    fun theSameCouponReaderServesTheAnalysedMatch() {
+        val markets = listOf(
+            MarketOption("Tuan rumah menang", 0.50, "w", "Hasil Akhir"),
+            MarketOption("Seri", 0.25, "w", "Hasil Akhir"),
+            MarketOption("Tandang menang", 0.25, "w", "Hasil Akhir"),
+            MarketOption("Over 2.5", 0.70, "w", "Total Gol"),
+            MarketOption("Under 2.5", 0.30, "w", "Total Gol"),
+        )
+        // The two-column shape, which the model-transcription path never handled.
+        val reading = Offline.preview("M1\n2.05\nX\n3.40\nM2\n3.10", markets)
+        assert(reading.understood.size == 3) {
+            "kupon tidak terbaca terhadap market pertandingan: ${reading.rows}"
+        }
+        assert(reading.prices["Hasil Akhir|Tuan rumah menang"] == 2.05)
+        println("Pembaca kupon yang sama jalan di jalur AI: ${reading.understood.size} harga.")
+    }
+
     // ------------------------------------------------ bentuk-bentuk kupon
 
     /**

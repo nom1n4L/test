@@ -370,7 +370,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _staged.value = _staged.value.filterIndexed { i, _ -> i != index }
     }
 
-    fun analyse(note: String) {
+    fun analyse(note: String, coupon: String = "", dropped: Set<String> = emptySet()) {
         if (_busy.value) return
         val images = _staged.value
         val pages = CaptureBus.notes.value
@@ -411,6 +411,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 if (!result.readable) {
                     _message.value = "Gambar terbaca sebagian: ${result.problem}"
                 }
+                // After saving, so the coupon's own message is the one left standing.
+                if (coupon.isNotBlank()) attachCoupon(result.id, coupon, dropped)
             } catch (e: Analyst.AnalystException) {
                 _message.value = "Gagal: ${e.message}"
             } catch (e: Exception) {
@@ -655,6 +657,47 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _screen.value = Screen.Detail(settled.id)
         if (result.unmatched.isNotEmpty()) {
             _message.value = "Tidak dikenali: ${result.unmatched.take(4).joinToString()}"
+        }
+    }
+
+    /**
+     * Attaches a pasted bookmaker coupon to an analysis the model already produced.
+     *
+     * Free, and no network: the coupon is read by the text parser, the prices are
+     * folded into the probabilities, and the recommendation is re-chosen on value.
+     * That means an analysis paid for once can be re-priced any number of times —
+     * odds move all week, and there is no reason to buy a fresh reading of the
+     * statistics every time they do.
+     *
+     * The parser's prices replace whatever the model transcribed from the images.
+     * A vision model can read 1.42 as 4.2 and be wholly confident about it; a text
+     * parser reading typed characters cannot invent a digit that is not there.
+     */
+    fun attachCoupon(matchId: String, coupon: String, dropped: Set<String> = emptySet()) {
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+        val reading = com.skorsnap.app.data.Offline.preview(coupon, match.markets)
+        if (reading.understood.isEmpty()) {
+            _message.value = "Tidak ada harga yang dikenali dari teks itu."
+            return
+        }
+        val prices = reading.understood
+            .filterNot { "${it.group}|${it.market}" in dropped }
+            .associate { "${it.group}|${it.market}" to it.price }
+
+        val priced = match.copy(prices = prices)
+        val updated = com.skorsnap.app.data.Value.apply(
+            com.skorsnap.app.data.Devig.blend(priced), _appetite.value.floor,
+        )
+        _matches.value = _matches.value.map { if (it.id == matchId) updated else it }
+        store.save(_matches.value)
+        seedOdds(updated)
+
+        val moved = updated.markets.count { it.marketProb != null }
+        _message.value = buildString {
+            append("${prices.size} harga dipakai, $moved market disesuaikan dengan pasaran.")
+            if (updated.valuePick) {
+                append(" Rekomendasi pindah ke ${updated.pick}.")
+            }
         }
     }
 

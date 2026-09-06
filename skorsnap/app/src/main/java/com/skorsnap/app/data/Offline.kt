@@ -50,11 +50,14 @@ object Offline {
      * will always be possible — but "a misread price will be used and I will never
      * know".
      */
-    fun preview(coupon: String): Odds.Reading = Odds.read(coupon, catalogue())
+    fun preview(coupon: String, markets: List<MarketOption> = catalogue()): Odds.Reading =
+        Odds.read(coupon, markets)
 
     /** Sets that had to be dropped because their prices cannot both be right. */
-    fun warnings(reading: Odds.Reading): List<String> =
-        reading.conflicts + Devig.rejected(reading.prices, catalogue())
+    fun warnings(
+        reading: Odds.Reading,
+        markets: List<MarketOption> = catalogue(),
+    ): List<String> = reading.conflicts + Devig.rejected(reading.prices, markets)
 
     /** Whether the anchor is present, which is the one hard requirement. */
     fun hasAnchor(reading: Odds.Reading): Boolean =

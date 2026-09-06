@@ -147,7 +147,10 @@ fun App(
                         )
                     },
                     onRemove = vm::removeStaged,
-                    onAnalyse = { note -> vm.reanalyse(s.id, note) },
+                    onAnalyse = { note, coupon, dropped ->
+                        if (coupon.isNotBlank()) vm.attachCoupon(s.id, coupon, dropped)
+                        vm.reanalyse(s.id, note)
+                    },
                     wanted = matches.firstOrNull { it.id == s.id }?.needMore ?: emptyList(),
                 )
                 is Screen.Detail -> {
@@ -173,6 +176,9 @@ fun App(
                             },
                             onBacked = { vm.setBacked(s.id, it) },
                             onAddMore = { vm.go(Screen.AddMore(s.id)) },
+                            onCoupon = { coupon, dropped ->
+                                vm.attachCoupon(s.id, coupon, dropped)
+                            },
                             onDelete = { vm.remove(s.id) },
                             appetite = appetite,
                             prices = fetchedOdds[s.id].orEmpty(),
