@@ -202,6 +202,15 @@ data class MatchPrediction(
     val prices: Map<String, Double> = emptyMap(),
     /** True once the bookmaker's prices have been folded into the probabilities. */
     val marketBlended: Boolean = false,
+    /**
+     * True when this was worked out from a bookmaker's coupon alone, with no model
+     * call and no cost.
+     *
+     * Worth recording rather than inferring: the accuracy report has to be able to
+     * separate the two, or a run of market-derived matches would be scored as if the
+     * model had predicted them.
+     */
+    val offline: Boolean = false,
     /** Set when the recommendation was chosen by value rather than by probability. */
     val valuePick: Boolean = false,
     /** What the model itself had recommended before value took over. */

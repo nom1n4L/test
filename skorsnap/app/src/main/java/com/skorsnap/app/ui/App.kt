@@ -112,6 +112,7 @@ fun App(
                     onSlip = { vm.go(Screen.Slip) },
                     onBrowse = { vm.go(Screen.Browse) },
                     onSettings = { vm.go(Screen.Settings) },
+                    onOffline = { vm.go(Screen.Offline) },
                 )
                 is Screen.Add -> AddScreen(
                     staged = staged,
@@ -225,6 +226,7 @@ fun App(
                     onRemoveSlip = vm::removeSlip,
                     onOpen = { vm.go(Screen.Detail(it)) },
                 )
+                is Screen.Offline -> OfflineScreen(onAnalyse = vm::analyseOffline)
                 is Screen.Settings -> SettingsScreen(vm)
             }
         }
@@ -244,7 +246,9 @@ private fun BottomBar(screen: Screen, selected: Int, settled: Int, vm: AppViewMo
     // Hidden on the screens you are in the middle of something on: adding images or
     // reading one match is a task, and a row of tabs there is an invitation to lose
     // your place.
-    if (screen is Screen.Add || screen is Screen.AddMore || screen is Screen.Settings) return
+    if (screen is Screen.Add || screen is Screen.AddMore || screen is Screen.Settings ||
+        screen is Screen.Offline
+    ) return
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         TABS.forEach { (destination, label) ->
             val here = screen::class == destination::class
@@ -315,6 +319,7 @@ private fun TopBar(screen: Screen, vm: AppViewModel) {
                         is Screen.Detail -> "Analisa"
                         is Screen.Slip -> "Parlay"
                         is Screen.Browse -> "Cari Pertandingan"
+                        is Screen.Offline -> "Dari Odds Saja"
                         is Screen.History -> "Riwayat"
                         is Screen.Report -> "Rapor"
                         is Screen.Settings -> "Pengaturan"

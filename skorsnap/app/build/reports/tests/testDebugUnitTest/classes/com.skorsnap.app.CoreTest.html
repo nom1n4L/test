@@ -23,7 +23,7 @@
 <tr>
 <td>
 <div class="infoBox" id="tests">
-<div class="counter">141</div>
+<div class="counter">146</div>
 <p>tests</p>
 </div>
 </td>
@@ -41,7 +41,7 @@
 </td>
 <td>
 <div class="infoBox" id="duration">
-<div class="counter">0.366s</div>
+<div class="counter">0.604s</div>
 <p>duration</p>
 </div>
 </td>
@@ -88,6 +88,16 @@
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">aCouponAloneProducesTheWholeMarketList</td>
+<td class="success">0.024s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">aCouponWithoutTheMatchResultIsRefusedWithAReason</td>
+<td class="success">0.013s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">aFixtureWithoutPricesSaysSoRatherThanGoingBlank</td>
 <td class="success">0s</td>
 <td class="success">passed</td>
@@ -99,7 +109,7 @@
 </tr>
 <tr>
 <td class="success">aLegPricedBelowItsMinimumIsSwapped</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -114,12 +124,12 @@
 </tr>
 <tr>
 <td class="success">aLowerFloorOpensTheMarketsThatActuallyPay</td>
-<td class="success">0.007s</td>
+<td class="success">0.005s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">aMalformedFeedDegradesInsteadOfCrashing</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -129,7 +139,7 @@
 </tr>
 <tr>
 <td class="success">aMatchThatWantsMoreDataSaysSo</td>
-<td class="success">0.001s</td>
+<td class="success">0.004s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -139,7 +149,7 @@
 </tr>
 <tr>
 <td class="success">aOneSidedLosingHabitIsNamedNotJustCalledOverconfident</td>
-<td class="success">0.007s</td>
+<td class="success">0.008s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -149,7 +159,7 @@
 </tr>
 <tr>
 <td class="success">aPartialChangeIsKeptRatherThanMissed</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -159,7 +169,7 @@
 </tr>
 <tr>
 <td class="success">aReadableCouponFeedsTheMarketCalculation</td>
-<td class="success">0.018s</td>
+<td class="success">0.014s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -189,12 +199,12 @@
 </tr>
 <tr>
 <td class="success">aSuspendedAccountIsExplainedNotDumped</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">aThinSliceIsNotFlagged</td>
-<td class="success">0s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -204,7 +214,12 @@
 </tr>
 <tr>
 <td class="success">anImpossiblyGenerousPriceIsRefusedNotRecommended</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">anInconsistentSecondaryPriceIsFoundAndPriced</td>
+<td class="success">0.026s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -244,7 +259,7 @@
 </tr>
 <tr>
 <td class="success">derivedMarketsAgreeWithEachOther</td>
-<td class="success">0.009s</td>
+<td class="success">0.018s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -254,7 +269,7 @@
 </tr>
 <tr>
 <td class="success">doubtsMustBeRaisedInBothDirections</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -273,18 +288,23 @@
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">emptyTextIsRefused</td>
+<td class="success">0s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">everyGroupInThePromptIsOneTheScreenKnows</td>
-<td class="success">0.003s</td>
+<td class="success">0.005s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">everyGroupIsCoveredWhateverTheModelReturns</td>
-<td class="success">0.002s</td>
+<td class="success">0.003s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">everyPastedPriceIsReportedAgainstItsOwnMinimum</td>
-<td class="success">0.017s</td>
+<td class="success">0.016s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -299,7 +319,7 @@
 </tr>
 <tr>
 <td class="success">expectedReturnDependsOnlyOnLegCount</td>
-<td class="success">0.003s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -309,7 +329,7 @@
 </tr>
 <tr>
 <td class="success">higherPayingMeansHigherOddsAndLowerChance</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -324,7 +344,7 @@
 </tr>
 <tr>
 <td class="success">marketsAreGroupedInCatalogueOrder</td>
-<td class="success">0.002s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -344,32 +364,32 @@
 </tr>
 <tr>
 <td class="success">noAppetiteEverRecommendsAnUnbettablePrice</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">noPriceScreenLeavesTheMarketsUnpriced</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">noSourceMixesAnInterpolatedPercentWithFormat</td>
-<td class="success">0.037s</td>
+<td class="success">0.045s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">nothingIsSwappedWhenNoAlternativeClearsEither</td>
-<td class="success">0.004s</td>
+<td class="success">0.003s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">oddsAreReadAfterTheProbabilitiesAreCommitted</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">oldRecordsSurviveWithoutInventingResults</td>
-<td class="success">0.003s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -384,7 +404,7 @@
 </tr>
 <tr>
 <td class="success">onlyOffersModelsThatCanReadAScreenshot</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -399,7 +419,7 @@
 </tr>
 <tr>
 <td class="success">parsesACleanReply</td>
-<td class="success">0.004s</td>
+<td class="success">0.007s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -409,7 +429,7 @@
 </tr>
 <tr>
 <td class="success">precisionTightensAsResultsAccumulate</td>
-<td class="success">0.003s</td>
+<td class="success">0.007s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -424,7 +444,7 @@
 </tr>
 <tr>
 <td class="success">probabilitiesMultiplyAcrossLegs</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -434,17 +454,17 @@
 </tr>
 <tr>
 <td class="success">realPricesDecideWhetherASlipIsWorthTaking</td>
-<td class="success">0s</td>
-<td class="success">passed</td>
-</tr>
-<tr>
-<td class="success">refusesGarbageInsteadOfInventing</td>
 <td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">refusesGarbageInsteadOfInventing</td>
+<td class="success">0s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">reportsTheGapBetweenPromisedAndDelivered</td>
-<td class="success">0.007s</td>
+<td class="success">0.006s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -464,12 +484,12 @@
 </tr>
 <tr>
 <td class="success">structuralReasoningIsAllowedButInventedNumbersAreNot</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">survivesAStraySentenceBeforeTheJson</td>
-<td class="success">0.002s</td>
+<td class="success">0.003s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -478,13 +498,18 @@
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">theAnchorMarketIsNeverRecommendedAsValue</td>
+<td class="success">0.015s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">theAnswerIsWrittenLastSoItAccountsForEverythingAbove</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theAppsNumberIsTheMinimumPriceNotTheOffer</td>
-<td class="success">0.002s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -494,22 +519,22 @@
 </tr>
 <tr>
 <td class="success">theBlendMovesTowardsTheMarketWithoutBecomingIt</td>
-<td class="success">0.002s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theBookmakersFeeIsRemovedBeforeTheOddsAreBelieved</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theBriefHoldsUpOnAFreePlanWithNoSeasonStats</td>
-<td class="success">0.067s</td>
+<td class="success">0.063s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theBriefOnlyMentionsParlaysWhenTheyAddSomething</td>
-<td class="success">0.004s</td>
+<td class="success">0.006s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -519,17 +544,17 @@
 </tr>
 <tr>
 <td class="success">theChainSurvivesTheRoundTrip</td>
-<td class="success">0.006s</td>
+<td class="success">0.004s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theCoachFlagsAnOverconfidentMarketAndSaysHowMany</td>
-<td class="success">0.002s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theCoachStaysQuietUntilThereIsSomethingToSay</td>
-<td class="success">0.003s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -554,22 +579,22 @@
 </tr>
 <tr>
 <td class="success">theDoubtsSurviveTheRoundTrip</td>
-<td class="success">0s</td>
-<td class="success">passed</td>
-</tr>
-<tr>
-<td class="success">theEnforcedPickFollowsTheChosenFloor</td>
 <td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
-<td class="success">theExactMarketSplitSeparatesOppositeBets</td>
+<td class="success">theEnforcedPickFollowsTheChosenFloor</td>
 <td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
+<td class="success">theExactMarketSplitSeparatesOppositeBets</td>
+<td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
 <td class="success">theFirstHalfCornerAnchorMatchesTheAppsOwnMaths</td>
-<td class="success">0.002s</td>
+<td class="success">0.003s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -584,12 +609,12 @@
 </tr>
 <tr>
 <td class="success">theFocusedModeReturnsExactlyTheOnePair</td>
-<td class="success">0.001s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theGridIsFittedToTheModelsOwnCall</td>
-<td class="success">0.003s</td>
+<td class="success">0.004s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -609,7 +634,7 @@
 </tr>
 <tr>
 <td class="success">theModelsOwnNumberIsNeverOverwritten</td>
-<td class="success">0.005s</td>
+<td class="success">0.004s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -629,22 +654,22 @@
 </tr>
 <tr>
 <td class="success">theOmniVariantsAreFilteredOut</td>
-<td class="success">0.001s</td>
-<td class="success">passed</td>
-</tr>
-<tr>
-<td class="success">theParlayReportCountsSlipsNotLegs</td>
-<td class="success">0.001s</td>
-<td class="success">passed</td>
-</tr>
-<tr>
-<td class="success">theParlayReportRefusesToConcludeEarly</td>
 <td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
-<td class="success">thePromptCoversTheMarketsAsked</td>
+<td class="success">theParlayReportCountsSlipsNotLegs</td>
+<td class="success">0.002s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">theParlayReportRefusesToConcludeEarly</td>
 <td class="success">0.001s</td>
+<td class="success">passed</td>
+</tr>
+<tr>
+<td class="success">thePromptCoversTheMarketsAsked</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -659,7 +684,7 @@
 </tr>
 <tr>
 <td class="success">theRealMelbetCouponIsRead</td>
-<td class="success">0.007s</td>
+<td class="success">0.009s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -674,12 +699,12 @@
 </tr>
 <tr>
 <td class="success">theResultBlendIsCarriedIntoTheGoalExpectations</td>
-<td class="success">0.003s</td>
+<td class="success">0.006s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theRevisionInvitesTheModelToChangeItsMind</td>
-<td class="success">0.001s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -689,32 +714,32 @@
 </tr>
 <tr>
 <td class="success">theSafeListRunsHighestFirstAndExcludesTheRest</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theShrinkageExamplesInThePromptAreArithmeticallyRight</td>
-<td class="success">0.006s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theSplitFindsTheMarketTheAverageHides</td>
-<td class="success">0.004s</td>
+<td class="success">0.007s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theSwapLabelDoesNotThrowOnItsOwnPercentSign</td>
-<td class="success">0.008s</td>
+<td class="success">0.006s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theSwapMessageIsReturnedSoItCannotBeOverwritten</td>
-<td class="success">0.014s</td>
+<td class="success">0.021s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theSwapPicksTheBestPricedMarketNotTheLikeliest</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -729,12 +754,12 @@
 </tr>
 <tr>
 <td class="success">theThinkingRulesReachTheModel</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">theThreeWayDecisionIsSpelledOut</td>
-<td class="success">0.001s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -744,7 +769,7 @@
 </tr>
 <tr>
 <td class="success">theViewModelCannotHandScreensUnobservedData</td>
-<td class="success">0.007s</td>
+<td class="success">0.136s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -754,17 +779,17 @@
 </tr>
 <tr>
 <td class="success">theWiderCatalogueIsActuallyDerived</td>
-<td class="success">0.006s</td>
+<td class="success">0.008s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">thinkingIsBoundedBeforeTheExpensiveRetry</td>
-<td class="success">0.002s</td>
+<td class="success">0s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
 <td class="success">valueNeverReachesUnderTheSafetyFloor</td>
-<td class="success">0s</td>
+<td class="success">0.001s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -774,7 +799,7 @@
 </tr>
 <tr>
 <td class="success">withPricesInTheAppPicksTheBetThatPaysNotTheLikeliest</td>
-<td class="success">0.001s</td>
+<td class="success">0.002s</td>
 <td class="success">passed</td>
 </tr>
 <tr>
@@ -855,6 +880,7 @@ Katalog match dan corner lengkap.
 
 Rekomendasi &amp; paling aman → Over 1.5; bayaran lebih tinggi → BTTS.
 Leg yang harganya sudah di atas minimal tidak diutak-atik.
+Harga 1, X, dan 2 (menang / seri / kalah) harus lengkap — itu yang dipakai untuk mengunci semua market lain. Yang terbaca: 2.5.
 Setelah scroll, layarnya diambil.
 404 'sudah pensiun' → otomatis pindah ke gemini-3.6-flash, bukan gagal total.
 Patokan lama yang bikin condong ke Under sudah dicabut.
@@ -922,6 +948,7 @@ Boleh menalar soal piala dan jurang kekuatan; dilarang mengarang peringkat FIFA.
 Lima aturan penalaran ada di instruksi yang benar-benar dikirim.
 Angka peluangnya identik di semua selera risiko — yang berubah cuma pilihannya.
 Kalau tidak ada yang masuk rentang, tidak dipaksakan — layar bilang apa adanya.
+Tidak ada taruhan yang menguntungkan di kupon ini. Semua harga yang ada konsisten dengan 1X2-nya, jadi yang tersisa cuma margin bandar — dan itu selalu merugikan pemasang. Angka-angka di bawah tetap benar dan bisa dipakai untuk membandingkan kupon lain.
 Tiga leg 84%: di odds 1,30 harapan 130%, di odds 1,12 harapan 83%.
 Angka aplikasi tidak berubah — harganya yang menentukan.
 
@@ -939,7 +966,7 @@ Default sekarang 'gemini-flash-latest' — alias, tidak bisa pensiun.
 
 Skema mencakup 25 field, 18 di antaranya wajib.
 
-78 fungsi publik diperiksa — tak satu pun menyerahkan data laga tanpa diawasi Compose.
+79 fungsi publik diperiksa — tak satu pun menyerahkan data laga tanpa diawasi Compose.
 Kupon Melbet asli: 12 harga terbaca, 12 nempel, 0 tidak dikenali.
 
 6 leg @75%: tembus semua 18% (1 dari 6)
@@ -947,6 +974,7 @@ Kupon Melbet asli: 12 harga terbaca, 12 nempel, 0 tidak dikenali.
    bayaran wajar 5.62
    imbal hasil harapan 70%
 Aturan keras ada: geser minimal 8 poin, batal kalau turun di bawah 55%.
+Over 2.5 diturunkan dari 1X2 = 45%, dibayar 2,60 → untung 18%
 Tanpa harga, briefnya bilang apa adanya — bukan kosong tanpa keterangan.
 
 3 slip selesai, 1 tembus — dipecah per jumlah leg, bukan per market.
@@ -972,6 +1000,7 @@ Satu halaman ≈ 65 token sebagai teks, ~30.000 sebagai gambar.
 12 halaman: 780 token, bukan ~360.000.
 1,90 / 1,90 → margin 5%, adil 50% / 50%
 Peluang mustahil dibuang, bukan ditampilkan.
+Dari 3 harga: 63 market, 1X2 44/27/29, xG 1.41-1.09
 Hanya laga yang dua-duanya tercatat DAN pilihannya beda yang dibandingkan.
 
   Over 2.5 → 2.25
@@ -1016,7 +1045,7 @@ Over 1.5 butuh 1,30 dibayar 1,27 → diganti ke BTTS (butuh 1,43, dibayar 1,70).
 <input id="line-wrapping-toggle" type="checkbox" autocomplete="off"/>
 </label>
 </div>Generated by 
-<a href="https://www.gradle.org">Gradle 8.14.3</a> at Sep 4, 2026, 9:53:27 AM</p>
+<a href="https://www.gradle.org">Gradle 8.14.3</a> at Sep 6, 2026, 8:23:05 AM</p>
 </div>
 </div>
 </body>

@@ -33,6 +33,7 @@ sealed interface Screen {
     data object History : Screen
     data class AddMore(val id: String) : Screen
     data object Browse : Screen
+    data object Offline : Screen
     data object Report : Screen
     data object Settings : Screen
 }
@@ -624,6 +625,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _legOdds.value = fresh + _legOdds.value
         _oddsReport.value = _oddsReport.value + (match.id to
             "${match.prices.size} harga dibaca langsung dari gambar — tidak perlu diketik.\n")
+    }
+
+    /**
+     * Builds an analysis from a bookmaker's coupon, without calling the model.
+     *
+     * No key, no credit, no network. Kept synchronous because it is arithmetic on a
+     * few dozen numbers — a spinner here would be theatre.
+     */
+    fun analyseOffline(home: String, away: String, coupon: String) {
+        val result = com.skorsnap.app.data.Offline.analyse(
+            home, away, coupon, java.util.UUID.randomUUID().toString(),
+        )
+        val match = result.match
+        if (match == null) {
+            _message.value = result.problem
+            return
+        }
+        val settled = com.skorsnap.app.data.Value.apply(match, _appetite.value.floor)
+        seedOdds(settled)
+        val updated = _matches.value + settled
+        _matches.value = updated
+        store.save(updated)
+        _screen.value = Screen.Detail(settled.id)
+        if (result.unmatched.isNotEmpty()) {
+            _message.value = "Tidak dikenali: ${result.unmatched.take(4).joinToString()}"
+        }
     }
 
     fun applyOdds(matchId: String, text: String) {

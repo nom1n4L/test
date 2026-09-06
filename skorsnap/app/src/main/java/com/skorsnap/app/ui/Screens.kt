@@ -119,6 +119,7 @@ fun HomeScreen(
     onSlip: () -> Unit,
     onBrowse: () -> Unit,
     onSettings: () -> Unit,
+    onOffline: () -> Unit,
 ) {
     // Played matches move to their own screen: the list is for deciding what to
     // bet, and a decided match is only clutter there.
@@ -174,6 +175,32 @@ fun HomeScreen(
                         )
                     }
                     Text("→", style = MaterialTheme.typography.titleMedium, color = Sky)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            // Deliberately not gated on hasKey: this is the path that still works
+            // when the credit has run out, which is exactly when a disabled button
+            // would be worst.
+            Surface(
+                color = Green.copy(alpha = 0.13f),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onOffline),
+            ) {
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Dari odds saja — gratis, tanpa AI",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Green,
+                        )
+                        Text(
+                            "Tempel kupon Melbet, dapat 60+ market. Tidak pakai token " +
+                                "sama sekali.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text("→", style = MaterialTheme.typography.titleMedium, color = Green)
                 }
             }
         }
@@ -617,6 +644,97 @@ fun AddScreen(
                 }
             }
         }
+    }
+}
+
+// --- Dari odds saja ---------------------------------------------------------
+
+/**
+ * The path that costs nothing.
+ *
+ * Its own screen rather than a mode on the Add screen, because it shares none of
+ * that screen's inputs: no images, no capture, no note to the model. What it needs
+ * is two names and a block of text.
+ */
+@Composable
+fun OfflineScreen(onAnalyse: (String, String, String) -> Unit) {
+    var home by rememberSaveable { mutableStateOf("") }
+    var away by rememberSaveable { mutableStateOf("") }
+    var coupon by rememberSaveable { mutableStateOf("") }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Card(
+            title = "Tanpa AI, Tanpa Biaya",
+            subtitle = "Harga bandar sendiri sudah mengandung prediksi. Aplikasi ini " +
+                "membuang margin Melbet, lalu menurunkan 60+ market dari situ.",
+        ) {
+            Text(
+                "Bukan versi murahan dari analisis AI — pasar taruhan justru lebih akurat " +
+                    "daripada model mana pun, termasuk yang dipakai aplikasi ini. Yang " +
+                    "hilang cuma kemampuan punya pendapat sendiri: cedera, rotasi, dan " +
+                    "cuaca sudah terkubur di dalam harga dan tidak bisa dibongkar lagi.\n\n" +
+                    "Yang wajib ada di kupon: harga 1, X, dan 2. Itu jangkarnya. Makin " +
+                    "banyak market lain yang ikut ditempel, makin besar peluang ketemu " +
+                    "harga yang tidak konsisten — dan di situlah untungnya.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(
+                value = home,
+                onValueChange = { home = it },
+                label = { Text("Tuan rumah") },
+                modifier = Modifier.weight(1f),
+                textStyle = MaterialTheme.typography.bodySmall,
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = away,
+                onValueChange = { away = it },
+                label = { Text("Tandang") },
+                modifier = Modifier.weight(1f),
+                textStyle = MaterialTheme.typography.bodySmall,
+                singleLine = true,
+            )
+        }
+
+        OutlinedTextField(
+            value = coupon,
+            onValueChange = { coupon = it },
+            label = { Text("Tempel kupon Melbet di sini") },
+            placeholder = {
+                Text(
+                    "* M1 2.05\n* X 3.40\n* M2 3.10\n* (2.5) Over: 1.85 | (2.5) Under: 1.95",
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            },
+            modifier = Modifier.fillMaxWidth().height(220.dp),
+            textStyle = MaterialTheme.typography.bodySmall,
+        )
+
+        Button(
+            onClick = { onAnalyse(home, away, coupon) },
+            enabled = coupon.isNotBlank(),
+            colors = ButtonDefaults.buttonColors(containerColor = Green),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Hitung — gratis", style = MaterialTheme.typography.titleMedium)
+        }
+
+        Text(
+            "Tidak ada yang dikirim ke mana pun. Semua hitungannya jalan di HP-mu.",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

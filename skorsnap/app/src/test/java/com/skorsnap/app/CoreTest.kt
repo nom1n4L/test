@@ -8,6 +8,7 @@ import org.json.JSONObject
 import com.skorsnap.app.capture.Frames
 import com.skorsnap.app.data.Coach
 import com.skorsnap.app.data.Devig
+import com.skorsnap.app.data.Offline
 import com.skorsnap.app.data.Value
 import com.skorsnap.app.data.Football
 import com.skorsnap.app.data.Lens
@@ -1937,6 +1938,113 @@ class CoreTest {
         assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
         println()
         entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    // ------------------------------------------------ tanpa AI
+
+    /**
+     * A whole analysis from three prices, with no model call.
+     *
+     * The user ran out of API credit and out of money to buy more. This is the path
+     * that still works, and it is not a downgrade: the de-margined market forecasts
+     * better than the model did.
+     */
+    @Test
+    fun aCouponAloneProducesTheWholeMarketList() {
+        val result = Offline.analyse(
+            "Arema", "Persib",
+            "* M1 2.05\n* X 3.40\n* M2 3.10\n* (2.5) Over: 1.85 | (2.5) Under: 1.95",
+            "id-1",
+        )
+        val m = result.match
+        assert(m != null) { "gagal: ${result.problem}" }
+        m!!
+
+        assert(m.offline) { "tidak ditandai sebagai hasil tanpa AI" }
+        assert(m.home == "Arema" && m.away == "Persib")
+        assert(m.markets.size >= 50) { "cuma ${m.markets.size} market dari kupon" }
+        assert(abs(m.probHome + m.probDraw + m.probAway - 1.0) < 1e-9)
+
+        // 1/2.05 + 1/3.40 + 1/3.10 = 1.1052, so the book charges 10.5%; the home
+        // side is 0.4878/1.1052 = 44.1% once that is stripped out.
+        assert(abs(m.probHome - 0.441) < 0.002) { "1X2 setelah margin salah: ${m.probHome}" }
+        assert(m.probHome > m.probAway) { "jagoan kebalik" }
+
+        // And the goal expectations reproduce exactly those three probabilities.
+        val home = m.markets.first { it.name == "Tuan rumah menang" }
+        assert(abs(home.prob - m.probHome) < 0.02) {
+            "perkiraan gol tidak menghasilkan 1X2 yang sama: ${home.prob} vs ${m.probHome}"
+        }
+        assert(m.xgHome > m.xgAway) { "tuan rumah diunggulkan tapi xG-nya tidak" }
+
+        // Everything downstream is consistent with it.
+        val dc = m.markets.first { it.name == "1X (tuan rumah atau seri)" }
+        assert(abs(dc.prob - (m.probHome + m.probDraw)) < 0.02) {
+            "Double Chance bertentangan dengan 1X2 di layar yang sama"
+        }
+        println(
+            "Dari 3 harga: ${m.markets.size} market, 1X2 " +
+                "${(m.probHome * 100).roundToInt()}/${(m.probDraw * 100).roundToInt()}/" +
+                "${(m.probAway * 100).roundToInt()}, xG ${twoDecimals(m.xgHome)}-${twoDecimals(m.xgAway)}"
+        )
+    }
+
+    /**
+     * The anchor cannot be its own edge.
+     *
+     * The 1X2 prices are the input to the fit, so measuring the fitted output back
+     * against them returns the fit's own rounding error. Reported as profit, that
+     * would be the app inventing findings out of arithmetic noise.
+     */
+    @Test
+    fun theAnchorMarketIsNeverRecommendedAsValue() {
+        val m = Offline.analyse("A", "B", "* M1 2.05\n* X 3.40\n* M2 3.10", "id-2").match!!
+        assert(m.action == "lewatkan") { "ada taruhan direkomendasikan padahal cuma 1X2: ${m.pick}" }
+        assert(!m.valuePick)
+        assert(m.verdict.contains("Tidak ada taruhan yang menguntungkan"))
+        assert(m.needMore.isNotEmpty()) { "tidak memberitahu apa yang kurang" }
+        println(m.verdict)
+    }
+
+    /** A secondary market priced against the main line is where an edge can live. */
+    @Test
+    fun anInconsistentSecondaryPriceIsFoundAndPriced() {
+        // 1X2 implies a fairly low-scoring match; the book then offers 2.60 on
+        // Over 2.5, well above what its own main line supports.
+        val m = Offline.analyse(
+            "A", "B",
+            "* M1 2.05\n* X 3.40\n* M2 3.10\n* (2.5) Over: 2.60 | (2.5) Under: 1.50",
+            "id-3",
+        ).match!!
+        val over = m.markets.first { it.name == "Over 2.5" }
+        val edge = 2.60 * over.prob - 1.0
+        if (edge > 0 && edge <= Value.TOO_GOOD) {
+            assert(m.pick == "Over 2.5") { "harga tidak konsisten tidak ketemu: ${m.pick}" }
+            assert(m.action == "pasang")
+            println("Over 2.5 diturunkan dari 1X2 = ${(over.prob * 100).roundToInt()}%, " +
+                "dibayar 2,60 → untung ${(edge * 100).roundToInt()}%")
+        } else {
+            // Whatever the fit produces, the app must not claim an edge it lacks.
+            assert(m.action == "lewatkan") { "klaim untung padahal tidak ada: ${m.verdict}" }
+            println("Tidak ada selisih yang layak; aplikasi bilang lewatkan.")
+        }
+    }
+
+    /** Without the 1X2 there is nothing to anchor to, and it says so instead of guessing. */
+    @Test
+    fun aCouponWithoutTheMatchResultIsRefusedWithAReason() {
+        val result = Offline.analyse("A", "B", "* (2.5) Over: 1.85 | (2.5) Under: 1.95", "id-4")
+        assert(result.match == null) { "menghitung tanpa jangkar" }
+        assert(result.problem.contains("1, X, dan 2")) { "alasannya tidak jelas: ${result.problem}" }
+        println(result.problem)
+    }
+
+    /** Nothing readable means nothing claimed. */
+    @Test
+    fun emptyTextIsRefused() {
+        val result = Offline.analyse("A", "B", "halo apa kabar", "id-5")
+        assert(result.match == null)
+        assert(result.problem.isNotBlank())
     }
 
     // ------------------------------------------------ format asli bandar

@@ -142,6 +142,7 @@ class Store(context: Context) {
         )
         put("prices", JSONObject().apply { m.prices.forEach { (k, v) -> put(k, v) } })
         put("market_blended", m.marketBlended)
+        put("offline", m.offline)
         put("value_pick", m.valuePick)
         put("value_was", m.valueWas)
         put("value_edge", m.valueEdge)
@@ -225,6 +226,7 @@ class Store(context: Context) {
                 }.toMap()
             }.orEmpty(),
             marketBlended = o.optBoolean("market_blended", false),
+            offline = o.optBoolean("offline", false),
             valuePick = o.optBoolean("value_pick", false),
             valueWas = o.optString("value_was"),
             valueEdge = o.optDouble("value_edge", 0.0),
