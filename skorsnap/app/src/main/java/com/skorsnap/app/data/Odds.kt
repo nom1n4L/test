@@ -31,8 +31,30 @@ import kotlin.math.roundToInt
  */
 object Odds {
 
-    /** One line the user gave: a market as they wrote it, and its price. */
-    data class Entry(val label: String, val price: Double)
+    /**
+     * A price, with enough decimals to still be a price.
+     *
+     * Coupons carry 1.002 and 1.019 on the near-certain lines, and two decimals turn
+     * both into "1,00" — a figure that says the bet pays nothing and that no two
+     * such rows can be told apart.
+     */
+    fun oddsLabel(price: Double): String =
+        if (price < 1.1) String.format("%.3f", price).replace('.', ',')
+        else twoDecimals(price)
+
+
+    /**
+     * One line the user gave: a market as they wrote it, its price, and the heading
+     * it was sitting under.
+     *
+     * The heading is not decoration. A real coupon prints "0.5 Over" four separate
+     * times — under Total, under Total 1, under Total 2, and under "Minimal Satu Tim
+     * Akan Mencetak Skor" — and they are four different bets at four different
+     * prices. Read without the heading, all four land on the same market, three of
+     * them overwrite the first, and the arithmetic downstream is built on prices
+     * belonging to bets nobody looked at.
+     */
+    data class Entry(val label: String, val price: Double, val section: String = "")
 
     data class Matched(
         val pairs: Map<String, Double>,
@@ -108,6 +130,124 @@ object Odds {
     )
 
     /**
+     * What a coupon heading means, as far as this app is concerned.
+     *
+     * [UNSUPPORTED] is the important one and the reason this exists at all: a
+     * heading the app has no markets for must make its rows unrecognised, never fall
+     * back to loose matching. "Over 0.5 - Ya" under "Minimal Satu Tim Akan Mencetak
+     * Skor" is whether at least one team scores, not whether the match has a goal —
+     * and quietly filing it as Over 0.5 is a wrong price nobody can see.
+     */
+    internal enum class Kind { RESULT, TOTAL, TEAM1, TEAM2, BTTS, COMBO, HANDICAP, UNSUPPORTED, UNKNOWN }
+
+    /**
+     * Headings, spelled out exactly.
+     *
+     * Detection has to be exact where classification can be loose. Matching a
+     * heading by prefix swallowed the priced row "Handicap Asia Tuan rumah -0.5 =
+     * 2,05", because it begins with the word Handicap — and a swallowed row is a
+     * price silently gone.
+     */
+    private val HEADINGS = setOf(
+        "1x2", "hasil akhir", "match result", "double chance",
+        "total", "total gol", "total asia", "total 1", "total 2",
+        "kedua tim mencetak skor", "minimal satu tim akan mencetak skor",
+        "1, hasil + total", "2, hasil + total",
+        "handicap", "handicap asia", "handicap eropa",
+    )
+
+    internal fun isHeading(line: String): Boolean =
+        clean(line).lowercase().trim().trimEnd(':').trim() in HEADINGS
+
+    internal fun kindOf(header: String): Kind {
+        val h = header.lowercase().trim().trimEnd(':').trim()
+        return when {
+            h.isBlank() -> Kind.UNKNOWN
+            h == "1x2" || h.startsWith("hasil akhir") || h.startsWith("match result") -> Kind.RESULT
+            h.startsWith("double chance") -> Kind.RESULT
+            // Quarter lines (0.75, 1.25) settle with a half-stake refund and are a
+            // different bet from the whole line. The app offers none of them.
+            h.startsWith("total asia") -> Kind.UNSUPPORTED
+            h.startsWith("total 1") -> Kind.TEAM1
+            h.startsWith("total 2") -> Kind.TEAM2
+            h == "total" || h.startsWith("total gol") -> Kind.TOTAL
+            h.startsWith("kedua tim mencetak") -> Kind.BTTS
+            h.startsWith("minimal satu tim") -> Kind.UNSUPPORTED
+            h.startsWith("1, hasil") || h.startsWith("2, hasil") -> Kind.COMBO
+            h.startsWith("handicap") -> Kind.HANDICAP
+            else -> Kind.UNKNOWN
+        }
+    }
+
+    /** The line number at the end or start of a totals label, whichever way it is written. */
+    private val TOTAL_LINE = Regex("""^\(?([\d.]+)\)?\s*(over|under)$|^(over|under)\s*\(?([\d.]+)\)?$""")
+
+    /**
+     * Reads a totals row as its line and side, whichever order the book prints them.
+     *
+     * Returns null when the row is not a plain totals row at all, which under a
+     * totals heading means it is something the app does not offer.
+     */
+    private fun totalOf(label: String): Pair<String, String>? {
+        val m = TOTAL_LINE.find(label.lowercase().trim()) ?: return null
+        val g = m.groupValues
+        val line = (g[1].ifBlank { g[4] }).trimEnd('.')
+        val side = (g[2].ifBlank { g[3] })
+        if (line.isBlank() || side.isBlank()) return null
+        return line to if (side == "over") "Over" else "Under"
+    }
+
+    /**
+     * Melbet's combination rows: "1X dan TO 2.5, Ya" is 1X together with over 2.5.
+     *
+     * Only the "Ya" side exists as a market here. The "Tidak" side is the negation of
+     * a combination, which is a different bet and not one the app prices, so it is
+     * left unrecognised rather than guessed at.
+     */
+    private val COMBO_ROW =
+        Regex("""^(m1|m2|1x|2x|x2)\s+dan\s+t(o|u)\s*([\d.]+)\s*,\s*(ya|tidak)$""")
+
+    private val COMBO_SIDES = mapOf(
+        "m1" to "Tuan rumah menang", "m2" to "Tandang menang",
+        "1x" to "1X", "2x" to "X2", "x2" to "X2",
+    )
+
+    /**
+     * The app's name for whatever the bookmaker called it, given the heading it sat
+     * under. Null means the app has no such market, which is not the same as a line
+     * it failed to read.
+     */
+    internal fun expandIn(label: String, kind: Kind): String? {
+        val key = label.lowercase().trim().trim('*', '-', '•', ' ')
+        return when (kind) {
+            Kind.UNSUPPORTED -> null
+            Kind.RESULT -> ALIASES[key] ?: expand(label)
+            Kind.BTTS -> when (key) {
+                "ya" -> "Kedua tim cetak gol (BTTS) - Ya"
+                "tidak" -> "Kedua tim cetak gol (BTTS) - Tidak"
+                // "Tiap tim mencetak 2 atau lebih" is EVERY team, where the app's
+                // market is AT LEAST ONE team. Different bets, so not mapped.
+                else -> null
+            }
+            Kind.TOTAL -> totalOf(key)?.let { (line, side) -> "$side $line" }
+            Kind.TEAM1 -> totalOf(key)?.let { (line, side) ->
+                if (side == "Over") "Tuan rumah Over $line" else null
+            }
+            Kind.TEAM2 -> totalOf(key)?.let { (line, side) ->
+                if (side == "Over") "Tandang Over $line" else null
+            }
+            Kind.COMBO -> COMBO_ROW.find(key)?.let { m ->
+                if (m.groupValues[4] != "ya") return null
+                val side = COMBO_SIDES[m.groupValues[1]] ?: return null
+                val over = if (m.groupValues[2] == "o") "Over" else "Under"
+                "$side & $over ${m.groupValues[3].trimEnd('.')}"
+            }
+            Kind.HANDICAP -> expand(label).takeIf { it != label }
+            Kind.UNKNOWN -> expand(label)
+        }
+    }
+
+    /**
      * The app's name for whatever the bookmaker called it, or the label unchanged.
      *
      * An exact alias only applies to a whole label: "1" is the home win on its own,
@@ -135,11 +275,22 @@ object Odds {
     fun parse(text: String): List<Entry> {
         val lines = text.lines()
         val out = ArrayList<Entry>()
+        var section = ""
         var i = 0
         while (i < lines.size) {
+            // Headings first. "Total 2" is a heading, but it also parses perfectly
+            // well as a market called "Total" priced at 2.0 — which is what the app
+            // did, swallowing the heading and then filing every away-team total
+            // under the home team. A heading carries no bullet; a priced row does.
+            if (isHeading(lines[i])) {
+                section = clean(lines[i])
+                i++
+                continue
+            }
+
             val found = segments(lines[i]).mapNotNull { entry(it) }
             if (found.isNotEmpty()) {
-                out.addAll(found)
+                out.addAll(found.map { it.copy(section = section) })
                 i++
                 continue
             }
@@ -150,9 +301,15 @@ object Odds {
             val label = clean(lines[i])
             val price = bareNumber(lines.getOrNull(i + 1))
             if (price != null && looksLikeAMarket(label)) {
-                out.add(Entry(label, price))
+                out.add(Entry(label, price, section))
                 i += 2
                 continue
+            }
+            // A line with no price and no price beneath it is a heading. Bullets and
+            // blank lines separate the sections of a real coupon, so this is where
+            // "Total 1" and "Minimal Satu Tim Akan Mencetak Skor" get remembered.
+            if (label.isNotBlank() && label.any { it.isLetter() || it.isDigit() }) {
+                section = label
             }
             i++
         }
@@ -289,7 +446,16 @@ object Odds {
      * is not that a price is misread, it is that a misread price is used without
      * anyone noticing.
      */
-    data class Row(val label: String, val price: Double, val market: String?, val group: String?)
+    data class Row(
+        val label: String,
+        val price: Double,
+        val market: String?,
+        val group: String?,
+        /** The coupon heading this sat under, so a row can be told from its twin. */
+        val section: String = "",
+        /** Why it was skipped, when the app knows. Blank when it simply did not match. */
+        val note: String = "",
+    )
 
     data class Reading(
         val rows: List<Row>,
@@ -315,7 +481,22 @@ object Odds {
         val conflicts = ArrayList<String>()
 
         parse(text).forEach { entry ->
-            val expanded = expand(entry.label)
+            val kind = kindOf(entry.section)
+            val expanded = expandIn(entry.label, kind)
+            if (expanded == null) {
+                // Known heading, no such market here. Said plainly, because "tidak
+                // dikenali" on a row the app understood perfectly well reads as a
+                // failure when it is a deliberate refusal.
+                rows.add(
+                    Row(
+                        entry.label, entry.price, null, null, entry.section,
+                        note = if (kind == Kind.UNSUPPORTED || kind != Kind.UNKNOWN) {
+                            "Bagian \"${entry.section}\" tidak dipasang di aplikasi ini."
+                        } else "",
+                    )
+                )
+                return@forEach
+            }
             val words = tokens(expanded)
             val best = markets
                 .filter { market ->
@@ -325,19 +506,19 @@ object Odds {
                 .maxByOrNull { tokens(it.name).size }
 
             if (best == null) {
-                rows.add(Row(entry.label, entry.price, null, null))
+                rows.add(Row(entry.label, entry.price, null, null, entry.section))
                 return@forEach
             }
             val key = "${best.group}|${best.name}"
             val already = claimed[key]
             if (already != null && abs(already - entry.price) > 1e-9) {
                 conflicts.add(
-                    "${best.name}: terbaca dua harga berbeda, ${twoDecimals(already)} dan " +
-                        "${twoDecimals(entry.price)}. Salah satunya salah baca."
+                    "${best.name}: terbaca dua harga berbeda, ${oddsLabel(already)} dan " +
+                        "${oddsLabel(entry.price)}. Salah satunya salah baca."
                 )
             }
             claimed[key] = entry.price
-            rows.add(Row(entry.label, entry.price, best.name, best.group))
+            rows.add(Row(entry.label, entry.price, best.name, best.group, entry.section))
         }
         return Reading(rows, conflicts)
     }

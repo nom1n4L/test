@@ -101,6 +101,12 @@ object Devig {
         // half goals, corners. Paired by the text before "Over", so "Babak 1 Over
         // 2.5" can never be paired with the full-match "Under 2.5".
         markets.filter { " Over " in " ${it.name}" || it.name.startsWith("Over ") }
+            // Combinations are excluded, and it matters: "1X & Over 2.5" and
+            // "1X & Under 2.5" look like a pair but partition nothing — the match
+            // can also end 2, which neither covers. Treated as a complete set they
+            // summed to 0.69, and the app reported a bookmaker paying 31% above
+            // cost, which is a misread digit's signature. The prices were fine.
+            .filterNot { "&" in it.name }
             .forEach { over ->
                 val line = over.name.substringAfter("Over ").trim()
                 val prefix = over.name.substringBefore("Over ")

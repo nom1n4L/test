@@ -64,6 +64,7 @@ import com.skorsnap.app.data.Coach
 import androidx.compose.ui.graphics.Color
 import com.skorsnap.app.data.Devig
 import com.skorsnap.app.data.Grid
+import com.skorsnap.app.data.Odds
 import com.skorsnap.app.data.Offline
 import com.skorsnap.app.data.MarketOption
 import kotlin.math.pow
@@ -706,54 +707,102 @@ fun CouponCard(
         if (reading.rows.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
             Text(
-                "${reading.understood.size} harga terbaca — periksa dulu:",
+                "${reading.understood.size} harga dipakai — periksa dulu:",
                 style = MaterialTheme.typography.labelSmall,
                 color = Sky,
             )
-            reading.rows.forEach { row ->
+            reading.understood.forEach { row ->
                 val key = "${row.group}|${row.market}"
-                val out = row.market == null || key in dropped
+                val out = key in dropped
                 Row(
                     Modifier.fillMaxWidth().padding(vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(
-                            row.market ?: "tidak dikenali",
+                            row.market.orEmpty(),
                             style = MaterialTheme.typography.bodySmall,
-                            color = when {
-                                row.market == null -> Amber
-                                key in dropped -> MaterialTheme.colorScheme.onSurfaceVariant
-                                else -> MaterialTheme.colorScheme.onSurface
-                            },
+                            color = if (out) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
-                            "kamu tulis: ${row.label}",
+                            if (row.section.isBlank()) "kamu tulis: ${row.label}"
+                            else "${row.section} → ${row.label}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Text(
-                        twoDecimals(row.price),
+                        Odds.oddsLabel(row.price),
                         style = MaterialTheme.typography.bodyMedium,
                         color = if (out) MaterialTheme.colorScheme.onSurfaceVariant else Sky,
                     )
-                    if (row.market != null) {
-                        TextButton(onClick = { onToggleDrop(key) }) {
-                            Text(
-                                if (key in dropped) "Pakai" else "Buang",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (key in dropped) Green else Rose,
-                            )
-                        }
+                    TextButton(onClick = { onToggleDrop(key) }) {
+                        Text(
+                            if (out) "Pakai" else "Buang",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (out) Green else Rose,
+                        )
+                    }
+                }
+            }
+
+            // Folded away. A real coupon carries dozens of rows this app has no
+            // market for, and listing them all buried the ones that mattered under
+            // a wall of yellow.
+            if (reading.strange.isNotEmpty()) {
+                var showSkipped by remember { mutableStateOf(false) }
+                Spacer(Modifier.height(6.dp))
+                TextButton(onClick = { showSkipped = !showSkipped }) {
+                    Text(
+                        if (showSkipped) "Sembunyikan ${reading.strange.size} baris yang dilewat"
+                        else "${reading.strange.size} baris dilewat — lihat kenapa",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Amber,
+                    )
+                }
+                AnimatedVisibility(showSkipped) {
+                    Column {
+                        Text(
+                            "Dilewat, bukan gagal dibaca. Pasaran ini memang tidak ada di " +
+                                "aplikasi, dan memaksakannya ke market terdekat itu justru " +
+                                "yang bikin harga salah tempat.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        reading.strange.groupBy { it.section.ifBlank { "Tanpa judul" } }
+                            .forEach { (section, group) ->
+                                Text(
+                                    "$section — ${group.size} baris",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Amber,
+                                )
+                                Text(
+                                    group.take(4).joinToString { it.label },
+                                    modifier = Modifier.padding(bottom = 6.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                     }
                 }
             }
         }
 
-        warnings.forEach {
+        // Capped: a genuine misreading shows up in one or two sets, and printing
+        // forty of them is the same as printing none.
+        warnings.take(4).forEach {
             Spacer(Modifier.height(8.dp))
             Text(it, style = MaterialTheme.typography.bodySmall, color = Amber)
+        }
+        if (warnings.size > 4) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "…dan ${warnings.size - 4} peringatan lain.",
+                style = MaterialTheme.typography.labelSmall,
+                color = Amber,
+            )
         }
     }
 }
@@ -776,9 +825,9 @@ fun OfflineScreen(onAnalyse: (String, String, String, Set<String>) -> Unit) {
     // editing the text above does not silently re-admit something they rejected.
     var dropped by rememberSaveable { mutableStateOf(setOf<String>()) }
 
-    val reading = remember(coupon) { Offline.preview(coupon) }
-    val warnings = remember(reading) { Offline.warnings(reading) }
-    val anchored = remember(reading) { Offline.hasAnchor(reading) }
+    // Only the anchor check lives here: the reading and its warnings are shown by
+    // CouponCard itself, and a second copy would drift from the first.
+    val anchored = remember(coupon) { Offline.hasAnchor(Offline.preview(coupon)) }
 
     Column(
         Modifier
@@ -825,103 +874,19 @@ fun OfflineScreen(onAnalyse: (String, String, String, Set<String>) -> Unit) {
             )
         }
 
-        OutlinedTextField(
-            value = coupon,
-            onValueChange = { coupon = it },
-            label = { Text("Tempel kupon Melbet di sini") },
-            placeholder = {
-                Text(
-                    "* M1 2.05\n* X 3.40\n* M2 3.10\n* (2.5) Over: 1.85 | (2.5) Under: 1.95",
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            },
-            modifier = Modifier.fillMaxWidth().height(220.dp),
-            textStyle = MaterialTheme.typography.bodySmall,
+        // The same card as the AI path, rather than a second copy of it here: one
+        // reader, one table, one place a fix has to be made.
+        CouponCard(
+            coupon = coupon,
+            onCoupon = { coupon = it },
+            markets = remember { Grid.matchMarkets(1.35, 1.15, 0.40, 0.28, 0.32) },
+            dropped = dropped,
+            onToggleDrop = { dropped = if (it in dropped) dropped - it else dropped + it },
+            title = "Kupon Melbet",
+            subtitle = "Tempel apa adanya, lengkap dengan judul tiap bagian — judulnya " +
+                "ikut dibaca. \"0.5 Over\" di bawah Total, Total 1, dan Total 2 itu tiga " +
+                "taruhan berbeda, dan tanpa judulnya ketiganya bertabrakan.",
         )
-
-        // Shown before anything is computed. A misread price is always possible;
-        // a misread price used without the user seeing it is not.
-        if (reading.rows.isNotEmpty()) {
-            Card(
-                title = "Periksa Dulu (${reading.understood.size} harga terbaca)",
-                subtitle = "Ini yang aplikasi kira kamu tulis. Kalau ada yang salah, " +
-                    "buang barisnya — yang dibuang tidak ikut dihitung sama sekali.",
-            ) {
-                reading.rows.forEach { row ->
-                    val key = "${row.group}|${row.market}"
-                    val out = row.market == null || key in dropped
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                row.market ?: "tidak dikenali",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = when {
-                                    row.market == null -> Amber
-                                    key in dropped -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                },
-                            )
-                            Text(
-                                "kamu tulis: ${row.label}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Text(
-                            twoDecimals(row.price),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (out) MaterialTheme.colorScheme.onSurfaceVariant else Sky,
-                        )
-                        if (row.market != null) {
-                            TextButton(
-                                onClick = {
-                                    dropped = if (key in dropped) dropped - key else dropped + key
-                                }
-                            ) {
-                                Text(
-                                    if (key in dropped) "Pakai" else "Buang",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = if (key in dropped) Green else Rose,
-                                )
-                            }
-                        }
-                    }
-                }
-                if (reading.strange.isNotEmpty()) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Baris bertanda kuning tidak dikenali dan memang tidak dipakai — " +
-                            "dibiarkan begitu jauh lebih aman daripada ditebak nempel ke " +
-                            "market yang salah.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
-        if (warnings.isNotEmpty()) {
-            Card(title = "Ada Angka yang Mencurigakan") {
-                warnings.forEach {
-                    Text(
-                        it,
-                        modifier = Modifier.padding(bottom = 6.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Amber,
-                    )
-                }
-                Text(
-                    "Ini ketahuan dari aritmetikanya sendiri, bukan dari tebakan: harga " +
-                        "satu pasaran yang lengkap punya jumlah yang harus masuk akal, " +
-                        "dan yang ini tidak.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
 
         if (coupon.isNotBlank() && !anchored) {
             Text(

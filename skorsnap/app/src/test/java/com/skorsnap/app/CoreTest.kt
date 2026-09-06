@@ -1940,6 +1940,174 @@ class CoreTest {
         entries.forEach { println("  ${it.label} → ${it.price}") }
     }
 
+    // ------------------------------------------------ kupon lengkap sungguhan
+
+    /** The Birmingham vs Wolverhampton coupon the user pasted, whole. */
+    private val REAL_COUPON = """
+1x2
+
+* M1 2.886
+* X 3.3
+* M2 2.395
+
+Double Chance
+
+* 1X 1.54
+* 12 1.31
+* 2X 1.39
+
+Total
+
+* 0.5 Over 1.002
+* 0.5 Under 9.3
+* 1 Over 1.019
+* 1 Under 8.1
+* 1.5 Over 1.24
+* 1.5 Under 3.38
+* 2 Over 1.39
+* 2 Under 2.69
+* 2.5 Over 1.87
+* 2.5 Under 1.9
+* 3 Over 2.44
+* 3 Under 1.47
+* 3.5 Over 2.99
+* 3.5 Under 1.3
+* 4 Over 4.95
+* 4 Under 1.107
+* 4.5 Over 5.7
+* 4.5 Under 1.076
+
+Total Asia
+
+* 0.75 Over 1.01
+* 0.75 Under 8.7
+* 1.25 Over 1.126
+* 1.25 Under 4.66
+
+Total 1
+
+* 0.5 Over 1.3
+* 0.5 Under 3.14
+* 1.5 Over 2.55
+* 1.5 Under 1.48
+
+Total 2
+
+* 0.5 Over 1.23
+* 0.5 Under 3.6
+* 1.5 Over 2.23
+* 1.5 Under 1.63
+
+1, Hasil + Total
+
+* M1 dan TO 2.5, Ya 4.45
+* M1 dan TO 2.5, Tidak 1.159
+* 1X dan TU 2.5, Ya 2.64
+* 1X dan TO 2.5, Ya 3.26
+
+Kedua Tim Mencetak Skor
+
+* Ya 1.66
+* Tidak 2.09
+* Tiap Tim Mencetak 2 Atau Lebih, Ya 5.08
+
+Minimal Satu Tim Akan Mencetak Skor
+
+* Over 0.5 - Ya 1.002
+* Over 0.5 - Tidak 9.3
+* Over 1.5 - Ya 1.58
+* Over 2.5 - Ya 3.3
+
+Handicap
+
+* 1(-1.5) 5.75
+* 2(1.5) 1.073
+* 1(-1) 4.85
+* 2(1) 1.113
+* 1(0) 2.07
+    """.trimIndent()
+
+    /**
+     * A real coupon prints "0.5 Over" four times, under four different headings, at
+     * four different prices. Read without the headings they all land on Over 0.5,
+     * three of them overwrite the first, and every warning the app raised afterwards
+     * was about its own confusion rather than the user's data — which is exactly
+     * what they saw: pages of "terbaca dua harga berbeda" on a coupon that was right.
+     */
+    @Test
+    fun sectionsKeepIdenticalRowsApart() {
+        val reading = Offline.preview(REAL_COUPON)
+
+        assert(reading.prices["Total Gol|Over 0.5"] == 1.002) {
+            "Total utama salah: ${reading.prices["Total Gol|Over 0.5"]}"
+        }
+        assert(reading.prices["Total per Tim|Tuan rumah Over 0.5"] == 1.3) {
+            "Total 1 tidak masuk ke market tuan rumah: ${reading.prices.keys}"
+        }
+        assert(reading.prices["Total per Tim|Tandang Over 0.5"] == 1.23) {
+            "Total 2 tidak masuk ke market tandang"
+        }
+        // The fourth one is a different bet entirely and must not be filed as a total.
+        assert(reading.rows.any {
+            it.section.startsWith("Minimal Satu Tim") && it.market == null
+        }) { "baris 'Minimal Satu Tim' masih ditempel ke market lain" }
+
+        assert(reading.conflicts.isEmpty()) {
+            "masih ada bentrokan palsu:\n" + reading.conflicts.take(5).joinToString("\n")
+        }
+        assert(Offline.warnings(reading).isEmpty()) {
+            "masih ada peringatan palsu:\n" + Offline.warnings(reading).take(5).joinToString("\n")
+        }
+        println("Kupon asli: ${reading.understood.size} harga dipakai, " +
+            "${reading.strange.size} sengaja dilewat, 0 bentrokan.")
+    }
+
+    /** And with the sections read correctly, the coupon computes cleanly. */
+    @Test
+    fun theRealCouponProducesAnAnalysis() {
+        val m = Offline.analyse("Birmingham", "Wolves", REAL_COUPON, "id-real").match
+        assert(m != null) { "kupon asli masih gagal dihitung" }
+        m!!
+        // 1/2.886 + 1/3.3 + 1/2.395 = 1.0603, so a 6% book; home is 0.3465/1.0603.
+        assert(abs(m.probHome - 0.327) < 0.003) { "1X2 salah: ${m.probHome}" }
+        assert(m.probAway > m.probHome) { "Wolves lebih diunggulkan bandar, tapi tidak tercermin" }
+        assert(m.markets.size >= 50)
+        println(
+            "Birmingham ${(m.probHome * 100).roundToInt()}% / seri " +
+                "${(m.probDraw * 100).roundToInt()}% / Wolves ${(m.probAway * 100).roundToInt()}%, " +
+                "xG ${twoDecimals(m.xgHome)}-${twoDecimals(m.xgAway)}. Rekomendasi: ${m.pick}"
+        )
+        println(m.verdict)
+    }
+
+    /** Quarter lines and negated combinations are refused with a reason, not mangled. */
+    @Test
+    fun unsupportedSectionsAreRefusedRatherThanForced() {
+        val reading = Offline.preview(REAL_COUPON)
+        val asia = reading.rows.filter { it.section == "Total Asia" }
+        assert(asia.isNotEmpty() && asia.all { it.market == null }) {
+            "harga Total Asia ikut ditempel: ${asia.filter { it.market != null }}"
+        }
+        assert(asia.first().note.contains("Total Asia")) { "alasannya tidak disebut" }
+
+        // "Tiap tim mencetak 2 atau lebih" is every team, not at least one.
+        val each = reading.rows.first { it.label.startsWith("Tiap Tim") }
+        assert(each.market == null) { "market yang beda arti ikut dipasang: ${each.market}" }
+
+        // The "Tidak" side of a combination is not a market this app prices.
+        val negated = reading.rows.first { it.label.contains("Tidak") && it.section.contains("Hasil") }
+        assert(negated.market == null)
+        println("Ditolak dengan alasan: ${asia.first().note}")
+    }
+
+    /** A price of 1.002 is not "1,00": two decimals make near-certain lines vanish. */
+    @Test
+    fun nearEvensPricesKeepTheirDecimals() {
+        assert(Odds.oddsLabel(1.002) == "1,002") { Odds.oddsLabel(1.002) }
+        assert(Odds.oddsLabel(1.019) == "1,019")
+        assert(Odds.oddsLabel(2.886) == "2.89") { Odds.oddsLabel(2.886) }
+    }
+
     // ------------------------------------------------ dua jalur digabung
 
     /**

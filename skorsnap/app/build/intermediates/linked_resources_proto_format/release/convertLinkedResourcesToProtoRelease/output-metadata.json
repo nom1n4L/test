@@ -11,8 +11,8 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 39,
-      "versionName": "7.2",
+      "versionCode": 40,
+      "versionName": "7.3",
       "outputFile": "linked-resources-proto-format-release.ap_"
     }
   ],
