@@ -49,6 +49,13 @@ data class MarketOption(
      */
     val modelProb: Double? = null,
     val marketProb: Double? = null,
+    /**
+     * The number before the app's own record was used to correct it.
+     *
+     * Kept for the same reason as [modelProb]: a figure that moved for reasons the
+     * screen cannot explain is worse than one that never moved.
+     */
+    val rawProb: Double? = null,
 ) {
     val percent: Int get() = Math.round(prob * 100).toInt()
 
@@ -211,6 +218,14 @@ data class MatchPrediction(
      * model had predicted them.
      */
     val offline: Boolean = false,
+    /**
+     * True once the app's own settled record has been used to correct the numbers.
+     *
+     * Recorded rather than inferred from [MarketOption.rawProb], because a
+     * calibration that happened to move nothing is still a calibration, and the
+     * screen should be able to say so.
+     */
+    val calibrated: Boolean = false,
     /** Set when the recommendation was chosen by value rather than by probability. */
     val valuePick: Boolean = false,
     /** What the model itself had recommended before value took over. */

@@ -189,8 +189,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     league = fixture.where,
                 )
                 _lastUsage.value = analyst.lastUsage
-                seedOdds(result)
-                val updated = _matches.value + result
+                val calibrated = calibrate(result)
+                seedOdds(calibrated)
+                val updated = _matches.value + calibrated
                 _matches.value = updated
                 store.save(updated)
                 _staged.value = emptyList()
@@ -401,8 +402,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
-                seedOdds(result)
-                val updated = _matches.value + result
+                val calibrated = calibrate(result)
+                seedOdds(calibrated)
+                val updated = _matches.value + calibrated
                 _matches.value = updated
                 store.save(updated)
                 _staged.value = emptyList()
@@ -621,6 +623,24 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * are left alone — a value the user entered themselves outranks one the model
      * read off a picture.
      */
+    /**
+     * Every settled market, as the calibration record.
+     *
+     * Read from the observed list rather than the store, so a verdict marked a
+     * moment ago counts towards the next analysis.
+     */
+    private fun marks(): List<com.skorsnap.app.data.Mark> =
+        com.skorsnap.app.data.Report(_matches.value).allMarks()
+
+    /**
+     * Corrects a fresh analysis against the app's own track record.
+     *
+     * Held back until a probability band has a dozen settled results, because
+     * before that the correction is noise wearing a lab coat.
+     */
+    private fun calibrate(match: MatchPrediction): MatchPrediction =
+        com.skorsnap.app.data.Calibration.applyTo(match, marks())
+
     private fun seedOdds(match: MatchPrediction) {
         if (match.prices.isEmpty()) return
         val fresh = match.prices.mapKeys { "${match.id}|${it.key.substringAfter('|')}" }
@@ -649,7 +669,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             _message.value = result.problem
             return
         }
-        val settled = com.skorsnap.app.data.Value.apply(match, _appetite.value.floor)
+        val settled = calibrate(
+            com.skorsnap.app.data.Value.apply(match, _appetite.value.floor)
+        )
         seedOdds(settled)
         val updated = _matches.value + settled
         _matches.value = updated
@@ -685,8 +707,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             .associate { "${it.group}|${it.market}" to it.price }
 
         val priced = match.copy(prices = prices)
-        val updated = com.skorsnap.app.data.Value.apply(
-            com.skorsnap.app.data.Devig.blend(priced), _appetite.value.floor,
+        val updated = calibrate(
+            com.skorsnap.app.data.Value.apply(
+                com.skorsnap.app.data.Devig.blend(priced), _appetite.value.floor,
+            )
         )
         _matches.value = _matches.value.map { if (it.id == matchId) updated else it }
         store.save(_matches.value)

@@ -6,12 +6,14 @@ import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Migration
 import org.json.JSONObject
 import com.skorsnap.app.capture.Frames
+import com.skorsnap.app.data.Calibration
 import com.skorsnap.app.data.Coach
 import com.skorsnap.app.data.Devig
 import com.skorsnap.app.data.Offline
 import com.skorsnap.app.data.Value
 import com.skorsnap.app.data.Football
 import com.skorsnap.app.data.Lens
+import com.skorsnap.app.data.Mark
 import com.skorsnap.app.data.MarketOption
 import com.skorsnap.app.data.Markets
 import com.skorsnap.app.data.Grid
@@ -931,6 +933,11 @@ class CoreTest {
         val own = com.skorsnap.app.ui.AppViewModel::class.java.methods
             .filter { java.lang.reflect.Modifier.isPublic(it.modifiers) }
             .filter { it.declaringClass.name.startsWith("com.skorsnap") }
+            // Synthetic bridges the compiler emits for private methods used inside
+            // lambdas. They carry the "access$" marker, are public only as a JVM
+            // implementation detail, and no screen can name one — where a real
+            // public method handing out a MatchPrediction is the bug this guards.
+            .filterNot { it.name.startsWith("access$") }
         // Without this the check could pass by inspecting nothing at all.
         assert(own.size > 5) { "refleksi tidak menemukan apa-apa — penjaganya palsu" }
 
@@ -1938,6 +1945,165 @@ class CoreTest {
         assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
         println()
         entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    // ------------------------------------------------ kejujuran angka
+
+    private fun marks(n: Int, promised: Double, wins: Int) =
+        List(n) { Mark("Total Gol", "Over 1.5", promised, it < wins) }
+
+    /**
+     * The complaint: markets labelled safest still lost. A hit rate cannot answer
+     * that, because an 80% market is meant to lose one time in five. Only comparing
+     * promised against delivered inside a band can, and nothing did until now.
+     */
+    @Test
+    fun aBandThatPromisesMoreThanItDeliversIsFound() {
+        // Forty bets published at 84%, twenty-four landed.
+        val record = marks(40, 0.84, 24)
+        val band = Calibration.bands(record).single()
+        assert(band.total == 40)
+        assert(abs(band.promised - 0.84) < 1e-9)
+        // (24+2)/(40+4) = 59%, well under the 84% promised.
+        assert(abs(band.actual - 0.5909) < 0.001) { "hasil terukur salah: ${band.actual}" }
+        assert(band.bias < -0.20) { "tidak terdeteksi terlalu percaya diri" }
+        // Capped at 12 points: beyond that the app is inventing a different model.
+        assert(abs(band.shift + 0.12) < 1e-9) { "koreksi tidak dibatasi: ${band.shift}" }
+        println(
+            "Rentang ${band.label}: dijanjikan ${(band.promised * 100).roundToInt()}%, " +
+                "tembus ${(band.actual * 100).roundToInt()}% dari ${band.total} — " +
+                "dikoreksi ${(band.shift * 100).roundToInt()} poin."
+        )
+    }
+
+    /** A handful of results must move nothing: that correction would be noise. */
+    @Test
+    fun tooLittleHistoryChangesNothing() {
+        val thin = marks(5, 0.84, 1)
+        assert(Calibration.adjust(0.84, thin) == 0.84) { "dikoreksi dari 5 hasil saja" }
+        assert(!Calibration.active(thin))
+        assert(Calibration.verdict(thin).contains("Terlalu sedikit"))
+
+        val enough = marks(40, 0.84, 24)
+        assert(Calibration.adjust(0.84, enough) < 0.84) { "tidak dikoreksi padahal cukup data" }
+    }
+
+    /** The correction fades in with evidence rather than switching on at full strength. */
+    @Test
+    fun theCorrectionGrowsWithTheRecord() {
+        val small = Calibration.bands(marks(12, 0.84, 7)).single()
+        val large = Calibration.bands(marks(120, 0.84, 70)).single()
+        assert(large.weight > small.weight) { "bobot tidak naik dengan jumlah data" }
+        assert(abs(large.shift) > abs(small.shift)) {
+            "koreksi tidak menguat: ${small.shift} lalu ${large.shift}"
+        }
+        println(
+            "12 hasil → koreksi ${(small.shift * 100).roundToInt()} poin; " +
+                "120 hasil → ${(large.shift * 100).roundToInt()} poin."
+        )
+    }
+
+    /** A band that is honest is left alone, in both directions. */
+    @Test
+    fun anHonestBandIsNotTouched() {
+        // 40 bets at 70%, 28 landed: (28+2)/(40+4) = 68%, near enough.
+        val honest = marks(40, 0.70, 28)
+        val moved = Calibration.adjust(0.70, honest)
+        assert(abs(moved - 0.70) < 0.03) { "angka jujur ikut digeser: $moved" }
+        assert(Calibration.verdict(honest).contains("jujur"))
+    }
+
+    /** Correction is visible: the original number stays on the option. */
+    @Test
+    fun theOriginalNumberIsKeptSoTheMoveCanBeShown() {
+        val record = marks(40, 0.84, 24)
+        val m = MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.4, probDraw = 0.3, probAway = 0.3, xgHome = 1.4, xgAway = 1.2,
+            markets = listOf(MarketOption("Over 1.5", 0.84, "w", "Total Gol")),
+            pick = "Over 1.5", pickProb = 0.84, confidence = "sedang", confidenceWhy = "",
+        )
+        val fixed = Calibration.applyTo(m, record)
+        val option = fixed.markets.single()
+        assert(option.rawProb == 0.84) { "angka asli hilang" }
+        assert(option.prob < 0.84)
+        assert(fixed.calibrated)
+        assert(fixed.pickProb == option.prob) { "peluang rekomendasi tidak ikut turun" }
+    }
+
+    /** Applying it twice must not correct the correction. */
+    @Test
+    fun calibrationIsNotAppliedOnTopOfItself() {
+        val record = marks(40, 0.84, 24)
+        val m = MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.4, probDraw = 0.3, probAway = 0.3, xgHome = 1.4, xgAway = 1.2,
+            markets = listOf(MarketOption("Over 1.5", 0.84, "w", "Total Gol")),
+            pick = "Over 1.5", pickProb = 0.84, confidence = "sedang", confidenceWhy = "",
+        )
+        val once = Calibration.applyTo(m, record)
+        val twice = Calibration.applyTo(once, record)
+        assert(twice.markets.single().rawProb == 0.84) { "angka asli tertimpa hasil koreksi" }
+        println("Sekali koreksi ${(once.markets.single().prob * 100).roundToInt()}%, " +
+            "dua kali ${(twice.markets.single().prob * 100).roundToInt()}%.")
+    }
+
+    /** The wording people act on, rather than the percentage they read as a promise. */
+    @Test
+    fun theOddsAreAlsoStatedAsHowManyOfTenWillMiss() {
+        assert(Calibration.outOfTen(0.82) == "sekitar 2 dari 10 meleset")
+        assert(Calibration.outOfTen(0.91) == "sekitar 1 dari 10 meleset")
+        assert(Calibration.outOfTen(0.55) == "sekitar 5 dari 10 meleset")
+    }
+
+    // ------------------------------------------------ skor rendah saling terkait
+
+    /**
+     * Two independent Poissons produce too few draws — known since Dixon and Coles
+     * in 1997, and the error lands exactly where this app recommends: low totals and
+     * the draw-inclusive markets that fill the safe band.
+     */
+    @Test
+    fun theLowScoreCorrectionLiftsDrawsWhereItShould() {
+        // An evenly matched, low-scoring match is where the correction bites.
+        val m = Grid.matchMarkets(1.1, 1.0, 0.38, 0.30, 0.32)
+        val draw = m.first { it.name == "Seri" }.prob
+        // Independent Poisson at these rates gives about 26-27% draws; the
+        // correction should put it meaningfully above that.
+        assert(draw > 0.27) { "seri masih terlalu rendah: $draw" }
+        // And the whole board still adds up.
+        val h = m.first { it.name == "Tuan rumah menang" }.prob
+        val a = m.first { it.name == "Tandang menang" }.prob
+        assert(abs(h + draw + a - 1.0) < 0.02) { "1X2 tidak berjumlah 1: ${h + draw + a}" }
+        println("Seri di laga 1,1-1,0 setelah koreksi Dixon–Coles: ${(draw * 100).roundToInt()}%")
+    }
+
+    /** Corners have no such dependence, and must not be touched by it. */
+    @Test
+    fun cornersAreLeftOutOfTheLowScoreCorrection() {
+        val c = Grid.cornerMarkets(5.2, 4.6)
+        assert(c.isNotEmpty())
+        c.forEach { assert(it.prob in 0.0..1.0) { "${it.name} = ${it.prob}" } }
+        // Paired lines still sum to one, which the correction would break if applied.
+        val over = c.firstOrNull { it.name == "Over 9.5" }
+        val under = c.firstOrNull { it.name == "Under 9.5" }
+        if (over != null && under != null) {
+            assert(abs(over.prob + under.prob - 1.0) < 1e-6) {
+                "corner O/U tidak berjumlah 1: ${over.prob} + ${under.prob}"
+            }
+        }
+    }
+
+    /** No probability may leave the grid outside 0-1, whatever the goal expectations. */
+    @Test
+    fun theCorrectionNeverProducesAnImpossibleProbability() {
+        listOf(0.2 to 0.2, 1.4 to 1.2, 3.5 to 3.0, 5.5 to 0.3).forEach { (h, a) ->
+            Grid.matchMarkets(h, a, 0.4, 0.3, 0.3).forEach {
+                assert(it.prob in 0.0..1.0) { "${it.name} di xG $h-$a = ${it.prob}" }
+            }
+        }
     }
 
     // ------------------------------------------------ kupon lengkap sungguhan

@@ -60,6 +60,38 @@ object Grid {
     }
 
     /** The full score matrix: joint[h][a] is the chance of exactly that scoreline. */
+    /**
+     * Dixon–Coles dependence parameter for the low scores.
+     *
+     * Two independent Poissons get football's common scorelines wrong in a way that
+     * has been known since 1997: they produce too few 0-0 and 1-1 draws and too many
+     * 1-0 and 0-1 wins. The teams are not independent — a side a goal up defends, a
+     * side a goal down commits — and the error lands squarely on the markets this
+     * app recommends most, since draws and low totals are where the safe band lives.
+     *
+     * Negative, which lifts 0-0 and 1-1 and lowers 1-0 and 0-1. The published
+     * estimate is around -0.13 across several leagues, and it is left fixed rather
+     * than fitted: this app has nowhere near the match volume to estimate it, and a
+     * badly fitted correction is worse than a well-established constant.
+     */
+    private const val DIXON_COLES_RHO = -0.13
+
+    /**
+     * The low-score correction, applied to goals only.
+     *
+     * Corners have no such dependence — nobody plays for a corner count — and the
+     * negative binomial already handles their spread.
+     */
+    private fun tau(i: Int, j: Int, lh: Double, la: Double): Double = when {
+        i == 0 && j == 0 -> 1 - lh * la * DIXON_COLES_RHO
+        i == 0 && j == 1 -> 1 + lh * DIXON_COLES_RHO
+        i == 1 && j == 0 -> 1 + la * DIXON_COLES_RHO
+        i == 1 && j == 1 -> 1 - DIXON_COLES_RHO
+        else -> 1.0
+    // Guarded: at high goal expectations the 0-0 term can go negative, which would
+    // hand a market a negative probability and poison everything derived from it.
+    }.coerceAtLeast(0.0)
+
     private fun matrix(lh: Double, la: Double, corners: Boolean): Array<DoubleArray> {
         val h = DoubleArray(MAX_GOALS + 1) {
             if (corners) negBin(lh, CORNER_SHAPE, it) else poisson(lh, it)
@@ -67,7 +99,11 @@ object Grid {
         val a = DoubleArray(MAX_GOALS + 1) {
             if (corners) negBin(la, CORNER_SHAPE, it) else poisson(la, it)
         }
-        val m = Array(MAX_GOALS + 1) { i -> DoubleArray(MAX_GOALS + 1) { j -> h[i] * a[j] } }
+        val m = Array(MAX_GOALS + 1) { i ->
+            DoubleArray(MAX_GOALS + 1) { j ->
+                h[i] * a[j] * if (corners) 1.0 else tau(i, j, lh, la)
+            }
+        }
         val total = m.sumOf { row -> row.sum() }
         if (total > 0) for (row in m) for (j in row.indices) row[j] /= total
         return m

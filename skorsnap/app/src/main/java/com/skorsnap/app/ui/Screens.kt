@@ -62,6 +62,7 @@ import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Lens
 import com.skorsnap.app.data.Coach
 import androidx.compose.ui.graphics.Color
+import com.skorsnap.app.data.Calibration
 import com.skorsnap.app.data.Devig
 import com.skorsnap.app.data.Grid
 import com.skorsnap.app.data.Odds
@@ -1185,7 +1186,17 @@ private fun SafeListCard(
                         }
                     }
                     Text(
-                        if (option.derived) "${option.group} · dihitung" else option.group,
+                        buildString {
+                            append(if (option.derived) "${option.group} · dihitung" else option.group)
+                            // The same fact as the percentage, in the form people
+                            // actually act on. "82%" reads as a promise; "sekitar 2
+                            // dari 10 meleset" reads as what it is, and stops a
+                            // losing safe bet from looking like a broken app.
+                            append(" · ${Calibration.outOfTen(option.prob)}")
+                            option.rawProb?.let {
+                                append(" · dikoreksi dari ${Math.round(it * 100)}%")
+                            }
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1239,8 +1250,15 @@ private fun SafeListCard(
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "Peluang tertinggi bukan jaminan tertinggi — rapormu sendiri menunjukkan " +
-                "satu market 85% yang sering meleset. Angka kanan tetap odds impasnya.",
+            if (match.calibrated) {
+                "Angka di sini sudah dikoreksi pakai rekor aplikasi ini sendiri: rentang " +
+                    "peluang yang terbukti terlalu percaya diri diturunkan. Yang tertulis " +
+                    "\"aman\" tetap bisa meleset — itu jatah melesetnya, bukan kerusakan."
+            } else {
+                "Peluang tertinggi bukan jaminan tertinggi. Tandai tembus/meleset tiap " +
+                    "laga; begitu satu rentang punya 12 hasil, aplikasi mulai mengoreksi " +
+                    "angkanya sendiri dari rekor itu."
+            },
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -3234,6 +3252,94 @@ fun SettingsScreen(vm: AppViewModel) {
  * it answers the only question that matters — whether the percentages can be
  * taken at face value.
  */
+/**
+ * Whether the app's percentages mean what they say.
+ *
+ * The first thing on the report, above the hit rate, because it answers the
+ * question people arrive with: something labelled safe lost, is the app broken. A
+ * hit rate cannot answer that — 80% markets are supposed to lose sometimes — and
+ * only a band-by-band comparison of promised against delivered can.
+ */
+@Composable
+private fun CalibrationCard(marks: List<com.skorsnap.app.data.Mark>) {
+    val bands = remember(marks) { Calibration.bands(marks) }
+    Card(
+        title = "Apakah Angkanya Jujur?",
+        subtitle = "Market 80% memang meleset 1 dari 5 kali — itu arti angkanya, bukan " +
+            "kerusakan. Yang penting: apakah yang ditulis 80% benar-benar tembus 80%.",
+    ) {
+        Text(
+            Calibration.verdict(marks),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+
+        if (bands.any { it.worthReporting }) {
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+                Text(
+                    "Rentang", Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall, color = Sky,
+                )
+                Text(
+                    "dijanjikan", Modifier.width(74.dp),
+                    style = MaterialTheme.typography.labelSmall, color = Sky,
+                    textAlign = TextAlign.End,
+                )
+                Text(
+                    "tembus", Modifier.width(74.dp),
+                    style = MaterialTheme.typography.labelSmall, color = Sky,
+                    textAlign = TextAlign.End,
+                )
+            }
+            bands.filter { it.worthReporting }.forEach { band ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(band.label, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            "${band.total} taruhan" +
+                                if (band.total >= Calibration.MIN_FOR_CORRECTION &&
+                                    Math.round(band.shift * 100) != 0L
+                                ) " · dikoreksi ${Math.round(band.shift * 100)} poin" else "",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        "${Math.round(band.promised * 100)}%",
+                        Modifier.width(74.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.End,
+                    )
+                    Text(
+                        "${Math.round(band.actual * 100)}%",
+                        Modifier.width(74.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            band.bias < -0.10 -> Rose
+                            band.bias > 0.10 -> Green
+                            else -> MaterialTheme.colorScheme.onSurface
+                        },
+                        textAlign = TextAlign.End,
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Kolom kanan pakai pemulusan (k+2)/(n+4): di 4 hasil, angka mentah cuma " +
+                    "bisa 0%, 25%, 50%, 75% atau 100%, dan semuanya klaim yang berlebihan.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 fun ReportScreen(
     matches: List<MatchPrediction>,
@@ -3246,11 +3352,14 @@ fun ReportScreen(
     var lens by rememberSaveable { mutableStateOf(Lens.BACKED) }
     val report = remember(matches, lens) { Report(matches, lens) }
     val comparison = remember(matches) { Comparison(matches) }
+    val marks = remember(matches) { Report(matches).allMarks() }
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        item { CalibrationCard(marks) }
+
         item {
             // Two records, two answers. Which one is on screen has to be explicit,
             // or the reader cannot tell whose accuracy the number describes.

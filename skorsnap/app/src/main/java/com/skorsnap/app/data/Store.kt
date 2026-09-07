@@ -143,6 +143,7 @@ class Store(context: Context) {
         put("prices", JSONObject().apply { m.prices.forEach { (k, v) -> put(k, v) } })
         put("market_blended", m.marketBlended)
         put("offline", m.offline)
+        put("calibrated", m.calibrated)
         put("value_pick", m.valuePick)
         put("value_was", m.valueWas)
         put("value_edge", m.valueEdge)
@@ -163,6 +164,7 @@ class Store(context: Context) {
                             // the default, so absent stays absent on the way back.
                             .put("model_prob", it.modelProb ?: JSONObject.NULL)
                             .put("market_prob", it.marketProb ?: JSONObject.NULL)
+                            .put("raw_prob", it.rawProb ?: JSONObject.NULL)
                     )
                 }
             }
@@ -187,6 +189,7 @@ class Store(context: Context) {
                         m.optBoolean("derived", false),
                         modelProb = m.optDouble("model_prob").takeIf { !it.isNaN() },
                         marketProb = m.optDouble("market_prob").takeIf { !it.isNaN() },
+                        rawProb = m.optDouble("raw_prob").takeIf { !it.isNaN() },
                     )
                 )
             }
@@ -227,6 +230,7 @@ class Store(context: Context) {
             }.orEmpty(),
             marketBlended = o.optBoolean("market_blended", false),
             offline = o.optBoolean("offline", false),
+            calibrated = o.optBoolean("calibrated", false),
             valuePick = o.optBoolean("value_pick", false),
             valueWas = o.optString("value_was"),
             valueEdge = o.optDouble("value_edge", 0.0),
