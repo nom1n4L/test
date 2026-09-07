@@ -226,6 +226,12 @@ data class MatchPrediction(
      * screen should be able to say so.
      */
     val calibrated: Boolean = false,
+    /** The finished match in words, once a result screenshot has been read. */
+    val result: String = "",
+    /** Just the score, for the header. */
+    val resultScore: String = "",
+    /** What went wrong and why, written after the result was known. */
+    val lesson: String = "",
     /** Set when the recommendation was chosen by value rather than by probability. */
     val valuePick: Boolean = false,
     /** What the model itself had recommended before value took over. */

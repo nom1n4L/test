@@ -6,26 +6,32 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val Green = Color(0xFF22C55E)
-val Sky = Color(0xFF38BDF8)
-val Amber = Color(0xFFFBBF24)
-val Rose = Color(0xFFF87171)
+val Green = Color(0xFF2BE08A)
+val Sky = Color(0xFF35D6FF)
+val Amber = Color(0xFFFFC53D)
+val Rose = Color(0xFFFF5D73)
+
+/** The second accent, for the neon edge and the scoreboard gradient. */
+val Violet = Color(0xFF9D6BFF)
 
 private val Dark = darkColorScheme(
     primary = Sky,
     onPrimary = Color(0xFF04121F),
-    background = Color(0xFF0A0F1A),
-    onBackground = Color(0xFFE8EDF5),
-    surface = Color(0xFF121A28),
-    onSurface = Color(0xFFE8EDF5),
-    surfaceVariant = Color(0xFF1B2536),
-    onSurfaceVariant = Color(0xFF9AAAC2),
-    outline = Color(0xFF2A3548),
+    // Deeper and cooler than before: the accents only read as neon against a
+    // ground this dark, and a betting app is looked at in the evening anyway.
+    background = Color(0xFF05070F),
+    onBackground = Color(0xFFEAF1FF),
+    surface = Color(0xFF0D1322),
+    onSurface = Color(0xFFEAF1FF),
+    surfaceVariant = Color(0xFF161E33),
+    onSurfaceVariant = Color(0xFF8FA2C4),
+    outline = Color(0xFF25304A),
     error = Rose,
 )
 
@@ -43,11 +49,13 @@ private val Light = lightColorScheme(
 )
 
 private val AppTypography = Typography(
-    titleLarge = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.2).sp),
-    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+    // Wide tracking on the headings and tight on the numbers: the scoreboard look
+    // comes from the spacing far more than from the colours.
+    titleLarge = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Black, letterSpacing = 0.5.sp),
+    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp),
     bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
     bodySmall = TextStyle(fontSize = 12.5.sp, lineHeight = 18.sp),
-    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.4.sp),
+    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp),
 )
 
 @Composable
@@ -62,7 +70,23 @@ fun SkorsnapTheme(content: @Composable () -> Unit) {
 /** Colour for a probability, so a strong number reads as strong. */
 fun probColor(p: Double): Color = when {
     p >= 0.75 -> Green
-    p >= 0.60 -> Color(0xFF4ADE80)
+    p >= 0.60 -> Color(0xFF7BEFB0)
     p >= 0.45 -> Amber
-    else -> Color(0xFF8FA3BF)
+    else -> Color(0xFF8FA2C4)
 }
+
+/**
+ * The glow behind a card edge.
+ *
+ * Kept to the border rather than the fill: a tinted panel behind body text costs
+ * contrast, and this app is mostly numbers people have to read exactly. The neon
+ * lives on the outline, where it is decoration and nothing else.
+ */
+@Composable
+fun neonEdge(tint: Color, strong: Boolean = false): Brush = Brush.linearGradient(
+    listOf(
+        tint.copy(alpha = if (strong) 0.85f else 0.45f),
+        Violet.copy(alpha = if (strong) 0.55f else 0.22f),
+        tint.copy(alpha = if (strong) 0.30f else 0.12f),
+    )
+)

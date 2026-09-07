@@ -2,9 +2,13 @@ package com.skorsnap.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,16 +89,25 @@ fun Card(
     title: String? = null,
     subtitle: String? = null,
     modifier: Modifier = Modifier,
+    /** Card that carries the screen's main action gets the brighter edge. */
+    accent: Color? = null,
     content: @Composable () -> Unit,
 ) {
+    val shape = RoundedCornerShape(18.dp)
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .border(BorderStroke(1.dp, neonEdge(accent ?: Sky, strong = accent != null)), shape),
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(16.dp),
+        shape = shape,
     ) {
         Column(Modifier.padding(14.dp)) {
             if (title != null) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    title.uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = accent ?: MaterialTheme.colorScheme.onSurface,
+                )
                 if (subtitle != null) {
                     Spacer(Modifier.height(2.dp))
                     Text(
@@ -302,10 +315,20 @@ private fun MatchRow(
     onToggle: (String) -> Unit,
     selectable: Boolean = true,
 ) {
+    // The edge colour carries the state, so a scrolled list reads at a glance:
+    // green for landed, red for missed, blue while it is still a prediction.
+    val edge = when (match.outcomeFor(Lens.BACKED)) {
+        Outcome.WON -> Green
+        Outcome.LOST -> Rose
+        Outcome.PENDING -> if (checked) Green else Sky
+    }
+    val shape = RoundedCornerShape(16.dp)
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.fillMaxWidth(),
+        shape = shape,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(BorderStroke(1.dp, neonEdge(edge, strong = checked)), shape),
     ) {
         Row(
             Modifier.padding(start = 4.dp, end = 13.dp, top = 8.dp, bottom = 8.dp),
@@ -321,7 +344,25 @@ private fun MatchRow(
                 Spacer(Modifier.width(12.dp))
             }
             Column(Modifier.weight(1f).clickable { onOpen(match.id) }) {
-                Text(match.title, style = MaterialTheme.typography.bodyMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(match.title, style = MaterialTheme.typography.bodyMedium)
+                    // The final score, once it is known, in the place a scoreboard
+                    // would put it.
+                    if (match.resultScore.isNotBlank()) {
+                        Spacer(Modifier.width(8.dp))
+                        Surface(
+                            color = Violet.copy(alpha = 0.18f),
+                            shape = RoundedCornerShape(6.dp),
+                        ) {
+                            Text(
+                                match.resultScore,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Violet,
+                            )
+                        }
+                    }
+                }
                 Spacer(Modifier.height(2.dp))
                 Text(
                     if (match.pick.isBlank()) match.league else "${match.pick} · ${match.league}",
@@ -330,11 +371,17 @@ private fun MatchRow(
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    "${match.pickPercent}%",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = probColor(match.pickProb),
-                )
+                Surface(
+                    color = probColor(match.pickProb).copy(alpha = 0.14f),
+                    shape = RoundedCornerShape(8.dp),
+                ) {
+                    Text(
+                        "${match.pickPercent}%",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = probColor(match.pickProb),
+                    )
+                }
                 when (match.outcomeFor(Lens.BACKED)) {
                     Outcome.WON -> Text(
                         "tembus ✓",
@@ -808,6 +855,185 @@ fun CouponCard(
     }
 }
 
+/**
+ * The result, and what the app made of its own prediction afterwards.
+ *
+ * Before the match it is a call to action; after, it is the post-mortem. Same card,
+ * because they are the same thing at two points in time.
+ */
+@Composable
+private fun ResultCard(match: MatchPrediction, onResult: () -> Unit) {
+    if (match.result.isBlank()) {
+        Card(
+            accent = Green,
+            title = "Sudah Selesai Mainnya?",
+            subtitle = "Catat hasilnya dan aplikasi menilai sendiri ${match.markets.size} " +
+                "market ini — lalu menulis kenapa yang meleset bisa meleset.",
+        ) {
+            Button(
+                onClick = onResult,
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Catat hasil pertandingan") }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Tanpa ini aplikasi tidak pernah tahu dia benar atau salah, dan tidak " +
+                    "ada yang bisa dikoreksi. Cukup ketik skornya — gratis.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        return
+    }
+
+    Card(accent = Violet, title = "Hasil & Introspeksi", subtitle = match.result) {
+        if (match.lesson.isNotBlank()) {
+            Text(
+                match.lesson,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        TextButton(onClick = onResult) {
+            Text("Perbaiki skornya", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+// --- Hasil pertandingan ------------------------------------------------------
+
+/**
+ * Recording how a match actually finished.
+ *
+ * Two ways in, because the picture costs credit and the score does not: a
+ * screenshot the model reads, or four numbers typed by hand. Both end in the same
+ * place — every market settled by rule, and a written post-mortem — so running out
+ * of credit costs the reading, not the learning.
+ */
+@Composable
+fun ResultScreen(
+    match: MatchPrediction,
+    staged: List<ByteArray>,
+    busy: Boolean,
+    hasKey: Boolean,
+    onPick: () -> Unit,
+    onRemove: (Int) -> Unit,
+    onRead: () -> Unit,
+    onEnter: (Int, Int, Int?, Int?) -> Unit,
+) {
+    var home by rememberSaveable { mutableStateOf("") }
+    var away by rememberSaveable { mutableStateOf("") }
+    var htHome by rememberSaveable { mutableStateOf("") }
+    var htAway by rememberSaveable { mutableStateOf("") }
+
+    Column(
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Card(
+            title = match.title,
+            subtitle = "Catat hasilnya, dan aplikasi menilai sendiri ${match.markets.size} " +
+                "market yang tadi diprediksi — mana yang tembus, mana yang meleset, dan " +
+                "kenapa.",
+        ) {
+            Text(
+                "Yang menilai bukan AI: skornya saja yang dibaca, sisanya dihitung pakai " +
+                    "aturan taruhannya. Kalau AI yang memutuskan mana yang tembus, " +
+                    "salahnya tidak akan pernah kelihatan.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Card(title = "Ketik Skornya", subtitle = "Gratis, tidak pakai AI sama sekali.") {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ScoreBox(home, match.home) { home = it }
+                Text("–", style = MaterialTheme.typography.titleLarge)
+                ScoreBox(away, match.away) { away = it }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Skor babak 1 (opsional — tanpa ini, market babak 1 tidak dinilai)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ScoreBox(htHome, "babak 1") { htHome = it }
+                Text("–", style = MaterialTheme.typography.titleLarge)
+                ScoreBox(htAway, "babak 1") { htAway = it }
+            }
+            Spacer(Modifier.height(12.dp))
+            val h = home.toIntOrNull()
+            val a = away.toIntOrNull()
+            Button(
+                onClick = {
+                    onEnter(h ?: 0, a ?: 0, htHome.toIntOrNull(), htAway.toIntOrNull())
+                },
+                enabled = h != null && a != null,
+                colors = ButtonDefaults.buttonColors(containerColor = Green),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Nilai ${match.markets.size} market", style = MaterialTheme.typography.titleMedium) }
+        }
+
+        Card(
+            title = "Atau Kirim Screenshot Hasilnya",
+            subtitle = "Pakai kredit AI, tapi skor babak 1 dan corner ikut terbaca kalau " +
+                "ada di gambar — jadi lebih banyak market yang bisa dinilai.",
+        ) {
+            Button(
+                onClick = onPick,
+                enabled = hasKey,
+                colors = ButtonDefaults.buttonColors(containerColor = Sky),
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(if (staged.isEmpty()) "Pilih gambar hasil" else "Tambah gambar") }
+
+            if (staged.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                ImageStrip(staged, onPick, onRemove)
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = onRead,
+                    enabled = !busy,
+                    colors = ButtonDefaults.buttonColors(containerColor = Green),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (busy) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                Modifier.size(16.dp), strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text("Membaca skor…")
+                        }
+                    } else Text("Baca hasil dari gambar")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScoreBox(value: String, label: String, onValue: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { text -> onValue(text.filter { it.isDigit() }.take(2)) },
+        label = { Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1) },
+        modifier = Modifier.width(110.dp),
+        textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+    )
+}
+
 // --- Dari odds saja ---------------------------------------------------------
 
 /**
@@ -928,6 +1154,7 @@ fun DetailScreen(
     onBacked: (String) -> Unit,
     onAddMore: () -> Unit,
     onCoupon: (String, Set<String>) -> Unit = { _, _ -> },
+    onResult: () -> Unit = {},
     onDelete: () -> Unit,
     appetite: Appetite = Appetite.SAFE,
     prices: Map<String, Double> = emptyMap(),
@@ -963,6 +1190,11 @@ fun DetailScreen(
                 }
             }
         }
+
+        // First card after the verdict, because recording the result is the step
+        // that turns a prediction into evidence — and the app cannot learn anything
+        // at all until it happens.
+        item { ResultCard(match, onResult) }
 
         item {
             var coupon by rememberSaveable(match.id) { mutableStateOf("") }
@@ -3264,6 +3496,7 @@ fun SettingsScreen(vm: AppViewModel) {
 private fun CalibrationCard(marks: List<com.skorsnap.app.data.Mark>) {
     val bands = remember(marks) { Calibration.bands(marks) }
     Card(
+        accent = Violet,
         title = "Apakah Angkanya Jujur?",
         subtitle = "Market 80% memang meleset 1 dari 5 kali — itu arti angkanya, bukan " +
             "kerusakan. Yang penting: apakah yang ditulis 80% benar-benar tembus 80%.",

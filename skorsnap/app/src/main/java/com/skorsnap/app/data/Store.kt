@@ -144,6 +144,9 @@ class Store(context: Context) {
         put("market_blended", m.marketBlended)
         put("offline", m.offline)
         put("calibrated", m.calibrated)
+        put("result", m.result)
+        put("result_score", m.resultScore)
+        put("lesson", m.lesson)
         put("value_pick", m.valuePick)
         put("value_was", m.valueWas)
         put("value_edge", m.valueEdge)
@@ -231,6 +234,9 @@ class Store(context: Context) {
             marketBlended = o.optBoolean("market_blended", false),
             offline = o.optBoolean("offline", false),
             calibrated = o.optBoolean("calibrated", false),
+            result = o.optString("result"),
+            resultScore = o.optString("result_score"),
+            lesson = o.optString("lesson"),
             valuePick = o.optBoolean("value_pick", false),
             valueWas = o.optString("value_was"),
             valueEdge = o.optDouble("value_edge", 0.0),

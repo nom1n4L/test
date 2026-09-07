@@ -585,6 +585,66 @@ class Analyst(private val apiKey: String) {
         )
     }
 
+    /**
+     * Reads the final score off a result screenshot.
+     *
+     * Deliberately narrow. The model is asked for numbers and nothing else — not
+     * which markets landed, not whether the prediction was good. Settlement is
+     * arithmetic ([Settle]) and belongs in code, where a mistake shows up as a
+     * failing test rather than as a wrong entry in the record that is supposed to
+     * keep the app honest.
+     */
+    suspend fun readResult(images: List<ByteArray>, model: String = DEFAULT_MODEL): MatchResult {
+        val parts = JSONArray()
+        images.flatMap { Images.forUpload(it) }.forEach { band ->
+            parts.put(
+                JSONObject().put(
+                    "inline_data",
+                    JSONObject().put("mime_type", "image/jpeg")
+                        .put("data", android.util.Base64.encodeToString(band, android.util.Base64.NO_WRAP)),
+                )
+            )
+        }
+        parts.put(JSONObject().put("text", RESULT_PROMPT))
+
+        val body = JSONObject()
+            .put("contents", JSONArray().put(JSONObject().put("parts", parts)))
+            .put(
+                "generationConfig",
+                JSONObject()
+                    .put("temperature", 0.0)
+                    .put("maxOutputTokens", EXTRACT_OUTPUT_TOKENS)
+                    .put("responseMimeType", "application/json")
+                    .put("responseSchema", RESULT_SCHEMA)
+            )
+        val reply = post(model, body.toString())
+        val start = reply.indexOf('{')
+        val end = reply.lastIndexOf('}')
+        if (start < 0 || end <= start) {
+            throw AnalystException("Skor tidak terbaca. Balasan: ${reply.take(160)}")
+        }
+        val json = JSONObject(reply.substring(start, end + 1))
+        val home = json.optInt("home_goals", -1)
+        val away = json.optInt("away_goals", -1)
+        if (home < 0 || away < 0) {
+            throw AnalystException(
+                json.optString("problem").ifBlank {
+                    "Skor akhirnya tidak terlihat di gambar itu."
+                }
+            )
+        }
+        fun opt(key: String) = json.optInt(key, -1).takeIf { it >= 0 }
+        return MatchResult(
+            homeGoals = home,
+            awayGoals = away,
+            htHome = opt("ht_home"),
+            htAway = opt("ht_away"),
+            homeCorners = opt("home_corners"),
+            awayCorners = opt("away_corners"),
+            problem = json.optString("problem"),
+        )
+    }
+
     private fun userPrompt(note: String, mode: Mode): String = buildString {
         append("Baca statistik di gambar-gambar di atas, lalu isi JSON sesuai skema.\n\n")
         if (note.isNotBlank()) append("Catatan dari pengguna: $note\n\n")
@@ -662,6 +722,41 @@ Aturan pengisian:
          * analysis nobody can tell is broken. A gap is recoverable, a wrong digit
          * is not.
          */
+        /**
+         * Reading a finished match. Numbers only.
+         *
+         * -1 for anything not on the screen, because a guessed half-time score
+         * settles half a dozen markets wrongly and there is no way to tell
+         * afterwards which entries in the record were invented.
+         */
+        internal val RESULT_PROMPT = """
+Ini screenshot hasil pertandingan yang SUDAH SELESAI. Salin angkanya saja.
+
+- home_goals dan away_goals: skor akhir. Tim tuan rumah selalu yang kiri/atas.
+- ht_home dan ht_away: skor babak pertama, kalau terlihat. Kalau tidak ada, isi -1.
+- home_corners dan away_corners: jumlah sepak pojok, kalau terlihat. Kalau tidak,
+  isi -1.
+- JANGAN menebak. Angka yang tidak terlihat diisi -1, dan sebutkan di "problem".
+- JANGAN menilai prediksi, JANGAN menyimpulkan apa pun. Cuma angka.
+- Kalau ini bukan hasil pertandingan yang sudah selesai, isi home_goals -1 dan
+  jelaskan di "problem".
+        """.trimIndent()
+
+        internal val RESULT_SCHEMA: JSONObject = JSONObject()
+            .put("type", "OBJECT")
+            .put(
+                "properties",
+                JSONObject()
+                    .put("home_goals", JSONObject().put("type", "INTEGER"))
+                    .put("away_goals", JSONObject().put("type", "INTEGER"))
+                    .put("ht_home", JSONObject().put("type", "INTEGER"))
+                    .put("ht_away", JSONObject().put("type", "INTEGER"))
+                    .put("home_corners", JSONObject().put("type", "INTEGER"))
+                    .put("away_corners", JSONObject().put("type", "INTEGER"))
+                    .put("problem", str())
+            )
+            .put("required", JSONArray().put("home_goals").put("away_goals"))
+
         internal val EXTRACT_PROMPT = """
 Salin semua angka dan statistik sepak bola yang terlihat di layar ini menjadi teks.
 JANGAN menganalisis, JANGAN memprediksi, JANGAN menyimpulkan apa pun. Tugasmu cuma

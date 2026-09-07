@@ -123,7 +123,12 @@ object Coach {
      * not "be less sure", it is "you keep choosing the same side and that side keeps
      * losing; look at the other one".
      */
-    private fun sideBias(list: List<Mark>): String {
+    /**
+     * Internal rather than private: the post-mortem names the same habit right
+     * after a loss, where it lands hardest, and two copies of this rule would
+     * eventually disagree with each other.
+     */
+    internal fun sideBias(list: List<Mark>): String {
         fun side(name: String) = when {
             name.contains("Under", true) -> "Under"
             name.contains("Over", true) -> "Over"

@@ -22,7 +22,10 @@ import com.skorsnap.app.data.MatchPrediction
 import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Leg
+import com.skorsnap.app.data.MatchResult
 import com.skorsnap.app.data.Odds
+import com.skorsnap.app.data.Postmortem
+import com.skorsnap.app.data.Settle
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.priceLabel
 import com.skorsnap.app.data.twoDecimals
@@ -1945,6 +1948,154 @@ class CoreTest {
         assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
         println()
         entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    // ------------------------------------------------ menilai hasil sendiri
+
+    private fun full(xgH: Double = 1.4, xgA: Double = 1.2) = MatchPrediction(
+        id = "m", home = "A", away = "B", league = "L", readable = true, problem = "",
+        statsSeen = emptyList(), statsMissing = emptyList(),
+        probHome = 0.45, probDraw = 0.28, probAway = 0.27,
+        xgHome = xgH, xgAway = xgA,
+        markets = Grid.matchMarkets(xgH, xgA, 0.45, 0.28, 0.27),
+        pick = "Over 1.5", pickProb = 0.75, confidence = "sedang", confidenceWhy = "",
+    )
+
+    /**
+     * Settlement is arithmetic, not judgement. The model reads "2-1" and the rules
+     * of each bet decide the rest — a model deciding that "1X & Over 2.5" won is a
+     * call nobody can audit, and it would be writing into the very record the
+     * calibration depends on.
+     */
+    @Test
+    fun aScoreSettlesEveryMarketItCan() {
+        val r = MatchResult(2, 1, htHome = 1, htAway = 0)
+        fun v(name: String) = Settle.won(name, r)
+
+        assert(v("Tuan rumah menang") == true)
+        assert(v("Seri") == false)
+        assert(v("Tandang menang") == false)
+        assert(v("1X (tuan rumah atau seri)") == true)
+        assert(v("12 (tidak seri)") == true)
+        assert(v("X2 (seri atau tandang)") == false)
+
+        assert(v("Over 2.5") == true) { "3 gol harus melewati garis 2.5" }
+        assert(v("Under 2.5") == false)
+        assert(v("Over 3.5") == false)
+        assert(v("Under 3.5") == true)
+
+        assert(v("Kedua tim cetak gol (BTTS) - Ya") == true)
+        assert(v("Minimal satu tim cetak 2+ gol - Ya") == true)
+
+        assert(v("Babak 1 Over 0.5") == true) { "babak 1 berakhir 1-0" }
+        assert(v("Babak 1 Over 1.5") == false)
+
+        assert(v("Tuan rumah Over 1.5") == true) { "tuan rumah cetak 2" }
+        assert(v("Tandang Over 1.5") == false)
+
+        assert(v("Total gol 2-3") == true)
+        assert(v("Total gol 1-3") == true)
+        assert(v("Total gol 3-5") == true)
+
+        assert(v("1X & Over 2.5") == true)
+        assert(v("X2 & Over 2.5") == false)
+        assert(v("Tuan rumah menang & BTTS Ya") == true)
+        assert(v("Tuan rumah menang & Under 2.5") == false)
+        println("Skor 2-1 (babak 1 1-0) menilai puluhan market lewat aturannya sendiri.")
+    }
+
+    /** Half-time markets cannot be settled from a full-time score, and are not guessed. */
+    @Test
+    fun whatTheScreenshotDidNotShowIsLeftPending() {
+        val r = MatchResult(2, 1)
+        assert(Settle.won("Babak 1 Over 0.5", r) == null) { "skor babak 1 ditebak" }
+        assert(Settle.won("Total corner Over 9.5", r) == null) { "corner ditebak" }
+        assert(Settle.won("Corner babak 1 Over 4.5", r) == null)
+        assert(Settle.won("Over 2.5", r) == true) { "yang bisa dinilai ikut dilewat" }
+
+        val m = Settle.apply(full(), r)
+        val (decided, left) = Settle.coverage(full(), r)
+        assert(decided > 30) { "cuma $decided market yang dinilai" }
+        assert(left > 0) { "market babak 1 seharusnya belum bisa dinilai" }
+        assert(m.marketOutcomes.values.none { it == Outcome.PENDING })
+        println("Skor tanpa babak 1: $decided market dinilai, $left ditinggal kosong.")
+    }
+
+    /**
+     * A push is not a win and not a loss. Calling it either would write a result
+     * that never happened into the record the calibration is built on.
+     */
+    @Test
+    fun handicapPushesAreLeftAlone() {
+        // Home wins by exactly one on a -1 line: stake returned.
+        assert(Settle.won("Tuan rumah -1", MatchResult(2, 1)) == null) { "push dihitung menang" }
+        assert(Settle.won("Tandang +1", MatchResult(2, 1)) == null)
+        // Two clear goals, so the same line settles.
+        assert(Settle.won("Tuan rumah -1", MatchResult(3, 1)) == true)
+        assert(Settle.won("Tandang +1", MatchResult(3, 1)) == false)
+        // Half lines never push.
+        assert(Settle.won("Tuan rumah -0.5", MatchResult(1, 0)) == true)
+        assert(Settle.won("Tandang +0.5", MatchResult(1, 0)) == false)
+        // Quarter lines half-push, which is also neither.
+        assert(Settle.won("Tuan rumah -0.25", MatchResult(1, 1)) == null)
+
+        // European handicaps are three-way and the app lists only two of the three,
+        // so settling them two-way would contradict the number it published.
+        val european = MarketOption("Tuan rumah -1", 0.4, "w", "Handicap Eropa")
+        assert(Settle.outcome(european, MatchResult(3, 1)) == null) {
+            "handicap Eropa dinilai pakai aturan yang bukan aturannya"
+        }
+        val asian = MarketOption("Tuan rumah -1", 0.4, "w", "Handicap Asia")
+        assert(Settle.outcome(asian, MatchResult(3, 1)) == Outcome.WON)
+    }
+
+    /** A verdict the user recorded by hand outranks the reader: they watched the match. */
+    @Test
+    fun handMarkedVerdictsSurviveSettlement() {
+        val m = full()
+        val over = m.markets.first { it.name == "Over 2.5" }
+        val marked = m.copy(marketOutcomes = mapOf(m.keyOf(over) to Outcome.LOST))
+        // The score says Over 2.5 won, the user says it lost. The user wins.
+        val settled = Settle.apply(marked, MatchResult(2, 1))
+        assert(settled.marketOutcomes[m.keyOf(over)] == Outcome.LOST) {
+            "tanda manual pengguna ditimpa hasil bacaan"
+        }
+    }
+
+    /** The post-mortem names the cause upstream of the individual misses. */
+    @Test
+    fun theLessonNamesWhyRatherThanListingWhat() {
+        // Expected about 2.6 goals, the match finished 5-1.
+        val lesson = Postmortem.write(full(), MatchResult(5, 1), emptyList())
+        assert(lesson.contains("5-1")) { lesson }
+        assert(lesson.contains("terbuka")) { "tidak menyebut sebab bersamanya:\n$lesson" }
+        assert(lesson.contains("Under")) { "tidak menghubungkan ke market yang rontok" }
+        println(lesson.lines().take(4).joinToString("\n"))
+
+        // And the other direction.
+        val tight = Postmortem.write(full(), MatchResult(0, 0), emptyList())
+        assert(tight.contains("tertutup")) { tight }
+        assert(tight.contains("Over")) { tight }
+    }
+
+    /** A confident market that lost is named, and not over-read from one match. */
+    @Test
+    fun aConfidentMissIsNamedWithoutBeingOverRead() {
+        val lesson = Postmortem.write(full(), MatchResult(0, 0), emptyList())
+        assert(lesson.contains("paling mahal")) { "market yakin yang meleset tidak disebut" }
+        assert(lesson.contains("Satu laga tidak membuktikan")) {
+            "satu laga diperlakukan sebagai bukti:\n$lesson"
+        }
+    }
+
+    /** Settled markets become the calibration record without any hand-marking. */
+    @Test
+    fun settlingAMatchFeedsTheCalibrationRecord() {
+        val settled = Settle.apply(full(), MatchResult(2, 1, htHome = 1, htAway = 0))
+        val marks = Report(listOf(settled)).allMarks()
+        assert(marks.size > 30) { "cuma ${marks.size} market masuk rekor" }
+        assert(marks.any { it.won } && marks.any { !it.won }) { "rekornya sepihak" }
+        println("Satu screenshot hasil → ${marks.size} baris rekor kalibrasi.")
     }
 
     // ------------------------------------------------ kejujuran angka

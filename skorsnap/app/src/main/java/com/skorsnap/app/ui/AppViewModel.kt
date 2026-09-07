@@ -34,6 +34,7 @@ sealed interface Screen {
     data class AddMore(val id: String) : Screen
     data object Browse : Screen
     data object Offline : Screen
+    data class Result(val id: String) : Screen
     data object Report : Screen
     data object Settings : Screen
 }
@@ -695,6 +696,71 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * A vision model can read 1.42 as 4.2 and be wholly confident about it; a text
      * parser reading typed characters cannot invent a digit that is not there.
      */
+    /**
+     * Reads a result screenshot, settles every market it can, and writes the lesson.
+     *
+     * The model is asked only for the score. Which markets landed is decided by
+     * [Settle] from the rules of the bets, so a settlement error is a failing test
+     * rather than a quiet lie in the record the calibration depends on.
+     *
+     * Verdicts already recorded by hand are kept: the user watched the match.
+     */
+    fun readResult(matchId: String) {
+        if (_busy.value) return
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+        val images = _staged.value
+        if (images.isEmpty()) {
+            _message.value = "Pilih dulu screenshot hasil pertandingannya."
+            return
+        }
+        viewModelScope.launch {
+            _busy.value = true
+            _message.value = null
+            try {
+                val result = Analyst(store.apiKey).readResult(images, store.model)
+                val settled = com.skorsnap.app.data.Settle.apply(match, result)
+                val lesson = com.skorsnap.app.data.Postmortem.write(
+                    settled, result, _matches.value,
+                )
+                val done = settled.copy(lesson = lesson)
+                _matches.value = _matches.value.map { if (it.id == matchId) done else it }
+                store.save(_matches.value)
+                _staged.value = emptyList()
+                _screen.value = Screen.Detail(matchId)
+
+                val (decided, left) = com.skorsnap.app.data.Settle.coverage(match, result)
+                _message.value = buildString {
+                    append("${result.score} tercatat. $decided market dinilai otomatis")
+                    if (left > 0) append(", $left belum bisa (perlu skor babak 1 atau corner)")
+                    append(".")
+                }
+            } catch (e: Exception) {
+                _message.value = "Gagal membaca hasil: ${e.message}"
+            }
+            _busy.value = false
+        }
+    }
+
+    /**
+     * Records a result typed by hand, for when there is no credit to read a picture.
+     *
+     * Same settlement, same lesson — only the reading is different, and the reading
+     * was always the part that needed a model.
+     */
+    fun enterResult(matchId: String, home: Int, away: Int, htHome: Int?, htAway: Int?) {
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+        val result = com.skorsnap.app.data.MatchResult(home, away, htHome, htAway)
+        val settled = com.skorsnap.app.data.Settle.apply(match, result)
+        val done = settled.copy(
+            lesson = com.skorsnap.app.data.Postmortem.write(settled, result, _matches.value)
+        )
+        _matches.value = _matches.value.map { if (it.id == matchId) done else it }
+        store.save(_matches.value)
+        _screen.value = Screen.Detail(matchId)
+        val (decided, _) = com.skorsnap.app.data.Settle.coverage(match, result)
+        _message.value = "${result.score} tercatat. $decided market dinilai otomatis."
+    }
+
     fun attachCoupon(matchId: String, coupon: String, dropped: Set<String> = emptySet()) {
         val match = _matches.value.firstOrNull { it.id == matchId } ?: return
         val reading = com.skorsnap.app.data.Offline.preview(coupon, match.markets)
