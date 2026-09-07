@@ -75,28 +75,39 @@ object Postmortem {
     fun write(match: MatchPrediction, r: MatchResult, history: List<MatchPrediction>): String {
         val v = judge(match, r)
         return buildString {
-            append(r.summary)
-            append(" Dari ${v.decided} market yang bisa dinilai, ${v.hit.size} tembus")
-            append(" (${(v.rate * 100).roundToInt()}%), padahal rata-rata dijanjikan ")
-            append("${(v.promised * 100).roundToInt()}%.\n\n")
-
-            // Where the reading itself was wrong, which is upstream of every market.
+            // The cause first, and the tally after. The score is already the card's
+            // subtitle, so repeating it here printed it twice; and the brief sent to
+            // the next analysis takes the opening line, which has to be the lesson
+            // rather than a scoreline the model can do nothing with.
             val expected = match.xgHome + match.xgAway
             when {
                 abs(v.goalGap) < 0.8 ->
                     append("Perkiraan golnya kena: diperkirakan sekitar " +
-                        "${twoDecimals(expected)} gol, jadinya ${r.goals}.\n")
+                        "${twoDecimals(expected)} gol, jadinya ${r.goals}.")
                 v.goalGap > 0 ->
                     append("Laganya jauh lebih terbuka daripada bacaan awal: " +
                         "diperkirakan sekitar ${twoDecimals(expected)} gol, jadinya " +
                         "${r.goals}. Semua market Under di laga ini rontok dari satu " +
-                        "sebab yang sama, bukan dari ${v.missed.size} kesalahan terpisah.\n")
+                        "sebab yang sama, bukan dari ${v.missed.size} kesalahan terpisah.")
                 else ->
                     append("Laganya jauh lebih tertutup daripada bacaan awal: " +
                         "diperkirakan sekitar ${twoDecimals(expected)} gol, jadinya " +
                         "${r.goals}. Yang rontok di sini kebanyakan market Over, dan " +
-                        "sebabnya satu: perkiraan golnya kelewat tinggi.\n")
+                        "sebabnya satu: perkiraan golnya kelewat tinggi.")
             }
+            append("\n\n")
+
+            append("Dari ${v.decided} market yang bisa dinilai, ${v.hit.size} tembus")
+            append(" (${(v.rate * 100).roundToInt()}%)")
+            append(
+                if (abs(v.rate - v.promised) < 0.03) {
+                    ", persis seperti yang dijanjikan (${(v.promised * 100).roundToInt()}%). " +
+                        "Untuk laga ini angkanya jujur."
+                } else {
+                    ", padahal rata-rata dijanjikan ${(v.promised * 100).roundToInt()}%."
+                }
+            )
+            append("\n")
 
             if (v.painful.isNotEmpty()) {
                 append("\nYang paling mahal — dibilang hampir pasti, tetap meleset:\n")
@@ -123,6 +134,54 @@ object Postmortem {
                 append("\n\n")
                 append(bias)
             }
+        }
+    }
+
+    /**
+     * What recording this result actually changed.
+     *
+     * Written because the user recorded a result, read a paragraph, and reasonably
+     * asked whether anything had happened at all. Something had — sixty rows went
+     * into the calibration record and the next analysis will be briefed with them —
+     * but the app said none of it, and a change nobody can see is indistinguishable
+     * from no change.
+     */
+    fun impact(match: MatchPrediction, history: List<MatchPrediction>): String {
+        val added = match.marks().size
+        val all = Report(history).allMarks()
+        val bands = Calibration.bands(all)
+        val live = bands.filter { it.total >= Calibration.MIN_FOR_CORRECTION }
+        val nearest = bands.filter { it.total < Calibration.MIN_FOR_CORRECTION }
+            .maxByOrNull { it.total }
+
+        return buildString {
+            append("$added market dari laga ini masuk ke rekor. ")
+            append("Totalnya sekarang ${all.size} hasil.\n\n")
+
+            if (live.isNotEmpty()) {
+                append("Sudah aktif: ")
+                append(
+                    live.joinToString(", ") {
+                        "${it.label} (${it.total} hasil, koreksi " +
+                            "${(it.shift * 100).roundToInt()} poin)"
+                    }
+                )
+                append(". Analisis berikutnya di rentang itu langsung memakai angka " +
+                    "yang sudah dikoreksi — tidak perlu kamu apa-apakan lagi.\n\n")
+            } else {
+                append("Belum ada rentang peluang yang cukup datanya untuk mengoreksi. ")
+                nearest?.let {
+                    append("Paling dekat rentang ${it.label}: ${it.total} hasil, " +
+                        "kurang ${Calibration.MIN_FOR_CORRECTION - it.total} lagi.")
+                }
+                append("\n\n")
+            }
+
+            append("Yang pasti sudah jalan: rekor ini ikut dikirim ke AI setiap kali " +
+                "kamu menganalisis laga baru — lengkap dengan kelompok market mana " +
+                "yang terbukti terlalu percaya diri, dan catatan kesalahan laga ini. ")
+            append("Jadi introspeksinya bukan cuma buat dibaca; dia jadi bahan " +
+                "pertimbangan prediksi berikutnya.")
         }
     }
 

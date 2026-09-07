@@ -862,7 +862,11 @@ fun CouponCard(
  * because they are the same thing at two points in time.
  */
 @Composable
-private fun ResultCard(match: MatchPrediction, onResult: () -> Unit) {
+private fun ResultCard(
+    match: MatchPrediction,
+    onResult: () -> Unit,
+    history: List<MatchPrediction> = emptyList(),
+) {
     if (match.result.isBlank()) {
         Card(
             accent = Green,
@@ -894,6 +898,34 @@ private fun ResultCard(match: MatchPrediction, onResult: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurface,
             )
         }
+
+        // What recording this actually changed. Without it the user reads a
+        // paragraph and reasonably concludes nothing happened — sixty rows went
+        // into the record and the next analysis is briefed with them, and the app
+        // used to say none of it.
+        Spacer(Modifier.height(12.dp))
+        Surface(
+            color = Green.copy(alpha = 0.10f),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(Modifier.padding(12.dp)) {
+                Text(
+                    "APA YANG BERUBAH",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Green,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    remember(match, history) {
+                        com.skorsnap.app.data.Postmortem.impact(match, history)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
         Spacer(Modifier.height(10.dp))
         TextButton(onClick = onResult) {
             Text("Perbaiki skornya", style = MaterialTheme.typography.labelSmall)
@@ -1155,6 +1187,8 @@ fun DetailScreen(
     onAddMore: () -> Unit,
     onCoupon: (String, Set<String>) -> Unit = { _, _ -> },
     onResult: () -> Unit = {},
+    /** Every match, so the result card can say what this one changed. */
+    history: List<MatchPrediction> = emptyList(),
     onDelete: () -> Unit,
     appetite: Appetite = Appetite.SAFE,
     prices: Map<String, Double> = emptyMap(),
@@ -1194,7 +1228,7 @@ fun DetailScreen(
         // First card after the verdict, because recording the result is the step
         // that turns a prediction into evidence — and the app cannot learn anything
         // at all until it happens.
-        item { ResultCard(match, onResult) }
+        item { ResultCard(match, onResult, history) }
 
         item {
             var coupon by rememberSaveable(match.id) { mutableStateOf("") }

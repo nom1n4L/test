@@ -2067,8 +2067,13 @@ class CoreTest {
     fun theLessonNamesWhyRatherThanListingWhat() {
         // Expected about 2.6 goals, the match finished 5-1.
         val lesson = Postmortem.write(full(), MatchResult(5, 1), emptyList())
-        assert(lesson.contains("5-1")) { lesson }
-        assert(lesson.contains("terbuka")) { "tidak menyebut sebab bersamanya:\n$lesson" }
+        // The cause leads. The score is the card's subtitle and the brief sent to
+        // the next analysis takes this opening line, so it has to carry the lesson
+        // rather than a scoreline a model can do nothing with.
+        assert(lesson.lines().first().contains("terbuka")) {
+            "baris pertama bukan sebabnya:\n${lesson.lines().first()}"
+        }
+        assert(lesson.contains("6")) { "jumlah gol sebenarnya tidak disebut:\n$lesson" }
         assert(lesson.contains("Under")) { "tidak menghubungkan ke market yang rontok" }
         println(lesson.lines().take(4).joinToString("\n"))
 
@@ -2096,6 +2101,79 @@ class CoreTest {
         assert(marks.size > 30) { "cuma ${marks.size} market masuk rekor" }
         assert(marks.any { it.won } && marks.any { !it.won }) { "rekornya sepihak" }
         println("Satu screenshot hasil → ${marks.size} baris rekor kalibrasi.")
+    }
+
+    /**
+     * The user recorded a result, read a paragraph, and asked whether anything had
+     * happened. Something had; the app said none of it, and a change nobody can see
+     * is the same as no change.
+     */
+    @Test
+    fun recordingAResultSaysWhatItChanged() {
+        val settled = Settle.apply(full(), MatchResult(2, 1, htHome = 1, htAway = 0))
+        val text = Postmortem.impact(settled, listOf(settled))
+
+        assert(Regex("""\d+ market dari laga ini masuk ke rekor""").containsMatchIn(text)) { text }
+        assert(text.contains("Totalnya sekarang")) { "tidak menyebut ukuran rekornya" }
+        assert(text.contains("dikirim ke AI")) {
+            "tidak menyebut bahwa rekornya dipakai di analisis berikutnya:\n$text"
+        }
+        assert(text.contains("kurang") || text.contains("Sudah aktif")) {
+            "tidak menyebut kapan koreksinya menyala:\n$text"
+        }
+        println(text.lines().first())
+        println(text.lines().last().take(120))
+    }
+
+    /** Once a band has enough history the impact says so, with the actual shift. */
+    @Test
+    fun anActiveBandIsNamedWithItsCorrection() {
+        val record = List(14) {
+            MatchPrediction(
+                id = "h$it", home = "A", away = "B", league = "L", readable = true, problem = "",
+                statsSeen = emptyList(), statsMissing = emptyList(),
+                probHome = 0.4, probDraw = 0.3, probAway = 0.3, xgHome = 1.4, xgAway = 1.2,
+                markets = listOf(MarketOption("Over 1.5", 0.84, "w", "Total Gol")),
+                pick = "Over 1.5", pickProb = 0.84, confidence = "sedang", confidenceWhy = "",
+                marketOutcomes = mapOf("Total Gol|Over 1.5" to
+                    if (it < 6) Outcome.WON else Outcome.LOST),
+            )
+        }
+        val text = Postmortem.impact(record.first(), record)
+        assert(text.contains("Sudah aktif")) { "koreksi aktif tidak diumumkan:\n$text" }
+        assert(text.contains("80–90%")) { text }
+        println(text.lines().drop(2).first().take(150))
+    }
+
+    /** Matching the promise is the good outcome, and must not read as a complaint. */
+    @Test
+    fun meetingThePromiseIsNotReportedAsAFailure() {
+        // A match whose settled markets land almost exactly where they were priced.
+        val lesson = Postmortem.write(full(), MatchResult(2, 1, htHome = 1, htAway = 0), emptyList())
+        val v = Postmortem.judge(full(), MatchResult(2, 1, htHome = 1, htAway = 0))
+        if (kotlin.math.abs(v.rate - v.promised) < 0.03) {
+            assert(!lesson.contains("padahal")) {
+                "hasil yang pas dengan janji ditulis seolah gagal:\n${lesson.lines().first()}"
+            }
+            assert(lesson.contains("jujur")) { lesson.lines().first() }
+        }
+        println(lesson.lines().first())
+    }
+
+    /** The written lessons reach the next analysis, not just the aggregate table. */
+    @Test
+    fun pastMistakesAreCarriedIntoTheNextAnalysis() {
+        val settled = Settle.apply(full(), MatchResult(5, 1))
+        val withLesson = settled.copy(
+            lesson = Postmortem.write(settled, MatchResult(5, 1), emptyList())
+        )
+        val brief = Coach.brief(List(6) { withLesson.copy(id = "m$it") })
+        assert(brief.contains("APA YANG SUDAH SALAH SEBELUMNYA")) {
+            "catatan kesalahan tidak ikut dikirim ke model:\n$brief"
+        }
+        assert(brief.contains("terbuka")) { "isi pelajarannya tidak ikut" }
+        assert(brief.contains("geser angkamu")) { "modelnya tidak diminta berbuat apa-apa" }
+        println(brief.lines().first { it.contains("SUDAH SALAH") })
     }
 
     // ------------------------------------------------ kejujuran angka

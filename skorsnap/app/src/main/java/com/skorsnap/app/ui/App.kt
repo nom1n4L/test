@@ -177,6 +177,7 @@ fun App(
                             onBacked = { vm.setBacked(s.id, it) },
                             onAddMore = { vm.go(Screen.AddMore(s.id)) },
                             onResult = { vm.go(Screen.Result(s.id)) },
+                            history = matches,
                             onCoupon = { coupon, dropped ->
                                 vm.attachCoupon(s.id, coupon, dropped)
                             },

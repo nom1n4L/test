@@ -33320,7 +33320,6 @@ kotlin.collections.CollectionsKt___CollectionsKt:
     public static final int sumOfShort(java.lang.Iterable)
     private static final int sumOfUInt(java.lang.Iterable,kotlin.jvm.functions.Function1)
     private static final long sumOfULong(java.lang.Iterable,kotlin.jvm.functions.Function1)
-    public static final java.util.List takeLast(java.util.List,int)
     public static final java.util.List takeLastWhile(java.util.List,kotlin.jvm.functions.Function1)
     public static final java.util.List takeWhile(java.lang.Iterable,kotlin.jvm.functions.Function1)
     public static final boolean[] toBooleanArray(java.util.Collection)
@@ -52210,6 +52209,7 @@ com.skorsnap.app.data.MatchResult:
     public static int getHomeGoals()
     public final java.lang.Integer getHtGoals()
     public final int getMargin()
+    public static java.lang.String getSummary()
 com.skorsnap.app.data.Migration:
     public static final com.skorsnap.app.data.Migration INSTANCE
     static void <clinit>()
@@ -52279,10 +52279,18 @@ com.skorsnap.app.data.Parlay:
     public static java.util.List marginTable()
     public static java.util.List skipped()
     public static com.skorsnap.app.data.MarketOption swapIfUnderpriced()
-com.skorsnap.app.data.Postmortem$Verdict
+com.skorsnap.app.data.Postmortem$Verdict:
+    public static final int $stable
+    static void <clinit>()
+    public static double getGoalGap()
+    public static java.util.List getHit()
+    public static java.util.List getMissed()
+    public static java.util.List getPainful()
+    public final double getRate()
 com.skorsnap.app.data.Postmortem:
     public static final com.skorsnap.app.data.Postmortem INSTANCE
     static void <clinit>()
+    public static java.lang.String impact()
     public static com.skorsnap.app.data.Postmortem$Verdict judge()
 com.skorsnap.app.data.Report:
     public static final int $stable
@@ -52682,12 +52690,16 @@ com.skorsnap.app.ui.Screen$Detail:
     public final java.lang.String getId()
 com.skorsnap.app.ui.Screen$Result:
     static void <clinit>()
-com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$6d858454bf07e78a36913ee57cdf90de962bc3d159d45b45ea6fed9c43e0d775$0
-com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$6d858454bf07e78a36913ee57cdf90de962bc3d159d45b45ea6fed9c43e0d775$1
-com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$6d858454bf07e78a36913ee57cdf90de962bc3d159d45b45ea6fed9c43e0d775$3:
-    public final synthetic int f$11
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$75f7b6c6cdd5b63c18e02b8baf5ff015c990eccd42c9d078cf30f85f9b3f30bb$2:
     public final synthetic int f$16
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$9b5de19714b0bfe9667cbac9e27b13ad269b2eae59e389aff86c53aa84731b6d$0
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$9b5de19714b0bfe9667cbac9e27b13ad269b2eae59e389aff86c53aa84731b6d$1
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$9b5de19714b0bfe9667cbac9e27b13ad269b2eae59e389aff86c53aa84731b6d$3:
+    public final synthetic int f$13
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$5$afb88ca9fe78e71c8c3670b9964d5d25e68030ab06187a2ee101620a627c2fa1$0:
+    public final synthetic int f$4
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$5$afb88ca9fe78e71c8c3670b9964d5d25e68030ab06187a2ee101620a627c2fa1$1:
+    public final synthetic int f$4
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$7$033b8c63d92bdfcfe169e278071467cb11c9a82318fb5fa14824e99c104c45df$0:
     public final synthetic int f$6
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$7$4d143c84d75891ae0dc232514831a3b8c1bee59991e799d22d31dadf2f85af6b$1:
@@ -52955,6 +52967,8 @@ com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$279$lambda$278$$inlined$items$
 com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$279$lambda$278$$inlined$items$default$8:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$ResultCard$1:
+    public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$ResultCard$3$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ResultCard$3:
     public final void invoke$2()

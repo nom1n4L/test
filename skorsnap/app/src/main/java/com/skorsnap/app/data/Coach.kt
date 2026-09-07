@@ -82,6 +82,27 @@ object Coach {
                 append("\n")
             }
             append(parlayLine(slips))
+
+            // The written post-mortems, not just the aggregates. A table saying
+            // "Total Gol: too confident by 9 points" is a correction; "read for 4.5
+            // goals, finished 6, every Under fell from the same cause" is the
+            // mistake itself, and a model given the mistake can avoid the shape of
+            // it rather than merely shaving a number.
+            val lessons = history.filter { it.lesson.isNotBlank() }.takeLast(3)
+            if (lessons.isNotEmpty()) {
+                append("\nAPA YANG SUDAH SALAH SEBELUMNYA — baca sebelum menilai laga ini:\n")
+                lessons.forEach { m ->
+                    append("- ${m.title}: ")
+                    append(m.lesson.lines().firstOrNull { it.isNotBlank() }.orEmpty())
+                    append("\n")
+                }
+                append(
+                    "Kalau laga sekarang bentuknya mirip salah satu di atas, sebutkan " +
+                        "kemiripannya di \"risks\" dan geser angkamu, jangan cuma mengulang " +
+                        "pola yang sudah terbukti meleset.\n"
+                )
+            }
+
             append(
                 if (all.size < 30) {
                     "Jumlah data ini masih sedikit, jadi pakai sebagai penyesuaian kecil, " +
