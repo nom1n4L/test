@@ -645,6 +645,108 @@ class Analyst(private val apiKey: String) {
         )
     }
 
+    /**
+     * One reply in the post-match conversation.
+     *
+     * Text only — no images, no JSON schema. The match brief is re-sent each turn
+     * because it is the part that must not be lost, while old chat is trimmed: a
+     * debrief that grows expensive is a debrief nobody has twice.
+     */
+    suspend fun debrief(
+        match: MatchPrediction,
+        turns: List<Turn>,
+        model: String = DEFAULT_MODEL,
+    ): String {
+        val contents = JSONArray()
+        val opening = JSONObject().put("role", "user").put(
+            "parts",
+            JSONArray().put(
+                JSONObject().put(
+                    "text",
+                    Debrief.matchBrief(match) + "\n\n" +
+                        if (turns.isEmpty()) Debrief.opening()
+                        else "Lanjutkan pembahasannya."
+                )
+            )
+        )
+        contents.put(opening)
+        Debrief.context(turns).forEach { turn ->
+            contents.put(
+                JSONObject()
+                    .put("role", if (turn.fromUser) "user" else "model")
+                    .put("parts", JSONArray().put(JSONObject().put("text", turn.text)))
+            )
+        }
+
+        val body = JSONObject()
+            .put("contents", contents)
+            .put(
+                "systemInstruction",
+                JSONObject().put(
+                    "parts",
+                    JSONArray().put(JSONObject().put("text", Debrief.systemPrompt()))
+                )
+            )
+            .put(
+                "generationConfig",
+                JSONObject()
+                    .put("temperature", 0.7)
+                    .put("maxOutputTokens", DEBRIEF_OUTPUT_TOKENS)
+                    .put("thinkingConfig", JSONObject().put("thinkingBudget", TIGHT_THINKING_BUDGET))
+            )
+        val reply = runCatching { post(model, body.toString()) }
+            .getOrElse {
+                // Some models refuse an explicit thinking budget on a chat turn.
+                val relaxed = JSONObject(body.toString()).also { retry ->
+                    retry.getJSONObject("generationConfig").remove("thinkingConfig")
+                }
+                post(model, relaxed.toString())
+            }
+            .trim()
+        if (reply.isBlank()) throw AnalystException("Balasannya kosong. Coba lagi.")
+        return reply
+    }
+
+    /** Condenses a finished conversation into one rule to carry forward. */
+    suspend fun summariseDebrief(
+        match: MatchPrediction,
+        turns: List<Turn>,
+        model: String = DEFAULT_MODEL,
+    ): String {
+        val transcript = turns.joinToString("\n\n") {
+            (if (it.fromUser) "PENGGUNA: " else "ANALIS: ") + it.text
+        }
+        val body = JSONObject()
+            .put(
+                "contents",
+                JSONArray().put(
+                    JSONObject().put("role", "user").put(
+                        "parts",
+                        JSONArray().put(
+                            JSONObject().put(
+                                "text",
+                                Debrief.matchBrief(match) + "\n\nPEMBAHASAN:\n" + transcript +
+                                    "\n\n" + Debrief.summaryInstruction()
+                            )
+                        )
+                    )
+                )
+            )
+            .put(
+                "generationConfig",
+                JSONObject().put("temperature", 0.2).put("maxOutputTokens", 512)
+                    .put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
+            )
+        return runCatching { post(model, body.toString()) }
+            .getOrElse {
+                val relaxed = JSONObject(body.toString()).also { retry ->
+                    retry.getJSONObject("generationConfig").remove("thinkingConfig")
+                }
+                post(model, relaxed.toString())
+            }
+            .trim()
+    }
+
     private fun userPrompt(note: String, mode: Mode): String = buildString {
         append("Baca statistik di gambar-gambar di atas, lalu isi JSON sesuai skema.\n\n")
         if (note.isNotBlank()) append("Catatan dari pengguna: $note\n\n")
@@ -710,6 +812,14 @@ Aturan pengisian:
          * pot and a screenshot full of tables gives the model a lot to think about.
          */
         internal const val MAX_OUTPUT_TOKENS = 49152
+
+        /**
+         * A debrief reply is a paragraph, not a report.
+         *
+         * Capped deliberately: the prompt asks for under 200 words, and a budget
+         * that allows an essay invites one.
+         */
+        internal const val DEBRIEF_OUTPUT_TOKENS = 1024
 
         /** Room for one screen's worth of transcribed numbers. */
         internal const val EXTRACT_OUTPUT_TOKENS = 3072

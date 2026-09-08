@@ -88,6 +88,15 @@ object Coach {
             // goals, finished 6, every Under fell from the same cause" is the
             // mistake itself, and a model given the mistake can avoid the shape of
             // it rather than merely shaving a number.
+            // The argued lessons come first and are kept longer: one settled by
+            // conversation carries context the arithmetic could not see — a red card,
+            // a rested squad — and that is exactly what the aggregates cannot supply.
+            val argued = history.filter { it.debriefLesson.isNotBlank() }.takeLast(4)
+            if (argued.isNotEmpty()) {
+                append("\nATURAN HASIL PEMBAHASAN DENGAN PENGGUNA — patuhi ini:\n")
+                argued.forEach { append("- ${it.title}: ${it.debriefLesson}\n") }
+            }
+
             val lessons = history.filter { it.lesson.isNotBlank() }.takeLast(3)
             if (lessons.isNotEmpty()) {
                 append("\nAPA YANG SUDAH SALAH SEBELUMNYA — baca sebelum menilai laga ini:\n")

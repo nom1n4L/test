@@ -148,6 +148,18 @@ class Store(context: Context) {
         put("result_score", m.resultScore)
         put("lesson", m.lesson)
         put("repeat_note", m.repeatNote)
+        put("debrief_lesson", m.debriefLesson)
+        put(
+            "debrief",
+            JSONArray().apply {
+                m.debrief.forEach {
+                    put(
+                        JSONObject().put("user", it.fromUser).put("text", it.text)
+                            .put("at", it.at)
+                    )
+                }
+            }
+        )
         put("value_pick", m.valuePick)
         put("value_was", m.valueWas)
         put("value_edge", m.valueEdge)
@@ -239,6 +251,14 @@ class Store(context: Context) {
             resultScore = o.optString("result_score"),
             lesson = o.optString("lesson"),
             repeatNote = o.optString("repeat_note"),
+            debriefLesson = o.optString("debrief_lesson"),
+            debrief = o.optJSONArray("debrief")?.let { arr ->
+                (0 until arr.length()).mapNotNull { i ->
+                    arr.optJSONObject(i)?.let { t ->
+                        Turn(t.optBoolean("user"), t.optString("text"), t.optLong("at"))
+                    }
+                }
+            }.orEmpty(),
             valuePick = o.optBoolean("value_pick", false),
             valueWas = o.optString("value_was"),
             valueEdge = o.optDouble("value_edge", 0.0),

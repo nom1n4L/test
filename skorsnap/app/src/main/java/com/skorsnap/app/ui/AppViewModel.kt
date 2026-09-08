@@ -16,6 +16,7 @@ import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.Slip
 import com.skorsnap.app.data.Store
+import com.skorsnap.app.data.Turn
 import com.skorsnap.app.data.SavedSlip
 import com.skorsnap.app.data.Strategy
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +36,7 @@ sealed interface Screen {
     data object Browse : Screen
     data object Offline : Screen
     data class Result(val id: String) : Screen
+    data class Talk(val id: String) : Screen
     data object Report : Screen
     data object Settings : Screen
 }
@@ -719,6 +721,71 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      *
      * Verdicts already recorded by hand are kept: the user watched the match.
      */
+    /** True while the analyst is composing a reply, so the chat can show it. */
+    private val _talking = MutableStateFlow(false)
+    val talking: StateFlow<Boolean> = _talking.asStateFlow()
+
+    /**
+     * Asks the analyst for the next turn of the post-match discussion.
+     *
+     * [text] blank means "open the discussion" — the first turn, where nothing has
+     * been said yet.
+     */
+    fun say(matchId: String, text: String = "") {
+        if (_talking.value) return
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+        val withUser =
+            if (text.isBlank()) match
+            else match.copy(debrief = match.debrief + Turn(true, text.trim()))
+        if (text.isNotBlank()) {
+            _matches.value = _matches.value.map { if (it.id == matchId) withUser else it }
+        }
+        viewModelScope.launch {
+            _talking.value = true
+            try {
+                val reply = Analyst(store.apiKey).debrief(withUser, withUser.debrief, store.model)
+                val done = withUser.copy(debrief = withUser.debrief + Turn(false, reply))
+                _matches.value = _matches.value.map { if (it.id == matchId) done else it }
+                store.save(_matches.value)
+            } catch (e: Exception) {
+                _message.value = "Gagal: ${e.message}"
+                // The user's own turn is kept: losing what they typed because the
+                // network failed would be the app punishing them for its own problem.
+                store.save(_matches.value)
+            }
+            _talking.value = false
+        }
+    }
+
+    /**
+     * Closes the discussion and keeps the one rule it produced.
+     *
+     * That rule then goes into the brief for every later analysis, which is the
+     * whole reason the conversation is worth having rather than just reading.
+     */
+    fun settleDebrief(matchId: String) {
+        if (_talking.value) return
+        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
+        if (match.debrief.size < 2) {
+            _message.value = "Bahas dulu sedikit — minimal ada tanggapanmu."
+            return
+        }
+        viewModelScope.launch {
+            _talking.value = true
+            try {
+                val rule = Analyst(store.apiKey)
+                    .summariseDebrief(match, match.debrief, store.model)
+                val done = match.copy(debriefLesson = rule)
+                _matches.value = _matches.value.map { if (it.id == matchId) done else it }
+                store.save(_matches.value)
+                _message.value = "Pelajaran disimpan. Ini ikut dikirim ke tiap analisis berikutnya."
+            } catch (e: Exception) {
+                _message.value = "Gagal meringkas: ${e.message}"
+            }
+            _talking.value = false
+        }
+    }
+
     fun readResult(matchId: String) {
         if (_busy.value) return
         val match = _matches.value.firstOrNull { it.id == matchId } ?: return

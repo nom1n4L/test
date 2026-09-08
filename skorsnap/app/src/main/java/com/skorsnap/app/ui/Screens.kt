@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -865,6 +867,7 @@ fun CouponCard(
 private fun ResultCard(
     match: MatchPrediction,
     onResult: () -> Unit,
+    onTalk: () -> Unit = {},
     history: List<MatchPrediction> = emptyList(),
 ) {
     if (match.result.isBlank()) {
@@ -926,9 +929,174 @@ private fun ResultCard(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onTalk,
+            colors = ButtonDefaults.buttonColors(containerColor = Violet),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                if (match.debrief.isEmpty()) "Bahas laga ini dengan analis"
+                else "Lanjutkan pembahasan (${match.debrief.size} pesan)",
+            )
+        }
+        Spacer(Modifier.height(8.dp))
         TextButton(onClick = onResult) {
             Text("Perbaiki skornya", style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+// --- Bahas dengan analis ------------------------------------------------------
+
+/**
+ * The post-match discussion.
+ *
+ * A chat, deliberately: the analyst is allowed to say it needs a fact it cannot
+ * have — whether a striker played, whether there was a red card — and the only place
+ * that fact can come from is the person who watched the match. Every earlier attempt
+ * at "learning" in this app was one-directional and therefore stuck with whatever
+ * the screenshots happened to contain.
+ */
+@Composable
+fun TalkScreen(
+    match: MatchPrediction,
+    talking: Boolean,
+    onSay: (String) -> Unit,
+    onSettle: () -> Unit,
+) {
+    var draft by rememberSaveable(match.id) { mutableStateOf("") }
+    val listState = rememberLazyListState()
+
+    // New turns arrive at the bottom; a chat that does not follow them is a chat
+    // the user has to scroll manually after every reply.
+    LaunchedEffect(match.debrief.size, talking) {
+        val last = match.debrief.size + if (talking) 1 else 0
+        if (last > 0) listState.animateScrollToItem(last)
+    }
+
+    Column(Modifier.fillMaxSize().imePadding()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            item {
+                Card(accent = Violet, title = match.title, subtitle = match.result) {
+                    Text(
+                        "Analis ini cuma tahu statistik yang dulu kamu kirim dan skor " +
+                            "akhirnya. Dia TIDAK tahu klasemen, susunan pemain, kartu merah, " +
+                            "atau cuaca — kalau butuh, dia akan bertanya. Jawabanmu itulah " +
+                            "yang bikin pembahasannya berguna.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (match.debrief.isEmpty() && !talking) {
+                item {
+                    Button(
+                        onClick = { onSay("") },
+                        colors = ButtonDefaults.buttonColors(containerColor = Green),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text("Minta analisnya membedah laga ini") }
+                }
+            }
+
+            items(match.debrief.size) { i ->
+                val turn = match.debrief[i]
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (turn.fromUser) Arrangement.End else Arrangement.Start,
+                ) {
+                    Surface(
+                        color = if (turn.fromUser) Sky.copy(alpha = 0.16f)
+                        else MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(
+                            topStart = 14.dp, topEnd = 14.dp,
+                            bottomStart = if (turn.fromUser) 14.dp else 3.dp,
+                            bottomEnd = if (turn.fromUser) 3.dp else 14.dp,
+                        ),
+                        modifier = Modifier.fillMaxWidth(0.92f),
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text(
+                                if (turn.fromUser) "KAMU" else "ANALIS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (turn.fromUser) Sky else Violet,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(turn.text, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+
+            if (talking) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp, color = Violet)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Analis sedang menulis…",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            if (match.debriefLesson.isNotBlank()) {
+                item {
+                    Card(accent = Green, title = "Pelajaran Yang Disimpan") {
+                        Text(match.debriefLesson, style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Ini ikut dikirim ke analis setiap kali kamu menganalisis laga baru.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        Surface(color = MaterialTheme.colorScheme.surface) {
+            Column(Modifier.padding(10.dp)) {
+                if (match.debrief.size >= 2) {
+                    TextButton(onClick = onSettle, enabled = !talking) {
+                        Text(
+                            if (match.debriefLesson.isBlank()) "Selesai — simpan pelajarannya"
+                            else "Ringkas ulang pelajarannya",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Green,
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.Bottom) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { draft = it },
+                        placeholder = {
+                            Text(
+                                "Bantah, tanya, atau kasih tahu yang dia tidak tahu…",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        textStyle = MaterialTheme.typography.bodySmall,
+                        maxLines = 4,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = { onSay(draft); draft = "" },
+                        enabled = !talking && draft.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Violet),
+                    ) { Text("Kirim") }
+                }
+            }
         }
     }
 }
@@ -1187,6 +1355,7 @@ fun DetailScreen(
     onAddMore: () -> Unit,
     onCoupon: (String, Set<String>) -> Unit = { _, _ -> },
     onResult: () -> Unit = {},
+    onTalk: () -> Unit = {},
     /** Every match, so the result card can say what this one changed. */
     history: List<MatchPrediction> = emptyList(),
     onDelete: () -> Unit,
@@ -1243,7 +1412,7 @@ fun DetailScreen(
         // First card after the verdict, because recording the result is the step
         // that turns a prediction into evidence — and the app cannot learn anything
         // at all until it happens.
-        item { ResultCard(match, onResult, history) }
+        item { ResultCard(match, onResult, onTalk, history) }
 
         item {
             var coupon by rememberSaveable(match.id) { mutableStateOf("") }

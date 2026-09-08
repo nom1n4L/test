@@ -240,6 +240,16 @@ data class MatchPrediction(
      * next to the recommendation, not flash past in a snackbar.
      */
     val repeatNote: String = "",
+    /** The post-match conversation with the analyst, oldest first. */
+    val debrief: List<Turn> = emptyList(),
+    /**
+     * The one rule the conversation settled on.
+     *
+     * Separate from [lesson], which the app computes from arithmetic. This one is
+     * argued for — and sometimes argued down to "nothing needs to change", which is
+     * a legitimate outcome and the reason the two are kept apart.
+     */
+    val debriefLesson: String = "",
     /** Set when the recommendation was chosen by value rather than by probability. */
     val valuePick: Boolean = false,
     /** What the model itself had recommended before value took over. */

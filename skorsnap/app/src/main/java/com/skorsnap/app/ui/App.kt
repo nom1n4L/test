@@ -72,6 +72,7 @@ fun App(
     val capturing by vm.capturing.collectAsStateWithLifecycle()
     val captureProblem by vm.captureProblem.collectAsStateWithLifecycle()
     val notes by vm.notes.collectAsStateWithLifecycle()
+    val talking by vm.talking.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
@@ -177,6 +178,7 @@ fun App(
                             onBacked = { vm.setBacked(s.id, it) },
                             onAddMore = { vm.go(Screen.AddMore(s.id)) },
                             onResult = { vm.go(Screen.Result(s.id)) },
+                            onTalk = { vm.go(Screen.Talk(s.id)) },
                             history = matches,
                             onCoupon = { coupon, dropped ->
                                 vm.attachCoupon(s.id, coupon, dropped)
@@ -235,6 +237,25 @@ fun App(
                     onOpen = { vm.go(Screen.Detail(it)) },
                 )
                 is Screen.Offline -> OfflineScreen(onAnalyse = vm::analyseOffline)
+                is Screen.Talk -> {
+                    val match = matches.firstOrNull { it.id == s.id }
+                    if (match == null) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                "Pertandingan tidak ditemukan.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        TalkScreen(
+                            match = match,
+                            talking = talking,
+                            onSay = { vm.say(s.id, it) },
+                            onSettle = { vm.settleDebrief(s.id) },
+                        )
+                    }
+                }
                 is Screen.Result -> {
                     val match = matches.firstOrNull { it.id == s.id }
                     if (match == null) {
@@ -284,7 +305,7 @@ private fun BottomBar(screen: Screen, selected: Int, settled: Int, vm: AppViewMo
     // reading one match is a task, and a row of tabs there is an invitation to lose
     // your place.
     if (screen is Screen.Add || screen is Screen.AddMore || screen is Screen.Settings ||
-        screen is Screen.Offline || screen is Screen.Result
+        screen is Screen.Offline || screen is Screen.Result || screen is Screen.Talk
     ) return
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
         TABS.forEach { (destination, label) ->
@@ -358,6 +379,7 @@ private fun TopBar(screen: Screen, vm: AppViewModel) {
                         is Screen.Browse -> "Cari Pertandingan"
                         is Screen.Offline -> "Dari Odds Saja"
                         is Screen.Result -> "Hasil & Introspeksi"
+                        is Screen.Talk -> "Bahas Dengan Analis"
                         is Screen.History -> "Riwayat"
                         is Screen.Report -> "Rapor"
                         is Screen.Settings -> "Pengaturan"

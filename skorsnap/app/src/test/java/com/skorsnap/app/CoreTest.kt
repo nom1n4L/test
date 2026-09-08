@@ -8,6 +8,7 @@ import org.json.JSONObject
 import com.skorsnap.app.capture.Frames
 import com.skorsnap.app.data.Calibration
 import com.skorsnap.app.data.Coach
+import com.skorsnap.app.data.Debrief
 import com.skorsnap.app.data.Devig
 import com.skorsnap.app.data.Offline
 import com.skorsnap.app.data.Value
@@ -26,6 +27,7 @@ import com.skorsnap.app.data.MatchResult
 import com.skorsnap.app.data.Odds
 import com.skorsnap.app.data.Postmortem
 import com.skorsnap.app.data.Repeat
+import com.skorsnap.app.data.Turn
 import com.skorsnap.app.data.Settle
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.priceLabel
@@ -1949,6 +1951,109 @@ class CoreTest {
         assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
         println()
         entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    // ------------------------------------------------ bahas dengan analis
+
+    private fun debriefed(lesson: String = "", turns: List<Turn> = emptyList()) =
+        MatchPrediction(
+            id = "d", home = "Unión Santa Fe", away = "Instituto", league = "Primera",
+            readable = true, problem = "",
+            statsSeen = listOf("Rata-rata gol Unión 1,3", "Rata-rata kebobolan Instituto 1,6"),
+            statsMissing = listOf("Head to head"),
+            risks = listOf("Sampel tandang kecil"),
+            firstRead = "Laga tertutup",
+            probHome = 0.45, probDraw = 0.28, probAway = 0.27, xgHome = 1.3, xgAway = 1.2,
+            markets = listOf(
+                MarketOption("Under 3.5", 0.85, "w", "Total Gol"),
+                MarketOption("Over 1.5", 0.79, "w", "Total Gol"),
+            ),
+            pick = "Under 3.5", pickProb = 0.85, confidence = "sedang", confidenceWhy = "",
+            marketOutcomes = mapOf(
+                "Total Gol|Under 3.5" to Outcome.LOST,
+                "Total Gol|Over 1.5" to Outcome.WON,
+            ),
+            result = "Skor akhir 3-2.", resultScore = "3-2",
+            debrief = turns, debriefLesson = lesson,
+        )
+
+    /**
+     * The analyst is only allowed to know what it was actually shown. Everything the
+     * user asked for — standings, players, context — is exactly what a model will
+     * happily invent, and invented expertise ends up in the record and steers later
+     * predictions. So the brief carries the real evidence and the prompt forbids
+     * going beyond it.
+     */
+    @Test
+    fun theAnalystIsGivenTheEvidenceAndForbiddenToInventMore() {
+        val brief = Debrief.matchBrief(debriefed())
+        assert(brief.contains("3-2")) { "hasilnya tidak diberikan" }
+        assert(brief.contains("Under 3.5")) { "rekomendasinya tidak diberikan" }
+        assert(brief.contains("MELESET")) { "tidak dikatakan bahwa itu meleset" }
+        assert(brief.contains("Rata-rata gol Unión 1,3")) { "statistik aslinya tidak ikut" }
+        assert(brief.contains("Sampel tandang kecil")) { "keraguan lamanya tidak ikut" }
+
+        val rules = Debrief.systemPrompt()
+        assert(rules.contains("JANGAN MENGARANG"))
+        assert(rules.contains("klasemen")) { "tidak menyebut klasemen sebagai yang tidak diketahui" }
+        assert(rules.contains("TANYAKAN")) { "tidak diminta bertanya saat datanya kurang" }
+        // And the persona the user actually asked for.
+        assert(rules.contains("mengkritik keras"))
+        assert(rules.contains("Kamu bukan pelayan"))
+        // The failure mode the user named: "that was wrong, next" with nothing changed.
+        assert(rules.contains("SATU hal konkret")) { "tidak diwajibkan menutup dengan komitmen" }
+        assert(rules.contains("Jangan janji kabur"))
+    }
+
+    /** Losing a market at 80% is not automatically a mistake, and the brief says so. */
+    @Test
+    fun theAnalystIsToldToSeparateABadReadFromBadLuck() {
+        val rules = Debrief.systemPrompt()
+        assert(rules.contains("market 80% kalah 1 dari 5 kali")) {
+            "tidak diajari membedakan salah baca dari kalah biasa"
+        }
+        assert(rules.contains("bacaanmu benar"))
+    }
+
+    /** A conversation costs tokens per turn, so the history sent back is bounded. */
+    @Test
+    fun oldChatIsTrimmedButTheMatchBriefIsNot() {
+        val many = (1..20).map { Turn(it % 2 == 0, "pesan $it") }
+        val sent = Debrief.context(many)
+        assert(sent.size == Debrief.CONTEXT_TURNS) { "riwayat obrolan tidak dibatasi: ${sent.size}" }
+        assert(sent.last().text == "pesan 20") { "yang dipotong justru yang terbaru" }
+        // The brief is rebuilt every turn, because losing it is what would make the
+        // conversation drift away from the match it is about.
+        assert(Debrief.matchBrief(debriefed()).contains("3-2"))
+    }
+
+    /**
+     * The point of arguing at all: the rule that comes out of it has to reach the
+     * next analysis, ahead of the arithmetic summaries.
+     */
+    @Test
+    fun theArguedRuleReachesTheNextAnalysis() {
+        val settled = List(6) {
+            debriefed(lesson = "Kalau tim tuan rumah butuh menang untuk lolos, jangan pakai Under.")
+                .copy(id = "m$it")
+        }
+        val brief = Coach.brief(settled)
+        assert(brief.contains("ATURAN HASIL PEMBAHASAN DENGAN PENGGUNA")) {
+            "aturan hasil pembahasan tidak dikirim ke analisis berikutnya:\n$brief"
+        }
+        assert(brief.contains("butuh menang untuk lolos")) { "isi aturannya tidak ikut" }
+        assert(brief.contains("patuhi ini")) { "modelnya tidak diminta menurutinya" }
+        println(brief.lines().first { it.contains("ATURAN HASIL") })
+    }
+
+    /** No conversation, nothing added — the brief must not grow an empty section. */
+    @Test
+    fun matchesWithoutADiscussionAddNothingToTheBrief() {
+        val plain = List(6) { debriefed().copy(id = "m$it") }
+        val brief = Coach.brief(plain)
+        assert(!brief.contains("ATURAN HASIL PEMBAHASAN")) {
+            "bagian kosong tetap dikirim:\n$brief"
+        }
     }
 
     // ------------------------------------------------ laga yang sama, lagi
