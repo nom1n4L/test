@@ -1,7 +1,19 @@
 package com.skorsnap.app.data
 
-/** One turn in the post-match conversation. */
-data class Turn(val fromUser: Boolean, val text: String, val at: Long = System.currentTimeMillis())
+/**
+ * One turn in the conversation.
+ *
+ * [failed] marks a message that was sent but never answered. Without it the screen
+ * showed the user's words sitting there with no reply and no explanation — the
+ * error had flashed past in a snackbar — so it read as if the app had swallowed
+ * them, and sending again simply produced a second orphan.
+ */
+data class Turn(
+    val fromUser: Boolean,
+    val text: String,
+    val at: Long = System.currentTimeMillis(),
+    val failed: Boolean = false,
+)
 
 /**
  * The conversation held with the analyst after a match is settled.

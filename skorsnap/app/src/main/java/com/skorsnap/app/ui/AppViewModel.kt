@@ -732,26 +732,54 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * been said yet.
      */
     fun say(matchId: String, text: String = "") {
+        // Set before launching, not inside. Set inside, two quick taps both passed
+        // the guard and sent the same message twice.
         if (_talking.value) return
-        val match = _matches.value.firstOrNull { it.id == matchId } ?: return
-        val withUser =
-            if (text.isBlank()) match
-            else match.copy(debrief = match.debrief + Turn(true, text.trim()))
-        if (text.isNotBlank()) {
+        _talking.value = true
+
+        val match = _matches.value.firstOrNull { it.id == matchId }
+        if (match == null) {
+            _talking.value = false
+            return
+        }
+
+        // A retry re-sends the message that failed rather than adding another copy.
+        // Two identical unanswered turns is what the user actually saw, and it is
+        // the app's fault twice over: once for failing, once for keeping the wreck.
+        val last = match.debrief.lastOrNull()
+        val retrying = text.isBlank() && last != null && last.fromUser && last.failed
+        val withUser = when {
+            retrying -> match.copy(
+                debrief = match.debrief.dropLast(1) + last!!.copy(failed = false)
+            )
+            text.isBlank() -> match
+            else -> match.copy(debrief = match.debrief + Turn(true, text.trim()))
+        }
+        if (withUser !== match) {
             _matches.value = _matches.value.map { if (it.id == matchId) withUser else it }
         }
+
         viewModelScope.launch {
-            _talking.value = true
             try {
                 val reply = Analyst(store.apiKey).debrief(withUser, withUser.debrief, store.model)
                 val done = withUser.copy(debrief = withUser.debrief + Turn(false, reply))
                 _matches.value = _matches.value.map { if (it.id == matchId) done else it }
                 store.save(_matches.value)
             } catch (e: Exception) {
+                // Marked on the message itself, so the failure stays on screen with
+                // the words it belongs to instead of vanishing with the snackbar.
+                val failing = _matches.value.firstOrNull { it.id == matchId }
+                val marked = failing?.let { m ->
+                    val tail = m.debrief.lastOrNull()
+                    if (tail != null && tail.fromUser) {
+                        m.copy(debrief = m.debrief.dropLast(1) + tail.copy(failed = true))
+                    } else m
+                }
+                if (marked != null) {
+                    _matches.value = _matches.value.map { if (it.id == matchId) marked else it }
+                    store.save(_matches.value)
+                }
                 _message.value = "Gagal: ${e.message}"
-                // The user's own turn is kept: losing what they typed because the
-                // network failed would be the app punishing them for its own problem.
-                store.save(_matches.value)
             }
             _talking.value = false
         }

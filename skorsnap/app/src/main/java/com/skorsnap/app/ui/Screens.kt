@@ -1055,8 +1055,11 @@ fun TalkScreen(
                     horizontalArrangement = if (turn.fromUser) Arrangement.End else Arrangement.Start,
                 ) {
                     Surface(
-                        color = if (turn.fromUser) Sky.copy(alpha = 0.16f)
-                        else MaterialTheme.colorScheme.surface,
+                        color = when {
+                            turn.failed -> Rose.copy(alpha = 0.14f)
+                            turn.fromUser -> Sky.copy(alpha = 0.16f)
+                            else -> MaterialTheme.colorScheme.surface
+                        },
                         shape = RoundedCornerShape(
                             topStart = 14.dp, topEnd = 14.dp,
                             bottomStart = if (turn.fromUser) 14.dp else 3.dp,
@@ -1068,10 +1071,32 @@ fun TalkScreen(
                             Text(
                                 if (turn.fromUser) "KAMU" else "ANALIS",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (turn.fromUser) Sky else Violet,
+                                color = when {
+                                    turn.failed -> Rose
+                                    turn.fromUser -> Sky
+                                    else -> Violet
+                                },
                             )
                             Spacer(Modifier.height(4.dp))
                             Text(turn.text, style = MaterialTheme.typography.bodySmall)
+
+                            // The failure stays attached to the message it belongs to.
+                            // As a snackbar it flashed past and left the message
+                            // sitting unanswered with nothing to explain it.
+                            if (turn.failed) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Belum terkirim — analisnya tidak menjawab.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Rose,
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Button(
+                                    onClick = { onSay("") },
+                                    enabled = !talking,
+                                    colors = ButtonDefaults.buttonColors(containerColor = Rose),
+                                ) { Text("Kirim ulang") }
+                            }
                         }
                     }
                 }

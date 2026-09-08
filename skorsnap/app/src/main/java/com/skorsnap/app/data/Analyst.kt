@@ -159,9 +159,10 @@ class Analyst(private val apiKey: String) {
                     .put("responseSchema", RESPONSE_SCHEMA)
             )
 
+        var rescued = false
         val reply = try {
             post(model, body.toString())
-        } catch (e: TruncatedException) {
+        } catch (first: TruncatedException) {
             // Reasoning ate the budget. Rerun with thinking held to a fixed slice so
             // the answer itself is guaranteed room. Everything else is identical, so
             // this only ever kicks in when the normal path has already failed.
@@ -170,17 +171,46 @@ class Analyst(private val apiKey: String) {
                     .put("maxOutputTokens", MAX_OUTPUT_TOKENS)
                     .put("thinkingConfig", JSONObject().put("thinkingBudget", TIGHT_THINKING_BUDGET))
             }
-            post(model, constrained.toString())
+            try {
+                post(model, constrained.toString())
+            } catch (second: TruncatedException) {
+                // Both attempts hit the ceiling, so a third would too. What came back
+                // is not worthless: the schema puts the readings, the goal
+                // expectations and the market grid before the short tail, so a reply
+                // that died late still holds nearly all of the analysis. Keep the
+                // part the model finished writing rather than losing the whole run.
+                val best = listOf(second.partial, first.partial).maxByOrNull { it.length }.orEmpty()
+                val fixed = Salvage.repair(best)?.takeIf { Salvage.marketCount(it) >= Salvage.ENOUGH }
+                    ?: throw AnalystException(
+                        "Jawaban AI kepanjangan sampai terpotong, dua kali, dan yang " +
+                            "sempat ditulis terlalu sedikit untuk dipakai. Kirim ulang " +
+                            "dengan screenshot lebih sedikit — atau hapus tangkapan " +
+                            "yang isinya sudah ada di tangkapan lain."
+                    )
+                rescued = true
+                fixed
+            }
         }
         // Order matters. The prices are folded in first, so the grid derives its
         // missing markets from goal expectations that already reflect the market;
         // then value picks among the result; then the safe-band rule has the last
         // word, because a floor the user set is not something value may overrule.
+        val parsed = parse(reply).copy(mode = mode)
+        val noted = if (!rescued) parsed else parsed.copy(
+            // Said out loud on the screen. A rescued answer is a good answer with a
+            // missing tail, but the user is the one deciding how much money to put
+            // on it and has to know which one they are looking at.
+            problem = (
+                "Jawaban AI terpotong di tengah karena kepanjangan. Yang di bawah ini " +
+                    "adalah bagian yang sempat ditulis — ${parsed.markets.size} market, " +
+                    "lengkap dengan alasannya — tapi bagian penutupnya hilang, jadi " +
+                    "rekomendasi utamanya dipilih aplikasi dari market itu, bukan oleh " +
+                    "AI-nya. Analisis ulang dengan screenshot lebih sedikit kalau mau " +
+                    "yang utuh.\n\n" + parsed.problem
+                ).trim()
+        )
         enforceSafePick(
-            Value.apply(
-                Grid.fill(Devig.blend(parse(reply).copy(mode = mode))),
-                appetite.floor,
-            ),
+            Value.apply(Grid.fill(Devig.blend(noted)), appetite.floor),
             appetite.floor,
         )
     }
@@ -255,9 +285,14 @@ class Analyst(private val apiKey: String) {
                 )
             runCatching { post(model, body.toString()) }
                 .getOrElse {
-                    // Some models refuse a zero thinking budget outright.
+                    // Some models refuse a zero thinking budget outright. Removing the
+                    // bound gives reasoning the run of the same allowance, so the
+                    // ceiling goes up with it — otherwise the retry can fail exactly
+                    // the way the first attempt did.
                     val relaxed = JSONObject(body.toString()).also { retry ->
-                        retry.getJSONObject("generationConfig").remove("thinkingConfig")
+                        retry.getJSONObject("generationConfig")
+                            .put("maxOutputTokens", EXTRACT_OUTPUT_TOKENS * 2)
+                            .remove("thinkingConfig")
                     }
                     post(model, relaxed.toString())
                 }
@@ -325,8 +360,14 @@ class Analyst(private val apiKey: String) {
         )
     }
 
-    /** Raised when the model ran out of room before finishing its JSON. */
-    private class TruncatedException :
+    /**
+     * Raised when the model ran out of room before finishing its JSON.
+     *
+     * Carries what it did manage to write. The text used to be dropped on the floor,
+     * which meant a reply cut off in its last few lines was thrown away whole — the
+     * forty markets before the cut included.
+     */
+    private class TruncatedException(val partial: String = "") :
         Exception("Jawaban model terpotong sebelum selesai.")
 
     /**
@@ -405,15 +446,12 @@ class Analyst(private val apiKey: String) {
 
             // A reply cut off mid-JSON parses as garbage; say so plainly instead.
             val finish = candidate.optString("finishReason")
-            if (finish == "MAX_TOKENS") throw TruncatedException()
+            if (finish == "MAX_TOKENS") throw TruncatedException(textOf(candidate))
 
-            val partsOut = candidate.optJSONObject("content")?.optJSONArray("parts")
-                ?: throw AnalystException("Balasan Gemini kosong (alasan: ${finish.ifBlank { "tidak diketahui" }}).")
-
-            return (0 until partsOut.length())
-                .mapNotNull { partsOut.optJSONObject(it)?.optString("text")?.takeIf(String::isNotBlank) }
-                .joinToString("\n")
-                .trim()
+            if (candidate.optJSONObject("content")?.optJSONArray("parts") == null) {
+                throw AnalystException("Balasan Gemini kosong (alasan: ${finish.ifBlank { "tidak diketahui" }}).")
+            }
+            return textOf(candidate)
         } catch (e: AnalystException) {
             throw e
         } catch (e: TruncatedException) {
@@ -423,6 +461,15 @@ class Analyst(private val apiKey: String) {
         } finally {
             conn?.disconnect()
         }
+    }
+
+    /** Whatever text the model wrote, complete or not. */
+    private fun textOf(candidate: JSONObject): String {
+        val parts = candidate.optJSONObject("content")?.optJSONArray("parts") ?: return ""
+        return (0 until parts.length())
+            .mapNotNull { parts.optJSONObject(it)?.optString("text")?.takeIf(String::isNotBlank) }
+            .joinToString("\n")
+            .trim()
     }
 
     /**
@@ -698,13 +745,18 @@ class Analyst(private val apiKey: String) {
                 JSONObject()
                     .put("temperature", 0.7)
                     .put("maxOutputTokens", DEBRIEF_OUTPUT_TOKENS)
-                    .put("thinkingConfig", JSONObject().put("thinkingBudget", TIGHT_THINKING_BUDGET))
+                    .put("thinkingConfig", JSONObject().put("thinkingBudget", DEBRIEF_THINKING))
             )
         val reply = runCatching { post(model, body.toString()) }
             .getOrElse {
-                // Some models refuse an explicit thinking budget on a chat turn.
+                // Some models refuse an explicit thinking budget on a chat turn. The
+                // budget is raised rather than removed: dropping it lets reasoning
+                // take the whole allowance again, which is what broke this to begin
+                // with.
                 val relaxed = JSONObject(body.toString()).also { retry ->
-                    retry.getJSONObject("generationConfig").remove("thinkingConfig")
+                    retry.getJSONObject("generationConfig")
+                        .put("maxOutputTokens", DEBRIEF_OUTPUT_TOKENS * 2)
+                        .remove("thinkingConfig")
                 }
                 post(model, relaxed.toString())
             }
@@ -740,13 +792,16 @@ class Analyst(private val apiKey: String) {
             )
             .put(
                 "generationConfig",
-                JSONObject().put("temperature", 0.2).put("maxOutputTokens", 512)
+                JSONObject().put("temperature", 0.2)
+                    .put("maxOutputTokens", SUMMARY_OUTPUT_TOKENS)
                     .put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
             )
         runCatching { post(model, body.toString()) }
             .getOrElse {
                 val relaxed = JSONObject(body.toString()).also { retry ->
-                    retry.getJSONObject("generationConfig").remove("thinkingConfig")
+                    retry.getJSONObject("generationConfig")
+                        .put("maxOutputTokens", SUMMARY_OUTPUT_TOKENS * 2)
+                        .remove("thinkingConfig")
                 }
                 post(model, relaxed.toString())
             }
@@ -820,12 +875,24 @@ Aturan pengisian:
         internal const val MAX_OUTPUT_TOKENS = 49152
 
         /**
-         * A debrief reply is a paragraph, not a report.
+         * Room for a debrief reply, with the thinking that precedes it.
          *
-         * Capped deliberately: the prompt asks for under 200 words, and a budget
-         * that allows an essay invites one.
+         * This was 1024 against a thinking budget of 2048, which is incoherent:
+         * Gemini counts reasoning against the same allowance, so the model spent the
+         * whole budget thinking and never emitted a word. The reply came back empty
+         * with finishReason MAX_TOKENS — the identical mistake made once before on
+         * the model-test button, where 16 tokens meant every model "failed".
+         *
+         * The prompt still asks for under 200 words; a budget is a ceiling, not a
+         * target, and the cost of one that is too tight is a feature that never works.
          */
-        internal const val DEBRIEF_OUTPUT_TOKENS = 1024
+        internal const val DEBRIEF_OUTPUT_TOKENS = 4096
+
+        /** Enough to reason briefly and still leave most of the budget for words. */
+        internal const val DEBRIEF_THINKING = 512
+
+        /** The summary is one sentence, but it still has to fit after any thinking. */
+        internal const val SUMMARY_OUTPUT_TOKENS = 2048
 
         /** Room for one screen's worth of transcribed numbers. */
         internal const val EXTRACT_OUTPUT_TOKENS = 3072
@@ -905,7 +972,7 @@ Aturan:
         /**
          * Enough room for a one-word reply after the model has finished thinking.
          */
-        internal const val TEST_OUTPUT_TOKENS = 2048
+        internal const val TEST_OUTPUT_TOKENS = 4096
 
         /**
          * The floor the schema puts under the market list.

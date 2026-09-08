@@ -1,6 +1,11 @@
 package com.skorsnap.app
 
 import com.skorsnap.app.data.Analyst
+import com.skorsnap.app.data.Salvage
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import com.skorsnap.app.data.Appetite
 import com.skorsnap.app.data.Comparison
 import com.skorsnap.app.data.Migration
@@ -1993,6 +1998,64 @@ class CoreTest {
         println("${heads.size} fungsi suspend diperiksa — semua panggilan jaringan keluar dari main thread.")
     }
 
+    /**
+     * A thinking budget must always be smaller than the output budget it is taken
+     * from.
+     *
+     * Gemini counts reasoning against maxOutputTokens, so a thinking budget at or
+     * above it means the model can spend its whole allowance thinking and emit
+     * nothing — the reply comes back empty with finishReason MAX_TOKENS. This has
+     * now happened twice in this project: once on the model-test button at 16
+     * tokens, where every model appeared to fail, and once on the debrief at 1024
+     * against 2048, where the chat never answered at all.
+     */
+    @Test
+    fun noThinkingBudgetCanSwallowItsOwnOutputBudget() {
+        assert(Analyst.DEBRIEF_THINKING < Analyst.DEBRIEF_OUTPUT_TOKENS) {
+            "berpikir ${Analyst.DEBRIEF_THINKING} vs jawaban ${Analyst.DEBRIEF_OUTPUT_TOKENS}"
+        }
+        assert(Analyst.TIGHT_THINKING_BUDGET < Analyst.MAX_OUTPUT_TOKENS)
+        assert(Analyst.THINKING_BUDGET < Analyst.MAX_OUTPUT_TOKENS)
+        // testModel sets no explicit thinking budget, so reasoning is unbounded
+        // within its allowance. The reply is one word; the budget only has to
+        // survive the thinking that precedes it.
+        assert(Analyst.TEST_OUTPUT_TOKENS >= 4096) {
+            "tombol tes cuma ${Analyst.TEST_OUTPUT_TOKENS} token — bisa habis sebelum menjawab"
+        }
+        // Room to think AND to answer, not merely a number that is larger.
+        assert(Analyst.DEBRIEF_OUTPUT_TOKENS >= Analyst.DEBRIEF_THINKING * 4) {
+            "sisa jatah setelah berpikir terlalu tipis untuk satu paragraf"
+        }
+        assert(Analyst.SUMMARY_OUTPUT_TOKENS >= 1024) {
+            "ringkasan cuma dapat ${Analyst.SUMMARY_OUTPUT_TOKENS} token"
+        }
+        println(
+            "Jatah jawaban: analisis ${Analyst.MAX_OUTPUT_TOKENS}, chat " +
+                "${Analyst.DEBRIEF_OUTPUT_TOKENS} (berpikir ${Analyst.DEBRIEF_THINKING}), " +
+                "ringkasan ${Analyst.SUMMARY_OUTPUT_TOKENS}."
+        )
+    }
+
+    /**
+     * A fallback that drops thinkingConfig hands the model an unbounded reasoning
+     * budget out of the same allowance — which is the failure it is supposed to
+     * recover from. Every such fallback has to raise the ceiling as it does so.
+     */
+    @Test
+    fun everyFallbackThatDropsTheThinkingBudgetRaisesTheCeiling() {
+        val src = java.io.File("src/main/java/com/skorsnap/app/data/Analyst.kt").readText()
+        val drops = Regex("""remove\("thinkingConfig"\)""").findAll(src).toList()
+        assert(drops.isNotEmpty()) { "tidak ada fallback ditemukan — penjaganya palsu" }
+        drops.forEach { m ->
+            // The put() raising the ceiling sits immediately before the remove().
+            val before = src.substring(maxOf(0, m.range.first - 220), m.range.first)
+            assert(before.contains("maxOutputTokens")) {
+                "ada fallback yang membuang batas berpikir tanpa menaikkan jatah jawaban"
+            }
+        }
+        println("${drops.size} fallback diperiksa — semuanya menaikkan jatah jawaban.")
+    }
+
     // ------------------------------------------------ bahas dengan analis
 
     private fun debriefed(lesson: String = "", turns: List<Turn> = emptyList()) =
@@ -3749,5 +3812,96 @@ Handicap
         val m = Analyst("dummy").parse(json)
         assert(m.markets.size == 1) { "peluang di luar 0-1 ikut masuk: ${m.markets.map { it.name }}" }
         println("Peluang mustahil dibuang, bukan ditampilkan.")
+    }
+
+    // --- rescuing a reply that was cut off -------------------------------------
+
+    @Test
+    fun aWholeAnswerIsLeftExactlyAsItIs() {
+        val whole = """{"home":"A","away":"B","markets":[{"name":"Over 1.5","prob":0.8}]}"""
+        assertEquals(whole, Salvage.repair(whole))
+    }
+
+    @Test
+    fun anAnswerCutMidMarketKeepsEveryMarketBeforeTheCut() {
+        val cut = """{"home":"A","away":"B","markets":[""" +
+            (1..12).joinToString(",") { """{"name":"Over $it.5","prob":0.7,"why":"x"}""" } +
+            ""","{"name":"Over 13.5","pr"""
+        val fixed = Salvage.repair(cut)
+        assertNotNull(fixed)
+        val o = org.json.JSONObject(fixed!!)
+        assertEquals("A", o.getString("home"))
+        assertEquals(12, o.getJSONArray("markets").length())
+        // The half-written one is gone, not guessed at.
+        assertEquals("Over 12.5", o.getJSONArray("markets").getJSONObject(11).getString("name"))
+    }
+
+    @Test
+    fun aCutInsideAStringDoesNotLeaveBrokenJson() {
+        val cut = """{"home":"A","away":"B","verdict":"panjang sekali dan terpo"""
+        val fixed = Salvage.repair(cut)
+        assertNotNull(fixed)
+        val o = org.json.JSONObject(fixed!!)
+        assertEquals("B", o.getString("away"))
+        // The unfinished sentence is dropped rather than presented as the verdict.
+        assertEquals("", o.optString("verdict"))
+    }
+
+    @Test
+    fun aCommaInsideAStringIsNotMistakenForACutPoint() {
+        val cut = """{"home":"Aston, Villa","away":"B","markets":[{"name":"Over 1.5","prob":0.8}],"pick":"Ov"""
+        val o = org.json.JSONObject(Salvage.repair(cut)!!)
+        assertEquals("Aston, Villa", o.getString("home"))
+        assertEquals(1, o.getJSONArray("markets").length())
+    }
+
+    @Test
+    fun anAnswerThatDiedImmediatelyIsRefusedRatherThanRescued() {
+        assertNull(Salvage.repair("""{"home":"Ast"""))
+        assertNull(Salvage.repair("tidak ada json di sini"))
+    }
+
+    @Test
+    fun aFragmentWithTooFewMarketsIsNotEnoughToShow() {
+        val thin = """{"home":"A","away":"B","markets":[""" +
+            (1..3).joinToString(",") { """{"name":"Over $it.5","prob":0.7}""" } +
+            ""","{"name":"x"""
+        val fixed = Salvage.repair(thin)!!
+        assertTrue(Salvage.marketCount(fixed) < Salvage.ENOUGH)
+    }
+
+    @Test
+    fun aRescuedAnswerStillSettlesAndRanksLikeAnyOther() {
+        // The point of rescuing is that what survives is usable, not just parseable.
+        val cut = """{"home":"A","away":"B","markets":[""" +
+            (1..10).joinToString(",") {
+                """{"name":"Over $it.5","prob":${0.95 - it * 0.05},"why":"x","group":"Total Gol"}"""
+            } + ""","{"name":"Un"""
+        val o = org.json.JSONObject(Salvage.repair(cut)!!)
+        val markets = o.getJSONArray("markets")
+        assertEquals(10, markets.length())
+        val best = (0 until markets.length()).map { markets.getJSONObject(it) }
+            .maxByOrNull { it.getDouble("prob") }!!
+        assertEquals("Over 1.5", best.getString("name"))
+    }
+
+    @Test
+    fun aFailedMessageIsRememberedAcrossARestart() {
+        // The flag has to survive being written to disk, or the retry button
+        // disappears the moment the app is reopened and the message is orphaned
+        // again — which is the bug it exists to prevent.
+        val turns = listOf(Turn(true, "kenapa salah?", 1L, failed = true), Turn(false, "…", 2L))
+        val json = org.json.JSONArray()
+        turns.forEach {
+            json.put(
+                org.json.JSONObject().put("user", it.fromUser).put("text", it.text)
+                    .put("at", it.at).put("failed", it.failed)
+            )
+        }
+        val back = (0 until json.length()).map { i ->
+            val t = json.getJSONObject(i)
+            Turn(t.optBoolean("user"), t.optString("text"), t.optLong("at"), t.optBoolean("failed"))
+        }
+        assertEquals(turns, back)
     }
 }

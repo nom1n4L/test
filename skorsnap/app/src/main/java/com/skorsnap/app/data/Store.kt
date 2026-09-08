@@ -155,7 +155,7 @@ class Store(context: Context) {
                 m.debrief.forEach {
                     put(
                         JSONObject().put("user", it.fromUser).put("text", it.text)
-                            .put("at", it.at)
+                            .put("at", it.at).put("failed", it.failed)
                     )
                 }
             }
@@ -255,7 +255,10 @@ class Store(context: Context) {
             debrief = o.optJSONArray("debrief")?.let { arr ->
                 (0 until arr.length()).mapNotNull { i ->
                     arr.optJSONObject(i)?.let { t ->
-                        Turn(t.optBoolean("user"), t.optString("text"), t.optLong("at"))
+                        Turn(
+                            t.optBoolean("user"), t.optString("text"), t.optLong("at"),
+                            t.optBoolean("failed"),
+                        )
                     }
                 }
             }.orEmpty(),
