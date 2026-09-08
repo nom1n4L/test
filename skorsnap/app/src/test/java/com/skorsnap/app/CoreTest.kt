@@ -25,6 +25,7 @@ import com.skorsnap.app.data.Leg
 import com.skorsnap.app.data.MatchResult
 import com.skorsnap.app.data.Odds
 import com.skorsnap.app.data.Postmortem
+import com.skorsnap.app.data.Repeat
 import com.skorsnap.app.data.Settle
 import com.skorsnap.app.data.Parlay
 import com.skorsnap.app.data.priceLabel
@@ -1948,6 +1949,110 @@ class CoreTest {
         assert(entries.none { it.label.contains("18+") }) { "baris sampah ikut terbaca" }
         println()
         entries.forEach { println("  ${it.label} → ${it.price}") }
+    }
+
+    // ------------------------------------------------ laga yang sama, lagi
+
+    private fun fixture(home: String, away: String, id: String, pick: String,
+                        outcomes: Map<String, Outcome> = emptyMap(), score: String = "") =
+        MatchPrediction(
+            id = id, home = home, away = away, league = "L", readable = true, problem = "",
+            statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.40, probDraw = 0.28, probAway = 0.32, xgHome = 1.4, xgAway = 1.3,
+            markets = listOf(
+                MarketOption("Under 3.5", 0.81, "w", "Total Gol"),
+                MarketOption("Over 1.5", 0.79, "w", "Total Gol"),
+                MarketOption("12 (tidak seri)", 0.72, "w", "Double Chance"),
+            ),
+            pick = pick, pickProb = 0.81, confidence = "sedang", confidenceWhy = "",
+            marketOutcomes = outcomes, resultScore = score,
+        )
+
+    /**
+     * The failure this was built for, with the user's own team names — which are
+     * written differently on the two occasions and so match on no raw string.
+     */
+    @Test
+    fun theSameClubIsRecognisedThroughADifferentSpelling() {
+        assert(Repeat.sameClub("Unión Santa Fe", "CA Unión de Santa Fe")) {
+            "nama klub yang sama tidak dikenali"
+        }
+        assert(Repeat.sameClub("Instituto AC Córdoba", "Instituto AC Córdoba"))
+        // And it must stay strict: sharing a common word is not the same club.
+        assert(!Repeat.sameClub("Unión Santa Fe", "Santa Clara")) { "cocok kejauhan" }
+        assert(!Repeat.sameClub("Deportivo Cali", "Deportivo Pereira"))
+        assert(!Repeat.sameClub("Atlético Nacional", "Atlético Madrid"))
+    }
+
+    /**
+     * A market already settled as a loss on this exact fixture must never be
+     * recommended again: the outcome is not uncertain any more, so recommending it
+     * is recommending a bet that cannot win.
+     */
+    @Test
+    fun aMarketThatAlreadyLostHereIsNotRecommendedAgain() {
+        val earlier = fixture(
+            "Unión Santa Fe", "Instituto AC Córdoba", "old", "Under 3.5",
+            outcomes = mapOf(
+                "Total Gol|Under 3.5" to Outcome.LOST,
+                "Total Gol|Over 1.5" to Outcome.WON,
+            ),
+            score = "3-2",
+        )
+        val fresh = fixture("CA Unión de Santa Fe", "Instituto AC Córdoba", "new", "Under 3.5")
+
+        val out = Repeat.apply(fresh, listOf(earlier), 0.68)
+        assert(out.match.pick != "Under 3.5") { "market yang sudah kalah direkomendasikan lagi" }
+        assert(out.match.pick == "Over 1.5") { "tidak memilih market yang justru tembus: ${out.match.pick}" }
+        assert(out.match.repeatNote.contains("3-2")) { "skor yang sudah diketahui tidak disebut" }
+        assert(out.match.repeatNote.contains("SUDAH MELESET"))
+        assert(out.match.pickCorrected)
+        println(out.match.repeatNote.replace("\n\n", " "))
+    }
+
+    /** A repeat with an untouched recommendation still says the match already finished. */
+    @Test
+    fun aRepeatIsAnnouncedEvenWhenThePickStands() {
+        val earlier = fixture(
+            "Unión Santa Fe", "Instituto AC Córdoba", "old", "Over 1.5",
+            outcomes = mapOf("Total Gol|Over 1.5" to Outcome.WON), score = "3-2",
+        )
+        val fresh = fixture("Unión Santa Fe", "Instituto AC Córdoba", "new", "Over 1.5")
+        val out = Repeat.apply(fresh, listOf(earlier), 0.68)
+        assert(out.match.pick == "Over 1.5") { "rekomendasi yang tidak bermasalah ikut diganti" }
+        assert(out.match.repeatNote.contains("sudah pernah dianalisis"))
+        assert(out.match.repeatNote.contains("3-2"))
+        assert(out.match.repeatNote.contains("sudah terjadi")) {
+            "tidak memperingatkan bahwa lagganya sudah selesai:\n${out.match.repeatNote}"
+        }
+    }
+
+    /** A fixture never seen before is left completely alone. */
+    @Test
+    fun aNewFixtureIsUntouched() {
+        val other = fixture("Vitória", "Grêmio", "old", "1X (tuan rumah atau seri)")
+        val fresh = fixture("Llaneros", "Deportes Tolima", "new", "Under 3.5")
+        val out = Repeat.apply(fresh, listOf(other), 0.68)
+        assert(out.match == fresh) { "laga baru ikut diubah" }
+        assert(out.note.isEmpty())
+    }
+
+    /** With every safe market already lost here, it says so rather than inventing one. */
+    @Test
+    fun whenNothingSafeSurvivesItSaysSo() {
+        val earlier = fixture(
+            "Unión Santa Fe", "Instituto AC Córdoba", "old", "Under 3.5",
+            outcomes = mapOf(
+                "Total Gol|Under 3.5" to Outcome.LOST,
+                "Total Gol|Over 1.5" to Outcome.LOST,
+                "Double Chance|12 (tidak seri)" to Outcome.LOST,
+            ),
+            score = "0-0",
+        )
+        val fresh = fixture("Unión Santa Fe", "Instituto AC Córdoba", "new", "Under 3.5")
+        val out = Repeat.apply(fresh, listOf(earlier), 0.68)
+        assert(out.match.repeatNote.contains("Tidak ada market lain")) { out.match.repeatNote }
+        assert(out.match.pick == "Under 3.5") { "mengarang pengganti padahal tidak ada" }
     }
 
     // ------------------------------------------------ menilai hasil sendiri

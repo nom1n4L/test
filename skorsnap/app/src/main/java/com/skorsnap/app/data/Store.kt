@@ -147,6 +147,7 @@ class Store(context: Context) {
         put("result", m.result)
         put("result_score", m.resultScore)
         put("lesson", m.lesson)
+        put("repeat_note", m.repeatNote)
         put("value_pick", m.valuePick)
         put("value_was", m.valueWas)
         put("value_edge", m.valueEdge)
@@ -237,6 +238,7 @@ class Store(context: Context) {
             result = o.optString("result"),
             resultScore = o.optString("result_score"),
             lesson = o.optString("lesson"),
+            repeatNote = o.optString("repeat_note"),
             valuePick = o.optBoolean("value_pick", false),
             valueWas = o.optString("value_was"),
             valueEdge = o.optDouble("value_edge", 0.0),

@@ -232,6 +232,14 @@ data class MatchPrediction(
     val resultScore: String = "",
     /** What went wrong and why, written after the result was known. */
     val lesson: String = "",
+    /**
+     * Set when this fixture has been analysed before, saying what is already known.
+     *
+     * Kept on the match rather than shown once as a message: the fact that a
+     * recommendation was replaced because it had already lost has to stay visible
+     * next to the recommendation, not flash past in a snackbar.
+     */
+    val repeatNote: String = "",
     /** Set when the recommendation was chosen by value rather than by probability. */
     val valuePick: Boolean = false,
     /** What the model itself had recommended before value took over. */

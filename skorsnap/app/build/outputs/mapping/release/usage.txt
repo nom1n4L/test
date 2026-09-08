@@ -30553,11 +30553,12 @@ com.skorsnap.app.data.MatchPrediction:
     public final java.lang.String component35()
     public final java.lang.String component36()
     public final java.lang.String component37()
-    public final boolean component38()
-    public final java.lang.String component39()
+    public final java.lang.String component38()
+    public final boolean component39()
     public final java.lang.String component4()
-    public final double component40()
-    public final java.lang.String component41()
+    public final java.lang.String component40()
+    public final double component41()
+    public final java.lang.String component42()
     public final boolean component5()
     public final java.lang.String component6()
     public final java.util.List component7()
@@ -30644,6 +30645,13 @@ com.skorsnap.app.data.Postmortem:
     public static final int $stable
     private static final double CONFIDENT
     public final java.lang.String headline(com.skorsnap.app.data.MatchPrediction,com.skorsnap.app.data.MatchResult)
+com.skorsnap.app.data.Repeat$Outcome2:
+    public final com.skorsnap.app.data.MatchPrediction component1()
+    public final java.lang.String component2()
+    public final com.skorsnap.app.data.Repeat$Outcome2 copy(com.skorsnap.app.data.MatchPrediction,java.lang.String)
+    public static synthetic com.skorsnap.app.data.Repeat$Outcome2 copy$default(com.skorsnap.app.data.Repeat$Outcome2,com.skorsnap.app.data.MatchPrediction,java.lang.String,int,java.lang.Object)
+com.skorsnap.app.data.Repeat:
+    public static synthetic com.skorsnap.app.data.Repeat$Outcome2 apply$default(com.skorsnap.app.data.Repeat,com.skorsnap.app.data.MatchPrediction,java.util.List,double,int,java.lang.Object)
 com.skorsnap.app.data.Report:
     public final java.util.List component1()
     public final com.skorsnap.app.data.Lens component2()
@@ -33067,7 +33075,6 @@ kotlin.collections.CollectionsKt__MutableCollectionsKt:
     public void <init>()
     public static final boolean addAll(java.util.Collection,kotlin.sequences.Sequence)
     public static final boolean addAll(java.util.Collection,java.lang.Object[])
-    public static final java.util.Collection convertToListIfNotCollection(java.lang.Iterable)
     private static final void minusAssign(java.util.Collection,java.lang.Iterable)
     private static final void minusAssign(java.util.Collection,java.lang.Object)
     private static final void minusAssign(java.util.Collection,kotlin.sequences.Sequence)
@@ -33085,7 +33092,6 @@ kotlin.collections.CollectionsKt__MutableCollectionsKt:
     public static final java.lang.Object removeLast(java.util.List)
     public static final java.lang.Object removeLastOrNull(java.util.List)
     public static final boolean retainAll(java.lang.Iterable,kotlin.jvm.functions.Function1)
-    public static final boolean retainAll(java.util.Collection,java.lang.Iterable)
     private static final boolean retainAll(java.util.Collection,java.util.Collection)
     public static final boolean retainAll(java.util.Collection,kotlin.sequences.Sequence)
     public static final boolean retainAll(java.util.Collection,java.lang.Object[])
@@ -33205,7 +33211,6 @@ kotlin.collections.CollectionsKt___CollectionsKt:
     public static final int indexOfFirst(java.util.List,kotlin.jvm.functions.Function1)
     public static final int indexOfLast(java.lang.Iterable,kotlin.jvm.functions.Function1)
     public static final int indexOfLast(java.util.List,kotlin.jvm.functions.Function1)
-    public static final java.util.Set intersect(java.lang.Iterable,java.lang.Iterable)
     public static final java.lang.Object last(java.lang.Iterable)
     public static final java.lang.Object last(java.lang.Iterable,kotlin.jvm.functions.Function1)
     public static final java.lang.Object last(java.util.List,kotlin.jvm.functions.Function1)
@@ -33326,7 +33331,6 @@ kotlin.collections.CollectionsKt___CollectionsKt:
     public static final byte[] toByteArray(java.util.Collection)
     public static final char[] toCharArray(java.util.Collection)
     public static final double[] toDoubleArray(java.util.Collection)
-    public static final java.util.Set toMutableSet(java.lang.Iterable)
     public static final short[] toShortArray(java.util.Collection)
     public static final java.util.Set union(java.lang.Iterable,java.lang.Iterable)
     public static final java.util.List windowed(java.lang.Iterable,int,int,boolean)
@@ -52181,6 +52185,7 @@ com.skorsnap.app.data.MatchPrediction:
     public static double getProbHome()
     public static java.lang.String getProblem()
     public static boolean getReadable()
+    public static java.lang.String getRepeatNote()
     public static java.lang.String getResult()
     public static java.lang.String getResultScore()
     public static java.lang.String getRiskSide()
@@ -52292,6 +52297,18 @@ com.skorsnap.app.data.Postmortem:
     static void <clinit>()
     public static java.lang.String impact()
     public static com.skorsnap.app.data.Postmortem$Verdict judge()
+com.skorsnap.app.data.Repeat$Outcome2:
+    public static final int $stable
+    static void <clinit>()
+    public static com.skorsnap.app.data.MatchPrediction getMatch()
+    public static java.lang.String getNote()
+com.skorsnap.app.data.Repeat:
+    public static final int $stable
+    public static final com.skorsnap.app.data.Repeat INSTANCE
+    public static java.lang.String knownScore()
+    public static java.util.List priors()
+    public static boolean sameFixture()
+    public static java.util.Map settledMarkets()
 com.skorsnap.app.data.Report:
     public static final int $stable
     static void <clinit>()
@@ -52778,22 +52795,28 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$1$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$1$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$10$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$10:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$11:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$12:
     public final void invoke$91()
-com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$13$1:
-    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$13:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$14$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$14:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$15:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$16:
+    public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$1:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$2$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$2:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$3:
@@ -52802,16 +52825,14 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$4:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$5:
     public final void invoke$91()
-com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$6$1:
-    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$6:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$7$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$7:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$8:
     public final void invoke$91()
-com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$9$1:
-    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$3$1$9:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$HistoryScreen$1$1$2$1$1:

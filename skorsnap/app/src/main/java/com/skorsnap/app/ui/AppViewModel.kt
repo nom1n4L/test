@@ -190,7 +190,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     league = fixture.where,
                 )
                 _lastUsage.value = analyst.lastUsage
-                val calibrated = calibrate(result)
+                // After calibration, and after the model has answered: the team
+                // names are only known at this point, so a fixture already on record
+                // cannot be spotted any earlier than here.
+                val checked = com.skorsnap.app.data.Repeat.apply(
+                    calibrate(result), _matches.value, _appetite.value.floor,
+                )
+                val calibrated = checked.match
                 seedOdds(calibrated)
                 val updated = _matches.value + calibrated
                 _matches.value = updated
@@ -403,7 +409,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     )
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
-                val calibrated = calibrate(result)
+                // After calibration, and after the model has answered: the team
+                // names are only known at this point, so a fixture already on record
+                // cannot be spotted any earlier than here.
+                val checked = com.skorsnap.app.data.Repeat.apply(
+                    calibrate(result), _matches.value, _appetite.value.floor,
+                )
+                val calibrated = checked.match
                 seedOdds(calibrated)
                 val updated = _matches.value + calibrated
                 _matches.value = updated
@@ -411,7 +423,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _staged.value = emptyList()
                 CaptureBus.clearNotes()
                 _screen.value = Screen.Detail(result.id)
-                if (!result.readable) {
+                if (checked.note.isNotBlank()) {
+                    _message.value = checked.note.lines().first()
+                } else if (!result.readable) {
                     _message.value = "Gambar terbaca sebagian: ${result.problem}"
                 }
                 // After saving, so the coupon's own message is the one left standing.

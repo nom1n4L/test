@@ -1225,6 +1225,21 @@ fun DetailScreen(
             }
         }
 
+        // Above everything, including the verdict. A recommendation for a match
+        // that has already finished is not a recommendation, and the reader has to
+        // meet that fact before they meet the number.
+        if (match.repeatNote.isNotBlank()) {
+            item {
+                Card(accent = Amber, title = "Laga Ini Sudah Pernah Dianalisis") {
+                    Text(
+                        match.repeatNote,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+        }
+
         // First card after the verdict, because recording the result is the step
         // that turns a prediction into evidence — and the app cannot learn anything
         // at all until it happens.
