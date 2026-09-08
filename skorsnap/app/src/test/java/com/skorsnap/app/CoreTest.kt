@@ -1953,6 +1953,46 @@ class CoreTest {
         entries.forEach { println("  ${it.label} → ${it.price}") }
     }
 
+    /**
+     * Every network call has to leave the main thread, checked at the source.
+     *
+     * This has now shipped broken twice: readResult in one version and the whole
+     * debrief in the next, both crashing with NetworkOnMainThreadException the first
+     * time a real phone touched them. It is invisible to every other test here,
+     * because the JVM has no such restriction — only Android does — so the check has
+     * to be structural.
+     */
+    @Test
+    fun everyNetworkCallLeavesTheMainThread() {
+        val file = java.io.File("src/main/java/com/skorsnap/app/data/Analyst.kt")
+        assert(file.isFile) { "sumber tidak ditemukan di ${file.absolutePath}" }
+        val src = file.readText()
+
+        // Each suspend function, from its signature to the start of the next one.
+        val heads = Regex("""suspend fun (\w+)""").findAll(src).toList()
+        assert(heads.size >= 5) { "cuma ${heads.size} fungsi suspend ditemukan — penjaganya palsu" }
+
+        val offenders = heads.mapIndexedNotNull { i, m ->
+            val start = m.range.first
+            val end = if (i + 1 < heads.size) heads[i + 1].range.first else src.length
+            val body = src.substring(start, end)
+            // A function that talks to the network must say so in its own header.
+            // Position, not a character window: analyse() has a long parameter list
+            // and a fixed window missed its withContext entirely, so the guard
+            // failed on correct code. What matters is that the switch happens
+            // BEFORE the first call out.
+            val callOut = listOf("post(", "openConnection")
+                .mapNotNull { body.indexOf(it).takeIf { i -> i >= 0 } }
+                .minOrNull()
+            val switch = body.indexOf("withContext(Dispatchers.IO)")
+            if (callOut != null && (switch < 0 || switch > callOut)) m.groupValues[1] else null
+        }
+        assert(offenders.isEmpty()) {
+            "fungsi ini memanggil jaringan di main thread dan akan crash di HP: $offenders"
+        }
+        println("${heads.size} fungsi suspend diperiksa — semua panggilan jaringan keluar dari main thread.")
+    }
+
     // ------------------------------------------------ bahas dengan analis
 
     private fun debriefed(lesson: String = "", turns: List<Turn> = emptyList()) =
@@ -2054,6 +2094,49 @@ class CoreTest {
         assert(!brief.contains("ATURAN HASIL PEMBAHASAN")) {
             "bagian kosong tetap dikirim:\n$brief"
         }
+    }
+
+    /**
+     * Before a match the job is different: nothing has been proved wrong, and an
+     * answer can still change the bet rather than only the next one.
+     */
+    @Test
+    fun beforeTheMatchTheAnalystIsBriefedToChangeTheBetNotExplainALoss() {
+        val pre = Debrief.systemPrompt(played = false)
+        assert(pre.contains("BELUM main"))
+        // Checked as separate words: the prompt is wrapped, so the phrase is split
+        // across a line break and a literal match would fail on correct text.
+        assert(pre.contains("paling mungkin mengubah") && pre.contains("rekomendasi")) {
+            "tidak diminta mengejar fakta yang menentukan"
+        }
+        assert(pre.contains("ke market apa")) {
+            "tidak diwajibkan menyebut pindah ke mana kalau berubah"
+        }
+        assert(pre.contains("Berpura-pura")) { "boleh pura-pura terpengaruh biar terlihat responsif" }
+        // And it must not talk about a failure that has not happened.
+        assert(!pre.contains("baru saja gagal"))
+
+        val post = Debrief.systemPrompt(played = true)
+        assert(post.contains("baru saja gagal"))
+        assert(pre != post) { "dua situasi diberi brief yang sama" }
+
+        assert(Debrief.opening(false).contains("paling rapuh"))
+        assert(Debrief.opening(true).contains("apa yang salah"))
+        // The saved rule from a pre-match talk has to generalise, not describe one game.
+        assert(Debrief.summaryInstruction(false).contains("JENIS FAKTA"))
+    }
+
+    /** An unplayed match's brief must not claim a result or a verdict it has none of. */
+    @Test
+    fun anUnplayedMatchBriefStatesNoResult() {
+        val unplayed = debriefed().copy(
+            result = "", resultScore = "", marketOutcomes = emptyMap(), lesson = "",
+        )
+        val brief = Debrief.matchBrief(unplayed)
+        assert(!brief.contains("HASIL:")) { "mengaku punya hasil padahal belum main:\n$brief" }
+        assert(!brief.contains("MELESET")) { "menyebut meleset padahal belum ada hasilnya" }
+        assert(brief.contains("Under 3.5")) { "rekomendasinya tetap harus ada" }
+        assert(brief.contains("Rata-rata gol")) { "statistiknya tetap harus ada" }
     }
 
     // ------------------------------------------------ laga yang sama, lagi

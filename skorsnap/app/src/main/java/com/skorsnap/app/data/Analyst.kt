@@ -594,7 +594,10 @@ class Analyst(private val apiKey: String) {
      * failing test rather than as a wrong entry in the record that is supposed to
      * keep the app honest.
      */
-    suspend fun readResult(images: List<ByteArray>, model: String = DEFAULT_MODEL): MatchResult {
+    suspend fun readResult(
+        images: List<ByteArray>,
+        model: String = DEFAULT_MODEL,
+    ): MatchResult = withContext(Dispatchers.IO) {
         val parts = JSONArray()
         images.flatMap { Images.forUpload(it) }.forEach { band ->
             parts.put(
@@ -634,7 +637,7 @@ class Analyst(private val apiKey: String) {
             )
         }
         fun opt(key: String) = json.optInt(key, -1).takeIf { it >= 0 }
-        return MatchResult(
+        MatchResult(
             homeGoals = home,
             awayGoals = away,
             htHome = opt("ht_home"),
@@ -656,7 +659,10 @@ class Analyst(private val apiKey: String) {
         match: MatchPrediction,
         turns: List<Turn>,
         model: String = DEFAULT_MODEL,
-    ): String {
+    ): String = withContext(Dispatchers.IO) {
+        // A match with a result gets a post-mortem; one without gets a second
+        // opinion that can still change the bet. Same conversation, different job.
+        val played = match.result.isNotBlank()
         val contents = JSONArray()
         val opening = JSONObject().put("role", "user").put(
             "parts",
@@ -664,7 +670,7 @@ class Analyst(private val apiKey: String) {
                 JSONObject().put(
                     "text",
                     Debrief.matchBrief(match) + "\n\n" +
-                        if (turns.isEmpty()) Debrief.opening()
+                        if (turns.isEmpty()) Debrief.opening(played)
                         else "Lanjutkan pembahasannya."
                 )
             )
@@ -684,7 +690,7 @@ class Analyst(private val apiKey: String) {
                 "systemInstruction",
                 JSONObject().put(
                     "parts",
-                    JSONArray().put(JSONObject().put("text", Debrief.systemPrompt()))
+                    JSONArray().put(JSONObject().put("text", Debrief.systemPrompt(played)))
                 )
             )
             .put(
@@ -704,7 +710,7 @@ class Analyst(private val apiKey: String) {
             }
             .trim()
         if (reply.isBlank()) throw AnalystException("Balasannya kosong. Coba lagi.")
-        return reply
+        reply
     }
 
     /** Condenses a finished conversation into one rule to carry forward. */
@@ -712,7 +718,7 @@ class Analyst(private val apiKey: String) {
         match: MatchPrediction,
         turns: List<Turn>,
         model: String = DEFAULT_MODEL,
-    ): String {
+    ): String = withContext(Dispatchers.IO) {
         val transcript = turns.joinToString("\n\n") {
             (if (it.fromUser) "PENGGUNA: " else "ANALIS: ") + it.text
         }
@@ -726,7 +732,7 @@ class Analyst(private val apiKey: String) {
                             JSONObject().put(
                                 "text",
                                 Debrief.matchBrief(match) + "\n\nPEMBAHASAN:\n" + transcript +
-                                    "\n\n" + Debrief.summaryInstruction()
+                                    "\n\n" + Debrief.summaryInstruction(match.result.isNotBlank())
                             )
                         )
                     )
@@ -737,7 +743,7 @@ class Analyst(private val apiKey: String) {
                 JSONObject().put("temperature", 0.2).put("maxOutputTokens", 512)
                     .put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
             )
-        return runCatching { post(model, body.toString()) }
+        runCatching { post(model, body.toString()) }
             .getOrElse {
                 val relaxed = JSONObject(body.toString()).also { retry ->
                     retry.getJSONObject("generationConfig").remove("thinkingConfig")

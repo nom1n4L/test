@@ -871,6 +871,30 @@ private fun ResultCard(
     history: List<MatchPrediction> = emptyList(),
 ) {
     if (match.result.isBlank()) {
+        // Before the match the conversation is worth more, not less: an answer here
+        // can still change the bet, where a post-mortem can only change the next one.
+        Card(accent = Violet, title = "Bahas Dulu Sebelum Pasang") {
+            Text(
+                "Analisnya tahu statistik yang kamu kirim, tapi tidak tahu susunan " +
+                    "pemain, cedera, atau motivasi. Itu justru yang paling bisa " +
+                    "mengubah pilihannya — dan cuma kamu yang tahu.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = onTalk,
+                colors = ButtonDefaults.buttonColors(containerColor = Violet),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    if (match.debrief.isEmpty()) "Bahas laga ini dengan analis"
+                    else "Lanjutkan pembahasan (${match.debrief.size} pesan)",
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+
         Card(
             accent = Green,
             title = "Sudah Selesai Mainnya?",
@@ -983,12 +1007,26 @@ fun TalkScreen(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                Card(accent = Violet, title = match.title, subtitle = match.result) {
+                val played = match.result.isNotBlank()
+                Card(
+                    accent = Violet,
+                    title = match.title,
+                    subtitle = if (played) match.result
+                    else "Belum main · rekomendasi sekarang: ${match.pick} (${match.pickPercent}%)",
+                ) {
                     Text(
-                        "Analis ini cuma tahu statistik yang dulu kamu kirim dan skor " +
-                            "akhirnya. Dia TIDAK tahu klasemen, susunan pemain, kartu merah, " +
-                            "atau cuaca — kalau butuh, dia akan bertanya. Jawabanmu itulah " +
-                            "yang bikin pembahasannya berguna.",
+                        if (played) {
+                            "Analis ini cuma tahu statistik yang dulu kamu kirim dan skor " +
+                                "akhirnya. Dia TIDAK tahu klasemen, susunan pemain, kartu " +
+                                "merah, atau cuaca — kalau butuh, dia akan bertanya. " +
+                                "Jawabanmu itulah yang bikin pembahasannya berguna."
+                        } else {
+                            "Laga ini belum main, jadi jawabanmu masih bisa mengubah " +
+                                "pilihannya. Analisnya TIDAK tahu susunan pemain, cedera, " +
+                                "suspensi, atau motivasi — dia akan bertanya, dan kalau " +
+                                "jawabanmu mengubah keputusannya, dia harus bilang " +
+                                "pindah ke market apa."
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1001,7 +1039,12 @@ fun TalkScreen(
                         onClick = { onSay("") },
                         colors = ButtonDefaults.buttonColors(containerColor = Green),
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Minta analisnya membedah laga ini") }
+                    ) {
+                        Text(
+                            if (match.result.isNotBlank()) "Minta analisnya membedah laga ini"
+                            else "Minta analisnya menguji bacaan ini"
+                        )
+                    }
                 }
             }
 
