@@ -7789,7 +7789,7 @@ HSPLa/a;->p(III)I
 HSPLa/a;->L(LN1/d;)LN1/b;
 HSPLa/a;->O(II)LN1/d;
 HSPLK1/a;->M(C)Z
-HSPLA1/f;-><init>(Ljava/util/regex/Matcher;Ljava/lang/String;)V
+HSPLA1/f;-><init>(Ljava/util/regex/Matcher;Ljava/lang/CharSequence;)V
 HSPLA1/f;->o()LN1/d;
 LQ1/e;
 HSPLQ1/e;-><init>(Ljava/lang/String;)V

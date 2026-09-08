@@ -94,6 +94,101 @@ object Repeat {
     data class Outcome2(val match: MatchPrediction, val note: String)
 
     /**
+     * What two readings of the same unplayed fixture agree on.
+     *
+     * A second reading is not a contradiction of the first, and treating it as one
+     * is a mistake the app was inviting: two analyses came back recommending Under
+     * 2.5 and 1X, and the user asked which was correct. Neither and both — 1-0
+     * settles them both, they are different bets from the same reading, and the
+     * recommendation moved only because two near-tied markets swapped places.
+     *
+     * What a repeat reading actually provides is a second opinion on the same
+     * evidence. Markets both readings put in the safe band survived being read
+     * twice; a market only one reading liked did not. The agreement is ranked by
+     * the LOWER of the two probabilities, because if two readings of the same match
+     * disagree about a number, the pessimistic one is the one that has not yet been
+     * contradicted.
+     */
+    fun consensus(
+        match: MatchPrediction,
+        priors: List<MatchPrediction>,
+        floor: Double,
+    ): List<Pair<String, Double>> {
+        val prior = priors.lastOrNull() ?: return emptyList()
+        val mine = match.markets.filter { it.inBand(floor) }.associate { it.name to it.prob }
+        val theirs = prior.markets.associate { it.name to it.prob }
+        return mine.mapNotNull { (name, p) ->
+            val other = theirs[name] ?: return@mapNotNull null
+            if (other < floor) null else name to minOf(p, other)
+        }.sortedByDescending { it.second }
+    }
+
+    /**
+     * Whether two recommendations cannot both win.
+     *
+     * Under 2.5 and 1X can both land on 1-0, so two readings picking those is not a
+     * disagreement at all. Over 2.5 and Under 2.5 cannot, and neither can Tuan rumah
+     * menang and X2 — that is the app contradicting itself about the same match, and
+     * it is the one case here worth alarming about.
+     */
+    internal fun contradicts(a: String, b: String): Boolean {
+        if (a == b) return false
+        val ou = Regex("""^(.*)(Over|Under) ([\d.]+)$""")
+        val x = ou.find(a)
+        val y = ou.find(b)
+        if (x != null && y != null) {
+            // Same counter, same line, opposite side.
+            return x.groupValues[1] == y.groupValues[1] &&
+                x.groupValues[3] == y.groupValues[3] &&
+                x.groupValues[2] != y.groupValues[2]
+        }
+        val opposites = setOf(
+            setOf("Tuan rumah menang", "X2 (seri atau tandang)"),
+            setOf("Tandang menang", "1X (tuan rumah atau seri)"),
+            setOf("Seri", "12 (tidak seri)"),
+            setOf("Kedua tim cetak gol (BTTS) - Ya", "Kedua tim cetak gol (BTTS) - Tidak"),
+        )
+        return setOf(a, b) in opposites
+    }
+
+    /** How the two readings compare, in words, for a fixture not yet played. */
+    private fun secondOpinion(
+        match: MatchPrediction,
+        priors: List<MatchPrediction>,
+        floor: Double,
+    ): String {
+        val prior = priors.lastOrNull() ?: return ""
+        val agreed = consensus(match, priors, floor)
+        return buildString {
+            append("\n\nBacaan sebelumnya merekomendasikan \"${prior.pick}\" (${prior.pickPercent}%), ")
+            append("yang sekarang \"${match.pick}\" (${match.pickPercent}%). ")
+            if (prior.pick == match.pick) {
+                append("Sama — dua bacaan terpisah sampai ke market yang sama, dan itu " +
+                    "tanda paling kuat yang bisa diberikan aplikasi ini.")
+            } else if (contradicts(prior.pick, match.pick)) {
+                append("BERTENTANGAN — dua market ini tidak mungkin sama-sama tembus. " +
+                    "Berarti bacaan aplikasinya atas laga ini memang belum stabil, " +
+                    "bukan sekadar dua sudut pandang. Jangan pasang salah satunya " +
+                    "sebelum kamu punya data lebih baik.")
+            } else {
+                append("Beda, tapi TIDAK bertentangan: dua market ini bisa sama-sama " +
+                    "tembus di satu skor yang sama. Bukan berarti salah satu salah.")
+            }
+            if (agreed.isEmpty()) {
+                append("\n\nTidak ada satu pun market yang masuk rentang aman di KEDUA " +
+                    "bacaan. Itu sendiri sebuah jawaban: bacaannya belum stabil, jadi " +
+                    "jangan dipasang besar.")
+            } else {
+                append("\n\n${agreed.size} market masuk rentang aman di kedua bacaan — ")
+                append("ini yang paling layak dipercaya, karena bertahan dibaca dua kali:\n")
+                agreed.take(5).forEach { (name, p) ->
+                    append("• $name (paling rendah dari dua bacaan: ${(p * 100).toInt()}%)\n")
+                }
+            }
+        }
+    }
+
+    /**
      * Applies what is already known about this fixture.
      *
      * Two things happen, and only the second changes a number:
@@ -129,7 +224,9 @@ object Repeat {
         }
 
         if (match.pick !in lost) {
-            val tail = if (score.isBlank()) "" else
+            // Two readings of a match that has not been played are a second opinion,
+            // not a contradiction. Where the result IS known, no opinion is needed.
+            val tail = if (score.isBlank()) secondOpinion(match, priors, floor) else
                 " Kalau kamu cuma mau melihat ulang analisisnya, tidak apa-apa — tapi " +
                     "angka-angka di bawah ini menghitung peluang untuk sesuatu yang sudah terjadi."
             return Outcome2(match.copy(repeatNote = head + tail), head)

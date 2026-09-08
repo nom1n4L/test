@@ -2055,6 +2055,66 @@ class CoreTest {
         assert(out.match.pick == "Under 3.5") { "mengarang pengganti padahal tidak ada" }
     }
 
+    /**
+     * Two readings of the same unplayed match picked Under 2.5 and 1X, and the user
+     * asked which was correct. Neither: 1-0 settles them both. Only a pair that
+     * cannot both win is a real contradiction, and that is the one worth alarming on.
+     */
+    @Test
+    fun onlyGenuinelyOpposedPicksCountAsAContradiction() {
+        assert(!Repeat.contradicts("Under 2.5", "1X (tuan rumah atau seri)")) {
+            "dua market yang bisa sama-sama tembus dianggap bertentangan"
+        }
+        assert(!Repeat.contradicts("Over 1.5", "Under 3.5")) { "garis berbeda bukan lawan" }
+        assert(!Repeat.contradicts("Under 2.5", "Under 2.5"))
+
+        assert(Repeat.contradicts("Over 2.5", "Under 2.5")) { "lawan sungguhan tidak terdeteksi" }
+        assert(Repeat.contradicts("Babak 1 Over 1.5", "Babak 1 Under 1.5"))
+        assert(Repeat.contradicts("Tuan rumah menang", "X2 (seri atau tandang)"))
+        assert(Repeat.contradicts("Seri", "12 (tidak seri)"))
+        // Different counters at the same line are not opposites.
+        assert(!Repeat.contradicts("Babak 1 Over 1.5", "Over 1.5"))
+    }
+
+    /** For an unplayed repeat, the note compares the readings instead of overriding. */
+    @Test
+    fun aSecondReadingIsPresentedAsASecondOpinion() {
+        val markets = listOf(
+            MarketOption("Under 2.5", 0.76, "w", "Total Gol"),
+            MarketOption("1X (tuan rumah atau seri)", 0.77, "w", "Double Chance"),
+            MarketOption("Over 1.5", 0.71, "w", "Total Gol"),
+        )
+        fun reading(id: String, pick: String, probs: List<Double>) = MatchPrediction(
+            id = id, home = "Incheon United", away = "Bucheon 1995", league = "K League 1",
+            readable = true, problem = "", statsSeen = emptyList(), statsMissing = emptyList(),
+            probHome = 0.45, probDraw = 0.30, probAway = 0.25, xgHome = 1.2, xgAway = 0.9,
+            markets = markets.mapIndexed { i, m -> m.copy(prob = probs[i]) },
+            pick = pick, pickProb = 0.77, confidence = "sedang", confidenceWhy = "",
+        )
+        val first = reading("a", "Under 2.5", listOf(0.76, 0.70, 0.71))
+        // Over 1.5 falls below the 0.68 floor on the second reading, so it is not
+        // something both readings stand behind.
+        val second = reading("b", "1X (tuan rumah atau seri)", listOf(0.72, 0.77, 0.62))
+
+        val out = Repeat.apply(second, listOf(first), 0.68)
+        // Neither pick is overridden: the match has not been played, so there is no
+        // fact to outrank either reading.
+        assert(out.match.pick == "1X (tuan rumah atau seri)") { "rekomendasi diubah tanpa dasar" }
+        assert(out.match.repeatNote.contains("TIDAK bertentangan")) {
+            "dua market yang cocok bareng dibilang bertentangan:\n${out.match.repeatNote}"
+        }
+        // And the agreement is what gets surfaced, at the lower of the two readings.
+        val agreed = Repeat.consensus(second, listOf(first), 0.68)
+        assert(agreed.map { it.first }.containsAll(listOf("Under 2.5", "1X (tuan rumah atau seri)")))
+        assert(agreed.first { it.first == "Under 2.5" }.second == 0.72) {
+            "tidak memakai angka yang lebih rendah dari dua bacaan"
+        }
+        assert(agreed.none { it.first == "Over 1.5" }) {
+            "market yang cuma lolos di satu bacaan ikut dianggap sepakat"
+        }
+        println(out.match.repeatNote.lines().filter { it.isNotBlank() }.take(3).joinToString(" "))
+    }
+
     // ------------------------------------------------ menilai hasil sendiri
 
     private fun full(xgH: Double = 1.4, xgA: Double = 1.2) = MatchPrediction(

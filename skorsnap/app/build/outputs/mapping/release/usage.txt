@@ -52177,7 +52177,6 @@ com.skorsnap.app.data.MatchPrediction:
     public static java.lang.String getPick()
     public static double getPickBreakEven()
     public static boolean getPickCorrected()
-    public final int getPickPercent()
     public static double getPickProb()
     public static java.util.Map getPrices()
     public static double getProbAway()
@@ -52305,9 +52304,12 @@ com.skorsnap.app.data.Repeat$Outcome2:
 com.skorsnap.app.data.Repeat:
     public static final int $stable
     public static final com.skorsnap.app.data.Repeat INSTANCE
+    public static java.util.List consensus()
+    public static boolean contradicts$app_release()
     public static java.lang.String knownScore()
     public static java.util.List priors()
     public static boolean sameFixture()
+    public static java.lang.String secondOpinion()
     public static java.util.Map settledMarkets()
 com.skorsnap.app.data.Report:
     public static final int $stable
