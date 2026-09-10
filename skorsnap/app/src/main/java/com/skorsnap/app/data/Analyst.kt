@@ -97,9 +97,19 @@ class Analyst(private val apiKey: String) {
         previous: MatchPrediction? = null,
         appetite: Appetite = Appetite.SAFE,
         stats: String = "",
+        /**
+         * Bookmaker screens, kept apart from the statistics screens.
+         *
+         * They used to be mixed in with everything else and the model had to work
+         * out for itself which picture was a coupon — which it did unevenly, and a
+         * coupon it did not recognise as a coupon had its prices silently dropped.
+         * Sent separately, under their own heading, there is nothing left to guess.
+         */
+        oddsImages: List<ByteArray> = emptyList(),
+        minOdds: Double = Value.NO_MINIMUM,
     ): MatchPrediction = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) throw AnalystException("Kunci Gemini belum diisi.")
-        if (images.isEmpty() && stats.isBlank()) {
+        if (images.isEmpty() && stats.isBlank() && oddsImages.isEmpty()) {
             throw AnalystException("Belum ada gambar atau statistik.")
         }
 
@@ -119,6 +129,24 @@ class Analyst(private val apiKey: String) {
                         .put("data", Base64.getEncoder().encodeToString(bytes))
                 )
             )
+        }
+        // After the statistics and before the instructions, with a heading of their
+        // own. Order matters to a vision model: these say "stop reading team form,
+        // start reading prices", and without that the coupon's numbers get mistaken
+        // for statistics — a 2.05 read as a goal average rather than a payout.
+        if (oddsImages.isNotEmpty()) {
+            parts.put(JSONObject().put("text", ODDS_IMAGE_HEADING))
+            for (bytes in oddsImages.flatMap { Images.forUpload(it) }) {
+                parts.put(
+                    JSONObject().put(
+                        "inline_data",
+                        JSONObject()
+                            .put("mime_type", mimeTypeOf(bytes))
+                            .put("data", Base64.getEncoder().encodeToString(bytes))
+                    )
+                )
+            }
+            parts.put(JSONObject().put("text", ODDS_IMAGE_RULE))
         }
         parts.put(JSONObject().put("text", userPrompt(note, mode)))
         parts.put(JSONObject().put("text", appetiteNote(appetite)))
@@ -210,7 +238,7 @@ class Analyst(private val apiKey: String) {
                 ).trim()
         )
         enforceSafePick(
-            Value.apply(Grid.fill(Devig.blend(noted)), appetite.floor),
+            Value.apply(Grid.fill(Devig.blend(noted)), appetite.floor, minOdds),
             appetite.floor,
         )
     }
@@ -872,6 +900,37 @@ Aturan pengisian:
          * Room for the answer, generous because thinking is drawn from the same
          * pot and a screenshot full of tables gives the model a lot to think about.
          */
+        /**
+         * Announces the bookmaker screens, so they are read as prices.
+         *
+         * Kept blunt on purpose. The failure it replaces was subtle: a coupon that
+         * the model treated as one more statistics screen, whose "2,05" became a
+         * goal average instead of a payout, quietly poisoning the reading it was
+         * supposed to sharpen.
+         */
+        internal const val ODDS_IMAGE_HEADING = """
+=== GAMBAR DI BAWAH INI ADALAH LAYAR HARGA BANDAR (Melbet/1xBet/sejenisnya) ===
+Semua angka di gambar-gambar berikut adalah HARGA PASANG (odds), bukan statistik.
+Jangan sekali-kali memakainya sebagai rata-rata gol, jumlah corner, atau angka
+performa tim. Layar ini cuma memberitahu berapa bayaran bandar untuk tiap market.
+"""
+
+        /** What to do with them, said after they have been seen. */
+        internal const val ODDS_IMAGE_RULE = """
+=== SELESAI LAYAR HARGA ===
+Dari layar harga di atas: salin SETIAP baris market beserta harganya ke bagian
+"odds" di jawabanmu. Tulis "market" persis seperti nama market di daftar market
+yang diberikan, dan "price" sebagai angka (2,05 ditulis 2.05). Baris yang tidak
+cocok dengan satu pun nama di daftar, tetap salin apa adanya — aplikasinya yang
+akan mencocokkan, dan harga yang kamu buang tidak bisa dikembalikan lagi.
+
+Yang TIDAK boleh: memakai harga-harga ini untuk menggeser peluangmu sendiri.
+Peluangmu ditulis lebih dulu justru supaya bisa dibandingkan dengan harga bandar —
+kalau kamu menyalin bandar, perbandingannya jadi angka melawan dirinya sendiri dan
+tidak ada value yang bisa ditemukan. Baca statistiknya, putuskan peluangnya, baru
+salin harganya. Jangan mengarang harga yang tidak terlihat di gambar.
+"""
+
         internal const val MAX_OUTPUT_TOKENS = 49152
 
         /**

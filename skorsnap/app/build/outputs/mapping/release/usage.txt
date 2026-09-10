@@ -30383,6 +30383,8 @@ com.skorsnap.app.data.Analyst:
     private static final java.lang.String HOST
     public static final int MAX_OUTPUT_TOKENS
     public static final int MIN_MARKETS
+    public static final java.lang.String ODDS_IMAGE_HEADING
+    public static final java.lang.String ODDS_IMAGE_RULE
     public static final int SUMMARY_OUTPUT_TOKENS
     public static final int TEST_OUTPUT_TOKENS
     public static final int THINKING_BUDGET
@@ -30390,6 +30392,7 @@ com.skorsnap.app.data.Analyst:
     public static final synthetic java.lang.String access$getCORNER_1H_MARKETS$cp()
     public static final synthetic java.lang.String access$getCORNER_MARKETS$cp()
     public static final synthetic java.lang.String access$getMATCH_MARKETS$cp()
+    public static synthetic java.lang.Object analyse$default(com.skorsnap.app.data.Analyst,java.util.List,java.lang.String,java.lang.String,com.skorsnap.app.data.Mode,java.util.List,java.util.List,com.skorsnap.app.data.MatchPrediction,com.skorsnap.app.data.Appetite,java.lang.String,java.util.List,double,kotlin.coroutines.Continuation,int,java.lang.Object)
     public static synthetic java.lang.Object debrief$default(com.skorsnap.app.data.Analyst,com.skorsnap.app.data.MatchPrediction,java.util.List,java.lang.String,kotlin.coroutines.Continuation,int,java.lang.Object)
     public static synthetic com.skorsnap.app.data.MatchPrediction enforceSafePick$app_release$default(com.skorsnap.app.data.Analyst,com.skorsnap.app.data.MatchPrediction,double,int,java.lang.Object)
     public static synthetic java.lang.Object extract$default(com.skorsnap.app.data.Analyst,byte[],java.lang.String,kotlin.coroutines.Continuation,int,java.lang.Object)
@@ -30551,6 +30554,7 @@ com.skorsnap.app.data.MatchPrediction:
     public final java.lang.String component42()
     public final double component43()
     public final java.lang.String component44()
+    public final java.lang.String component45()
     public final boolean component5()
     public final java.lang.String component6()
     public final java.util.List component7()
@@ -30696,10 +30700,12 @@ com.skorsnap.app.data.Value$Priced:
     public final com.skorsnap.app.data.Value$Priced copy(com.skorsnap.app.data.MarketOption,double,double)
     public static synthetic com.skorsnap.app.data.Value$Priced copy$default(com.skorsnap.app.data.Value$Priced,com.skorsnap.app.data.MarketOption,double,double,int,java.lang.Object)
     public final int getEdgePercent()
-    public final double getPrice()
 com.skorsnap.app.data.Value:
     public static final int $stable
+    public static final double NO_MINIMUM
     public static final double TOO_GOOD
+    public static synthetic com.skorsnap.app.data.MatchPrediction apply$default(com.skorsnap.app.data.Value,com.skorsnap.app.data.MatchPrediction,double,double,int,java.lang.Object)
+    public static synthetic com.skorsnap.app.data.Value$Priced best$default(com.skorsnap.app.data.Value,com.skorsnap.app.data.MatchPrediction,double,double,int,java.lang.Object)
 com.skorsnap.app.ui.AppViewModel:
     public static final int MAX_FILE_BYTES
     public static synthetic void analyse$default(com.skorsnap.app.ui.AppViewModel,java.lang.String,java.lang.String,java.util.Set,int,java.lang.Object)
@@ -30707,6 +30713,7 @@ com.skorsnap.app.ui.AppViewModel:
     public static synthetic void attachCoupon$default(com.skorsnap.app.ui.AppViewModel,java.lang.String,java.lang.String,java.util.Set,int,java.lang.Object)
     public final void clearAll()
     public final void clearNotes()
+    public final void clearOddsShots()
     public final void clearStaged()
     public static synthetic void say$default(com.skorsnap.app.ui.AppViewModel,java.lang.String,java.lang.String,int,java.lang.Object)
     public final void setApiKey(java.lang.String)
@@ -30873,7 +30880,6 @@ kotlin.Triple:
     public final kotlin.Triple copy(java.lang.Object,java.lang.Object,java.lang.Object)
     public static synthetic kotlin.Triple copy$default(kotlin.Triple,java.lang.Object,java.lang.Object,java.lang.Object,int,java.lang.Object)
     public final java.lang.Object getFirst()
-    public final java.lang.Object getSecond()
     public final java.lang.Object getThird()
 kotlin.TuplesKt:
     public static final java.util.List toList(kotlin.Pair)
@@ -37982,7 +37988,6 @@ androidx.activity.compose.ActivityResultRegistryKt$rememberLauncherForActivityRe
     public final androidx.compose.runtime.DisposableEffectResult invoke()
 androidx.activity.compose.ActivityResultRegistryKt$rememberLauncherForActivityResult$key$1:
     public final java.lang.String invoke()
-androidx.activity.compose.ActivityResultRegistryKt
 androidx.activity.compose.BackHandlerKt$BackHandler$1$1:
     public final void invoke()
 androidx.activity.compose.BackHandlerKt$BackHandler$2$1:
@@ -38075,6 +38080,7 @@ androidx.activity.result.contract.ActivityResultContracts$PickMultipleVisualMedi
     public static final androidx.activity.result.contract.ActivityResultContracts$PickMultipleVisualMedia$Companion Companion
     public final int maxItems
     static void <clinit>()
+    public void <init>()
     public static android.content.Intent createIntent()
     public static androidx.activity.result.contract.ActivityResultContract$SynchronousResult getSynchronousResult()
     public static java.util.List parseResult()
@@ -39951,7 +39957,6 @@ androidx.compose.foundation.layout.Arrangement:
     public static androidx.compose.foundation.layout.Arrangement$Vertical getTop()
     public static androidx.compose.foundation.layout.Arrangement$SpacedAligned spacedBy-0680j_4(float)
 androidx.compose.foundation.layout.BoxChildDataElement:
-    public final androidx.compose.ui.BiasAlignment alignment
     public final kotlin.jvm.functions.Function1 inspectorInfo
     public final boolean matchParentSize
     public static androidx.compose.foundation.layout.BoxChildDataNode create()
@@ -39978,7 +39983,7 @@ androidx.compose.foundation.layout.BoxMeasurePolicy$measure$2:
 androidx.compose.foundation.layout.BoxMeasurePolicy$measure$5:
     public final void invoke$3()
 androidx.compose.foundation.layout.BoxScope:
-    public abstract androidx.compose.ui.Modifier align()
+    public abstract androidx.compose.ui.Modifier align(androidx.compose.ui.BiasAlignment)
 androidx.compose.foundation.layout.BoxScopeInstance$align$$inlined$debugInspectorInfo$1$$InternalSyntheticThrowCCEIfNotNull$18$d41970bc58c64b789f0763f561ca87acd15ffd7164739ebe67a91a03975a48a8$0
 androidx.compose.foundation.layout.BoxScopeInstance$align$$inlined$debugInspectorInfo$1
 androidx.compose.foundation.layout.ColumnMeasurePolicy$placeHelper$1$1:
@@ -42331,7 +42336,7 @@ androidx.compose.material3.CheckboxKt:
     public static final synthetic float access$getStrokeWidth$p()
 androidx.compose.material3.ColorScheme:
     static void <clinit>()
-    public static long getBackground-0d7_KjU()
+    public final long getBackground-0d7_KjU()
     public static androidx.compose.material3.ButtonColors getDefaultButtonColorsCached$material3_release()
     public static androidx.compose.material3.CheckboxColors getDefaultCheckboxColorsCached$material3_release()
     public static androidx.compose.material3.IconButtonColors getDefaultIconButtonColorsCached$material3_release()
@@ -42371,7 +42376,7 @@ androidx.compose.material3.ColorScheme:
     public static long getSurfaceContainerLowest-0d7_KjU()
     public static long getSurfaceDim-0d7_KjU()
     public static long getSurfaceTint-0d7_KjU()
-    public static long getSurfaceVariant-0d7_KjU()
+    public final long getSurfaceVariant-0d7_KjU()
     public static long getTertiary-0d7_KjU()
     public static long getTertiaryContainer-0d7_KjU()
     public static void setDefaultButtonColorsCached$material3_release()
@@ -43497,7 +43502,6 @@ androidx.compose.runtime.ComposableSingletons$CompositionKt:
     public static kotlin.jvm.functions.Function2 getLambda-1$runtime_release()
     public static kotlin.jvm.functions.Function2 getLambda-2$runtime_release()
 androidx.compose.runtime.ComposablesKt:
-    public static final int getCurrentCompositeKeyHash(androidx.compose.runtime.Composer)
     public static final androidx.compose.runtime.RecomposeScopeImpl getCurrentRecomposeScope(androidx.compose.runtime.Composer)
     public static final void invalidApplier()
 androidx.compose.runtime.ComposeRuntimeError:
@@ -43581,7 +43585,6 @@ androidx.compose.runtime.ComposerImpl:
     static void <clinit>()
     public static void addRecomposeScope()
     public final androidx.compose.runtime.CompositionContext buildContext()
-    public final boolean changed(double)
     public static void changesApplied$runtime_release()
     public static void clearUpdatedNodeCounts()
     public final void collectParameterInformation()
@@ -43607,7 +43610,6 @@ androidx.compose.runtime.ComposerImpl:
     public static androidx.compose.runtime.ControlledComposition getComposition()
     public final androidx.compose.runtime.tooling.CompositionData getCompositionData()
     public final int getCompoundKeyHash()
-    public final androidx.compose.runtime.PersistentCompositionLocalMap getCurrentCompositionLocalMap()
     public static androidx.compose.runtime.changelist.ChangeList getDeferredChanges$runtime_release()
     public static java.lang.Object getNode()
     public static androidx.compose.runtime.SlotReader getReader$runtime_release()
@@ -47712,10 +47714,6 @@ androidx.compose.ui.node.ComposeUiNode$Companion:
     public static final kotlin.jvm.functions.Function2 SetLayoutDirection
     public static final kotlin.jvm.functions.Function2 SetViewConfiguration
     public static final kotlin.jvm.functions.Function0 VirtualConstructor
-    public static androidx.compose.ui.node.LayoutNode$Companion$Constructor$1 getConstructor()
-    public static androidx.compose.ui.node.ComposeUiNode$Companion$SetCompositeKeyHash$1 getSetCompositeKeyHash()
-    public static androidx.compose.ui.node.ComposeUiNode$Companion$SetMeasurePolicy$1 getSetMeasurePolicy()
-    public static androidx.compose.ui.node.ComposeUiNode$Companion$SetResolvedCompositionLocals$1 getSetResolvedCompositionLocals()
 androidx.compose.ui.node.ComposeUiNode:
     public abstract void setCompositeKeyHash()
     public abstract void setCompositionLocalMap()
@@ -52051,7 +52049,7 @@ com.skorsnap.app.data.Analyst:
     public static final com.skorsnap.app.data.Analyst$Companion Companion
     public static final java.lang.String RESULT_PROMPT
     public static final synthetic java.lang.String access$getRESULT_PROMPT$cp()
-    public final java.lang.Object analyse(java.util.List,java.lang.String,java.lang.String,com.skorsnap.app.data.Mode,java.util.List,java.util.List,com.skorsnap.app.data.MatchPrediction,com.skorsnap.app.data.Appetite,java.lang.String,kotlin.coroutines.jvm.internal.SuspendLambda)
+    public final java.lang.Object analyse(java.util.List,java.lang.String,java.lang.String,com.skorsnap.app.data.Mode,java.util.List,java.util.List,com.skorsnap.app.data.MatchPrediction,com.skorsnap.app.data.Appetite,java.lang.String,java.util.List,double,kotlin.coroutines.jvm.internal.SuspendLambda)
     public static java.lang.String appetiteNote()
     public static java.lang.Object debrief()
     public static com.skorsnap.app.data.MatchPrediction enforceSafePick$app_release()
@@ -52241,6 +52239,7 @@ com.skorsnap.app.data.MatchPrediction:
     public static java.util.Map getMarketOutcomes()
     public static java.util.List getMarkets()
     public static java.lang.String getModel()
+    public static java.lang.String getOddsNote()
     public static boolean getOffline()
     public static java.lang.String getPick()
     public static double getPickBreakEven()
@@ -52450,6 +52449,7 @@ com.skorsnap.app.data.Store:
     public static void setApiKey()
     public static void setAppetite()
     public static void setFootballKey()
+    public static void setMinOdds()
     public final void setModel(java.lang.String)
     public static org.json.JSONObject toJson()
 com.skorsnap.app.data.Strategy:
@@ -52469,13 +52469,15 @@ com.skorsnap.app.data.Value$Priced:
     static void <clinit>()
     public static double getEdge()
     public static com.skorsnap.app.data.MarketOption getOption()
+    public static double getPrice()
 com.skorsnap.app.data.Value:
     public static final com.skorsnap.app.data.Value INSTANCE
     static void <clinit>()
-    public static java.util.List ranked()
+    public static com.skorsnap.app.data.Value$Priced bestPriceInBand()
+    public static java.lang.String shortfall()
 com.skorsnap.app.ui.AppKt$$InternalSyntheticLambda$2$e7f860ff26cc650027713db7c9cc6dc208e339d81e5a196fd42a0985914b183b$0
 com.skorsnap.app.ui.AppKt$$InternalSyntheticLambda$2$e7f860ff26cc650027713db7c9cc6dc208e339d81e5a196fd42a0985914b183b$1
-com.skorsnap.app.ui.AppKt$$InternalSyntheticLambda$2$e7f860ff26cc650027713db7c9cc6dc208e339d81e5a196fd42a0985914b183b$4:
+com.skorsnap.app.ui.AppKt$$InternalSyntheticLambda$2$e7f860ff26cc650027713db7c9cc6dc208e339d81e5a196fd42a0985914b183b$5:
     public final synthetic int f$4
 com.skorsnap.app.ui.AppKt$App$3$1:
     public final java.lang.Object invoke$4()
@@ -52485,42 +52487,46 @@ com.skorsnap.app.ui.AppKt$App$6:
     public final void invoke$2()
 com.skorsnap.app.ui.AppKt$App$7:
     public final void invoke$2()
-com.skorsnap.app.ui.AppKt$App$8$$InternalSyntheticLambda$3$65a914a4a24c878f7ee45232afaf28e88894bf962aceb5d3ac38cce804386391$11:
+com.skorsnap.app.ui.AppKt$App$8$$InternalSyntheticLambda$3$65a914a4a24c878f7ee45232afaf28e88894bf962aceb5d3ac38cce804386391$13:
     public final synthetic com.skorsnap.app.data.MatchPrediction f$2
 com.skorsnap.app.ui.AppKt$App$8$1$10$1:
-    public final void invoke$79()
+    public static void invoke$79()
 com.skorsnap.app.ui.AppKt$App$8$1$11$1:
-    public static void invoke$80()
+    public final void invoke$80()
 com.skorsnap.app.ui.AppKt$App$8$1$12$1:
-    public final void invoke$79()
+    public final void invoke$80()
 com.skorsnap.app.ui.AppKt$App$8$1$16$1:
-    public final void invoke$79()
-com.skorsnap.app.ui.AppKt$App$8$1$29$1:
-    public static void invoke$81()
+    public final void invoke$80()
+com.skorsnap.app.ui.AppKt$App$8$1$17$1:
+    public final void invoke$80()
 com.skorsnap.app.ui.AppKt$App$8$1$3$1:
-    public final void invoke$82()
-com.skorsnap.app.ui.AppKt$App$8$1$30$1:
-    public final void invoke$83()
-com.skorsnap.app.ui.AppKt$App$8$1$31$1:
-    public static void invoke$84()
-com.skorsnap.app.ui.AppKt$App$8$1$32$1:
-    public static void invoke$85()
+    public final void invoke$81()
 com.skorsnap.app.ui.AppKt$App$8$1$33$1:
+    public static void invoke$82()
+com.skorsnap.app.ui.AppKt$App$8$1$34$1:
     public final void invoke$83()
+com.skorsnap.app.ui.AppKt$App$8$1$35$1:
+    public static void invoke$84()
+com.skorsnap.app.ui.AppKt$App$8$1$36$1:
+    public static void invoke$85()
 com.skorsnap.app.ui.AppKt$App$8$1$37$1:
-    public final void invoke$82()
-com.skorsnap.app.ui.AppKt$App$8$1$39$1:
-    public final void invoke$79()
+    public final void invoke$83()
+com.skorsnap.app.ui.AppKt$App$8$1$41$1:
+    public final void invoke$81()
 com.skorsnap.app.ui.AppKt$App$8$1$43$1:
+    public final void invoke$80()
+com.skorsnap.app.ui.AppKt$App$8$1$47$1:
     public static void invoke$86()
-com.skorsnap.app.ui.AppKt$App$8$1$44$1:
-    public final void invoke$82()
-com.skorsnap.app.ui.AppKt$App$8$1$46$1:
+com.skorsnap.app.ui.AppKt$App$8$1$48$1:
+    public final void invoke$81()
+com.skorsnap.app.ui.AppKt$App$8$1$50$1:
     public static void invoke$87()
-com.skorsnap.app.ui.AppKt$App$8$1$52$1:
-    public final void invoke$79()
+com.skorsnap.app.ui.AppKt$App$8$1$56$1:
+    public final void invoke$80()
 com.skorsnap.app.ui.AppKt$App$8$1$8$1:
     public static void invoke$88()
+com.skorsnap.app.ui.AppKt$App$8$1$9$1:
+    public final void invoke$80()
 com.skorsnap.app.ui.AppKt$App$8:
     public static void invoke$89()
 com.skorsnap.app.ui.AppKt$BottomBar$2$1$2$1$1:
@@ -52546,6 +52552,8 @@ com.skorsnap.app.ui.AppKt:
     public static final kotlin.Unit App$lambda$3$lambda$2()
     public static final com.skorsnap.app.data.Appetite access$App$lambda$14(androidx.compose.runtime.MutableState)
     public static final com.skorsnap.app.data.Mode access$App$lambda$24(androidx.compose.runtime.MutableState)
+    public static final java.util.List access$App$lambda$25(androidx.compose.runtime.MutableState)
+    public static final double access$App$lambda$26(androidx.compose.runtime.MutableState)
     public static final java.util.List access$App$lambda$6(androidx.compose.runtime.MutableState)
     public static final boolean access$App$lambda$7(androidx.compose.runtime.MutableState)
     public static final java.util.Set access$App$lambda$9(androidx.compose.runtime.MutableState)
@@ -52562,6 +52570,11 @@ com.skorsnap.app.ui.AppViewModel$loadFixtures$1:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$loadModels$1:
     public final java.lang.Object invoke$4()
+com.skorsnap.app.ui.AppViewModel$readImages$1$read$1:
+    public int label
+    public final java.lang.Object invoke$4()
+com.skorsnap.app.ui.AppViewModel$readImages$1:
+    public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$readResult$1:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$reanalyse$1:
@@ -52571,11 +52584,6 @@ com.skorsnap.app.ui.AppViewModel$saveAndCheckFootballKey$1:
 com.skorsnap.app.ui.AppViewModel$say$2:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$settleDebrief$1:
-    public final java.lang.Object invoke$4()
-com.skorsnap.app.ui.AppViewModel$stage$1$read$1:
-    public int label
-    public final java.lang.Object invoke$4()
-com.skorsnap.app.ui.AppViewModel$stage$1:
     public final java.lang.Object invoke$4()
 com.skorsnap.app.ui.AppViewModel$testModel$1:
     public final java.lang.Object invoke$4()
@@ -52606,12 +52614,14 @@ com.skorsnap.app.ui.AppViewModel:
     public static kotlinx.coroutines.flow.StateFlow getLegOdds()
     public static kotlinx.coroutines.flow.StateFlow getMatches()
     public static kotlinx.coroutines.flow.StateFlow getMessage()
+    public static kotlinx.coroutines.flow.StateFlow getMinOdds()
     public static kotlinx.coroutines.flow.StateFlow getMode()
     public static kotlinx.coroutines.flow.StateFlow getModelReport()
     public static kotlinx.coroutines.flow.StateFlow getModels()
     public static kotlinx.coroutines.flow.StateFlow getModelsBusy()
     public static kotlinx.coroutines.flow.StateFlow getNotes()
     public static kotlinx.coroutines.flow.StateFlow getOddsReport()
+    public static kotlinx.coroutines.flow.StateFlow getOddsShots()
     public static kotlinx.coroutines.flow.StateFlow getScreen()
     public static kotlinx.coroutines.flow.StateFlow getSelected()
     public static kotlinx.coroutines.flow.StateFlow getSlips()
@@ -52625,6 +52635,7 @@ com.skorsnap.app.ui.AppViewModel:
     public static java.util.List marks()
     public static com.skorsnap.app.data.MatchPrediction matchOf()
     public static java.lang.String nothingSwapped()
+    public final void readImages(java.util.List,kotlin.jvm.functions.Function1)
     public static void readResult()
     public static void reanalyse()
     public static void remove()
@@ -52636,11 +52647,13 @@ com.skorsnap.app.ui.AppViewModel:
     public static void setAppetite()
     public static void setBacked()
     public static void setLegOdds()
+    public static void setMinOdds()
     public static void setMode()
     public final void setModel(java.lang.String)
     public static void setStrategy()
     public static void settleDebrief()
     public static void stage()
+    public static void stageOdds()
     public static void takeBestPriced()
     public static void testModel()
     public static java.lang.String today()
@@ -52658,7 +52671,7 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-1$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-10$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-11$1:
-    public final void invoke$2()
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-12$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-13$1:
@@ -52666,21 +52679,21 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-13$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-14$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-15$1:
-    public final void invoke$40()
+    public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-16$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-17$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-18$1:
-    public final void invoke$91()
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-19$1:
-    public final void invoke$2()
+    public final void invoke$91()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-2$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-20$1:
-    public final void invoke$40()
-com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-21$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-21$1:
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-22$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-23$1:
@@ -52688,11 +52701,11 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-23$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-24$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-25$1:
-    public final void invoke$40()
+    public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-26$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-27$1:
-    public final void invoke$2()
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-28$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-29$1:
@@ -52702,33 +52715,33 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-3$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-30$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-31$1:
-    public final void invoke$40()
-com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-32$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-32$1:
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-33$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-34$1:
-    public final void invoke$91()
-com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-35$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-35$1:
+    public final void invoke$91()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-36$1:
-    public final void invoke$40()
+    public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-37$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-38$1:
-    public final void invoke$2()
-com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-39$1:
     public final void invoke$40()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-39$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-4$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-40$1:
-    public final void invoke$2()
-com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-41$1:
     public final void invoke$40()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-41$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-42$1:
     public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-43$1:
-    public final void invoke$2()
+    public final void invoke$40()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-44$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-45$1:
@@ -52736,6 +52749,8 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-45$1:
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-46$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-47$1:
+    public final void invoke$2()
+com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-48$1:
     public final void invoke$91()
 com.skorsnap.app.ui.ComposableSingletons$ScreensKt$lambda-5$1:
     public final void invoke$91()
@@ -52751,46 +52766,47 @@ com.skorsnap.app.ui.ComposableSingletons$ScreensKt:
     public static final com.skorsnap.app.ui.ComposableSingletons$ScreensKt INSTANCE
     public static kotlin.jvm.functions.Function3 getLambda-1$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-10$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-11$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-11$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-12$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-13$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-14$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-15$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-15$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-16$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-17$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-18$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-19$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-19$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-2$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-20$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-21$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-20$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-21$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-22$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-23$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-24$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-25$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-25$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-26$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-27$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-27$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-28$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-29$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-3$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-30$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-31$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-32$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-31$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-32$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-33$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-34$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-35$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-36$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-34$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-35$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-36$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-37$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-38$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-39$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-38$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-39$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-4$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-40$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-41$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-40$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-41$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-42$app_release()
-    public static kotlin.jvm.functions.Function2 getLambda-43$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-43$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-44$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-45$app_release()
     public static kotlin.jvm.functions.Function2 getLambda-46$app_release()
-    public static kotlin.jvm.functions.Function3 getLambda-47$app_release()
+    public static kotlin.jvm.functions.Function2 getLambda-47$app_release()
+    public static kotlin.jvm.functions.Function3 getLambda-48$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-5$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-6$app_release()
     public static kotlin.jvm.functions.Function3 getLambda-7$app_release()
@@ -52811,8 +52827,10 @@ com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$008e14bfbf9e4257aefe6c3
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$008e14bfbf9e4257aefe6c3f1b374095771f9fdb813529bdfb06b988ea941c73$2
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$008e14bfbf9e4257aefe6c3f1b374095771f9fdb813529bdfb06b988ea941c73$4:
     public final synthetic int f$14
-com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$75f7b6c6cdd5b63c18e02b8baf5ff015c990eccd42c9d078cf30f85f9b3f30bb$2:
-    public final synthetic int f$16
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$e58b48cdf773d034cc3bcbe8a7e81dd4f1b85d1a9d7d0a3b6b4f396bba3636de$3
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$e58b48cdf773d034cc3bcbe8a7e81dd4f1b85d1a9d7d0a3b6b4f396bba3636de$4
+com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$4$ff2259136d84997f8432ddc79b2192b7582fd445d4a3722a0f88c4fa22c20945$2:
+    public final synthetic int f$17
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$5$c2570e3b6cb8370d3b27db4c2a4fed2d2a72e9e2ca5f6b5197f4eca30b323143$0
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$5$c2570e3b6cb8370d3b27db4c2a4fed2d2a72e9e2ca5f6b5197f4eca30b323143$1:
     public final synthetic int f$5
@@ -52822,28 +52840,32 @@ com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$7$033b8c63d92bdfcfe169e27
     public final synthetic int f$6
 com.skorsnap.app.ui.ScreensKt$$InternalSyntheticLambda$7$4d143c84d75891ae0dc232514831a3b8c1bee59991e799d22d31dadf2f85af6b$1:
     public final synthetic int f$5
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$10:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$11:
     public final void invoke$40()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$1:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$1:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$2$1$1$2:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$2$1$1$2:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$2$WhenMappings
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$2:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$2$WhenMappings
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$2:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$3$1$1:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$3$1$1:
     public final void invoke$40()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$3$1$3:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$3$1$3:
     public final void invoke$40()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$3$4:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$3$4:
     public final void invoke$40()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$3:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$3:
     public final synthetic androidx.compose.foundation.layout.ColumnScopeInstance $this_Column
     public final void invoke$2()
     public static final boolean invoke$lambda$7(androidx.compose.runtime.MutableState)
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$4$1$1:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$4$1$1:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$AddScreen$4$4:
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$4:
+    public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$6$1:
+    public final void invoke$40()
+com.skorsnap.app.ui.ScreensKt$AddScreen$6$6:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$BrowseScreen$1$1$1$1:
     public final void invoke$2()
@@ -52871,13 +52893,13 @@ com.skorsnap.app.ui.ScreensKt$BrowseScreen$1$1$7$1$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$BrowseScreen$1$1$7$1:
     public final void invoke$91()
-com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$193$lambda$192$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$193$lambda$192$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$208$lambda$207$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$208$lambda$207$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$193$lambda$192$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$193$lambda$192$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$208$lambda$207$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$208$lambda$207$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$193$lambda$192$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$BrowseScreen$lambda$208$lambda$207$$inlined$items$default$4:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$CalibrationCard$1:
     public final void invoke$2()
@@ -52896,23 +52918,27 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$1$1$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$1$1:
     public final void invoke$2()
-com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$10$1:
-    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$10:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$11:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$12$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$12:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$13:
     public final void invoke$91()
-com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$14$1:
-    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$14:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$15:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$16$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$16:
+    public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$17:
+    public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$18:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$1:
     public final void invoke$91()
@@ -52926,18 +52952,20 @@ com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$4:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$5:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$6$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$6:
     public final void invoke$91()
-com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$7$1:
-    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$7:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$8:
     public final void invoke$91()
+com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$9$1:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$DetailScreen$4$1$9:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$HistoryScreen$1$1$2$1$1:
-    public final void invoke$82()
+    public final void invoke$81()
 com.skorsnap.app.ui.ScreensKt$HistoryScreen$lambda$13$lambda$12$$inlined$items$default$1
 com.skorsnap.app.ui.ScreensKt$HistoryScreen$lambda$13$lambda$12$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
@@ -52996,6 +53024,8 @@ com.skorsnap.app.ui.ScreensKt$MatchRow$1$1$4$1:
 com.skorsnap.app.ui.ScreensKt$MatchRow$1$WhenMappings
 com.skorsnap.app.ui.ScreensKt$MatchRow$1:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$MinOddsPicker$1$1$2:
+    public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$OfflineScreen$1$6:
     public final void invoke$40()
 com.skorsnap.app.ui.ScreensKt$OneMarketCard$2$1$1:
@@ -53015,6 +53045,10 @@ com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1$2:
 com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1$3$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$PasteOddsCard$1:
+    public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$PriceCard$2$1$1$1:
+    public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$PriceCard$2:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReasoningCard$1:
     public final void invoke$2()
@@ -53072,21 +53106,21 @@ com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$9$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$ReportScreen$1$1$9:
     public final void invoke$91()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$2:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$4:
     public final void invoke$19()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$5
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$6:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$5
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$6:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$7:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$5 $contentType
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$7:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$5 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$292$lambda$291$$inlined$items$default$8:
+com.skorsnap.app.ui.ScreensKt$ReportScreen$lambda$308$lambda$307$$inlined$items$default$8:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$ResultCard$2$1:
     public final void invoke$40()
@@ -53136,6 +53170,8 @@ com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$3:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$4$1$2:
     public final void invoke$2()
+com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$4$2$1:
+    public static void invoke$94()
 com.skorsnap.app.ui.ScreensKt$SettingsScreen$1$4:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SliceCard$1:
@@ -53167,7 +53203,7 @@ com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$3:
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$4:
     public final void invoke$91()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$6$1$1:
-    public final void invoke$82()
+    public final void invoke$81()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7$1:
     public final void invoke$2()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7:
@@ -53175,22 +53211,22 @@ com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$7:
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$9$1$1:
     public final void invoke()
 com.skorsnap.app.ui.ScreensKt$SlipScreen$1$1$9$2$1:
-    public final void invoke$82()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$1
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$2:
+    public final void invoke$81()
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$1
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$2:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$3:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$1 $contentType
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$3:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$1 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$4:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$4:
     public final void invoke$19()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$5
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$6:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$5
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$6:
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$7:
-    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$5 $contentType
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$7:
+    public final synthetic com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$5 $contentType
     public final java.lang.Object invoke$13()
-com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$233$lambda$232$$inlined$items$default$8:
+com.skorsnap.app.ui.ScreensKt$SlipScreen$lambda$248$lambda$247$$inlined$items$default$8:
     public final void invoke$19()
 com.skorsnap.app.ui.ScreensKt$SortChip$1:
     public final void invoke$2()
@@ -53233,26 +53269,30 @@ com.skorsnap.app.ui.ScreensKt$VerdictCard$1:
 com.skorsnap.app.ui.ScreensKt$WhenMappings
 com.skorsnap.app.ui.ScreensKt:
     public static synthetic kotlin.Unit $r8$lambda$9MPPNXD_YhfEpZhgD4kcgJJcnOA()
-    public static synthetic kotlin.Unit $r8$lambda$AaX97rwzJf6rJXJDc4zKYnkhfXs()
     public static synthetic kotlin.Unit $r8$lambda$CTL1wUfFhCgr7SuuOGQtWn6vNNI()
-    public static synthetic kotlin.Unit $r8$lambda$PwXxC3nloSwLM1rNgqZ1uSdFM0U()
-    public static synthetic kotlin.Unit $r8$lambda$ZbTnvXNUqWjFufrNkmKTA33dg58()
+    public static synthetic kotlin.Unit $r8$lambda$L0NKwUMa_RhUTufsYwjMjJihSTg()
+    public static synthetic kotlin.Unit $r8$lambda$RPHtkgIafbjwX_vi68-yuRsT2AQ()
+    public static synthetic kotlin.Unit $r8$lambda$U_Ni9VD1euP8wwxZwSalApioOYo()
+    public static synthetic kotlin.Unit $r8$lambda$u_-iZhtgPsSxwQZJ9qQNabHmdcM()
     public static synthetic kotlin.Unit $r8$lambda$yYtz27pwzYqfBk-Any3fmv6IQy0()
+    public static synthetic kotlin.Unit $r8$lambda$zWb6r_0jiP9ZfYS6_NIDoRCddmU()
     public static final kotlin.Unit AddScreen$lambda$17$lambda$16()
     public static final kotlin.Unit AddScreen$lambda$19$lambda$18()
     public static final kotlin.Unit AddScreen$lambda$21$lambda$20()
-    public static final kotlin.Unit DetailScreen$lambda$122$lambda$121()
-    public static final kotlin.Unit DetailScreen$lambda$124$lambda$123()
-    public static final boolean MarketGroup$lambda$143(androidx.compose.runtime.MutableState)
-    public static final boolean MarketsCard$lambda$135(androidx.compose.runtime.MutableState)
-    public static final kotlin.Unit ResultCard$lambda$54$lambda$53()
-    public static final boolean StatsReadCard$lambda$205(androidx.compose.runtime.MutableState)
-    public static final boolean access$LegRow$lambda$243(androidx.compose.runtime.MutableState)
-    public static final void access$MarketsCard$lambda$136(androidx.compose.runtime.MutableState,boolean)
-    public static final boolean access$OutcomeCard$lambda$151(androidx.compose.runtime.MutableState)
-    public static final boolean access$PasteOddsCard$lambda$239(androidx.compose.runtime.MutableState)
-    public static final boolean access$SettingsScreen$lambda$263(androidx.compose.runtime.MutableState)
-    public static final boolean access$SettingsScreen$lambda$267(androidx.compose.runtime.MutableState)
+    public static final kotlin.Unit AddScreen$lambda$23$lambda$22()
+    public static final kotlin.Unit AddScreen$lambda$25$lambda$24()
+    public static final kotlin.Unit DetailScreen$lambda$126$lambda$125()
+    public static final kotlin.Unit DetailScreen$lambda$128$lambda$127()
+    public static final boolean MarketGroup$lambda$147(androidx.compose.runtime.MutableState)
+    public static final boolean MarketsCard$lambda$139(androidx.compose.runtime.MutableState)
+    public static final kotlin.Unit ResultCard$lambda$58$lambda$57()
+    public static final boolean StatsReadCard$lambda$220(androidx.compose.runtime.MutableState)
+    public static final boolean access$LegRow$lambda$258(androidx.compose.runtime.MutableState)
+    public static final void access$MarketsCard$lambda$140(androidx.compose.runtime.MutableState,boolean)
+    public static final boolean access$OutcomeCard$lambda$155(androidx.compose.runtime.MutableState)
+    public static final boolean access$PasteOddsCard$lambda$254(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$278(androidx.compose.runtime.MutableState)
+    public static final boolean access$SettingsScreen$lambda$283(androidx.compose.runtime.MutableState)
 kotlin.DeprecationLevel:
     public static final synthetic kotlin.enums.EnumEntries $ENTRIES
     public static final enum kotlin.DeprecationLevel ERROR
@@ -53292,6 +53332,7 @@ kotlin.Triple:
     public static java.lang.Object component1()
     public static java.lang.Object component2()
     public static java.lang.Object component3()
+    public static java.lang.Object getSecond()
 kotlin.TuplesKt
 kotlin.ULong$Companion
 kotlin.ULong
@@ -54004,7 +54045,7 @@ kotlinx.coroutines.channels.BufferedChannel$BufferedChannelIterator:
     public static void tryResumeHasNextOnClosedChannel()
 kotlinx.coroutines.channels.BufferedChannel$SendBroadcast
 kotlinx.coroutines.channels.BufferedChannel$bindCancellationFun$2:
-    public static void invoke$95()
+    public static void invoke$96()
 kotlinx.coroutines.channels.BufferedChannel$bindCancellationFunResult$1
 kotlinx.coroutines.channels.BufferedChannel:
     public final kotlin.jvm.functions.Function3 onUndeliveredElementReceiveCancellationConstructor

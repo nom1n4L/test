@@ -11,8 +11,8 @@
       "type": "SINGLE",
       "filters": [],
       "attributes": [],
-      "versionCode": 48,
-      "versionName": "9.2",
+      "versionCode": 49,
+      "versionName": "9.3",
       "outputFile": "shrunk-resources-binary-format-release.ap_"
     }
   ],

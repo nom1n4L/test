@@ -256,6 +256,14 @@ data class MatchPrediction(
     val valueWas: String = "",
     /** The expected return that won it, per unit staked. */
     val valueEdge: Double = 0.0,
+    /**
+     * What the user's minimum-payout setting did to this match, if anything.
+     *
+     * Kept on the analysis rather than shown once as a message, because "no safe
+     * market here pays what you asked for" is a fact about this fixture that stays
+     * true every time the user reopens it.
+     */
+    val oddsNote: String = "",
     val raw: String = "",
 ) {
     val title: String get() = if (home.isBlank()) "Pertandingan" else "$home vs $away"

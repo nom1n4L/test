@@ -72,6 +72,7 @@ import com.skorsnap.app.data.Calibration
 import com.skorsnap.app.data.Devig
 import com.skorsnap.app.data.Grid
 import com.skorsnap.app.data.Odds
+import com.skorsnap.app.data.Value
 import com.skorsnap.app.data.Offline
 import com.skorsnap.app.data.MarketOption
 import kotlin.math.pow
@@ -427,6 +428,10 @@ fun AddScreen(
     onDropNote: (Int) -> Unit = {},
     onStartCapture: () -> Unit = {},
     onStopCapture: () -> Unit = {},
+    oddsShots: List<ByteArray> = emptyList(),
+    onPickOdds: () -> Unit = {},
+    onRemoveOdds: (Int) -> Unit = {},
+    minOdds: Double = Value.NO_MINIMUM,
 ) {
     var note by remember { mutableStateOf("") }
     var coupon by rememberSaveable { mutableStateOf("") }
@@ -658,13 +663,86 @@ fun AddScreen(
             }
         }
 
+        // Its own slot, above the typing box, because the typing box is the fallback
+        // now rather than the main way in. The user has the coupon on screen; asking
+        // them to retype forty prices that are already in a picture was the thing
+        // they kept saying was the worst part of the app.
+        Card(
+            accent = Amber,
+            title = "Foto Odds Melbet",
+            subtitle = "Screenshot layar harganya langsung. Yang di sini dibaca sebagai " +
+                "HARGA, bukan statistik — jadi angkanya tidak akan tertukar dengan " +
+                "rata-rata gol seperti kalau dicampur ke gambar statistik.",
+        ) {
+            Button(
+                onClick = onPickOdds,
+                colors = ButtonDefaults.buttonColors(containerColor = Amber),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    if (oddsShots.isEmpty()) "Pilih gambar odds" else "Tambah gambar odds",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.background,
+                )
+            }
+            if (oddsShots.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    oddsShots.forEachIndexed { index, bytes ->
+                        Box {
+                            val bitmap = remember(bytes) { Images.preview(bytes)?.asImageBitmap() }
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(72.dp, 112.dp)
+                                        .clip(RoundedCornerShape(10.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            } else {
+                                Box(
+                                    Modifier.size(72.dp, 112.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                                )
+                            }
+                            TextButton(
+                                onClick = { onRemoveOdds(index) },
+                                modifier = Modifier.align(Alignment.TopEnd),
+                            ) { Text("×", color = Rose) }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "${oddsShots.size} layar harga ikut dikirim. Harganya akan muncul di " +
+                        "halaman analisis, jadi kamu bisa cek sendiri apa yang terbaca.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Green,
+                )
+            }
+            if (minOdds > Value.NO_MINIMUM) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Minimum bayaranmu ${Odds.oddsLabel(minOdds)}. Rekomendasinya akan " +
+                        "dipilih dari market aman yang bayarannya segitu ke atas — " +
+                        "batas amannya sendiri tidak diturunkan.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Sky,
+                )
+            }
+        }
+
         CouponCard(
             coupon = coupon,
             onCoupon = { coupon = it },
             markets = catalogue,
             dropped = dropped,
             onToggleDrop = { dropped = if (it in dropped) dropped - it else dropped + it },
-            title = "Odds Melbet (opsional)",
+            title = "Odds Melbet — diketik (opsional)",
             subtitle = "Tempel daftar harganya di sini, bukan difoto. Model boleh salah " +
                 "baca digit dari gambar; teks yang diketik tidak bisa. Harga ini dipakai " +
                 "untuk menajamkan peluang dan memilih market yang bayarannya pantas.",
@@ -674,7 +752,7 @@ fun AddScreen(
         // has always accepted pages on their own, but the button lived inside the
         // images branch — so anyone who used the capture button read a dozen
         // screens and then found no way to analyse them.
-        val ready = staged.size + notes.size
+        val ready = staged.size + notes.size + oddsShots.size
         if (ready > 0) {
             OutlinedTextField(
                 value = note,
@@ -1507,6 +1585,18 @@ fun DetailScreen(
                     ) {
                         Text("Pakai harga ini — gratis")
                     }
+                }
+            }
+        }
+
+        if (match.prices.isNotEmpty()) {
+            item { PriceCard(match) }
+        }
+
+        if (match.oddsNote.isNotBlank()) {
+            item {
+                Card(accent = Amber, title = "Minimum Bayaran Tidak Terpenuhi") {
+                    Text(match.oddsNote, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -2412,6 +2502,138 @@ private fun Step(label: String, body: String, colour: Color) {
 }
 
 /** Picker button plus the thumbnails, shared by the two screens that stage images. */
+
+/**
+ * The smallest payout worth recommending.
+ *
+ * Deliberately placed under the risk setting and worded against it, because the two
+ * pull in opposite directions and a user who does not see that will set a high
+ * minimum, get "tidak terpenuhi" on every match, and conclude the app is broken. A
+ * safe market is safe precisely because the bookmaker does not fear it, so it pays
+ * little; asking for 68%+ AND a big payout is asking for a mispriced market, which
+ * exists but is rare. The app will not manufacture one by dropping the floor.
+ */
+@Composable
+private fun MinOddsPicker(minOdds: Double, onPick: (Double) -> Unit) {
+    val steps = listOf(Value.NO_MINIMUM, 1.30, 1.50, 1.80, 2.20)
+    Text(
+        "Minimum Bayaran",
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold,
+    )
+    Spacer(Modifier.height(2.dp))
+    Text(
+        "Market aman yang bayarannya di bawah ini tidak akan direkomendasikan. " +
+            "Batas amannya TIDAK ikut turun — kalau tidak ada market aman yang " +
+            "bayarannya cukup, aplikasinya bilang begitu, bukan menawarkan yang lebih berisiko.",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        steps.forEach { step ->
+            val on = kotlin.math.abs(minOdds - step) < 0.001
+            Surface(
+                color = if (on) Amber.copy(alpha = 0.22f)
+                else MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(9.dp),
+                modifier = Modifier.clickable { onPick(step) },
+            ) {
+                Text(
+                    if (step <= Value.NO_MINIMUM) "Bebas" else Odds.oddsLabel(step),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                    color = if (on) Amber else MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    Text(
+        when {
+            minOdds <= Value.NO_MINIMUM ->
+                "Sekarang bebas: yang dipilih market dengan nilai terbaik, berapa pun bayarannya."
+            minOdds >= 2.20 ->
+                "2,20 ke atas di market 68%+ itu jarang sekali ada — siap-siap sering " +
+                    "dapat \"tidak terpenuhi\". Itu jawaban jujur, bukan error."
+            else ->
+                "Rekomendasi cuma diambil dari market aman yang bayarannya " +
+                    "${Odds.oddsLabel(minOdds)} ke atas."
+        },
+        style = MaterialTheme.typography.labelSmall,
+        color = if (minOdds >= 2.20) Amber else Sky,
+    )
+}
+
+/**
+ * The bookmaker's own prices, exactly as the app read them.
+ *
+ * Shown because reading prices off a photograph is the one step here that can go
+ * wrong invisibly: a misread digit changes which market gets recommended and there
+ * is nothing on the rest of the screen that would look odd. Printed side by side
+ * with the coupon, a wrong number is obvious in a second — and the user asked to see
+ * them, which is reason enough on its own.
+ */
+@Composable
+private fun PriceCard(match: MatchPrediction) {
+    val rows = remember(match) {
+        match.markets.mapNotNull { option ->
+            match.priceOf(option)?.let { price -> Triple(option, price, match.edgeOf(option) ?: 0) }
+        }.sortedByDescending { it.second }
+    }
+    if (rows.isEmpty()) return
+    Card(
+        accent = Amber,
+        title = "Harga Bandar Yang Terbaca",
+        subtitle = "${rows.size} market. Cocokkan sebentar dengan kuponmu — kalau ada " +
+            "digit yang salah baca, betulkan lewat tempel teks di atas.",
+    ) {
+        rows.forEach { (option, price, edge) ->
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    option.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "${option.percent}%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    Odds.oddsLabel(price),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = if (edge > 0) Green else MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.width(8.dp))
+                Surface(
+                    color = (if (edge > 0) Green else Rose).copy(alpha = 0.14f),
+                    shape = RoundedCornerShape(5.dp),
+                ) {
+                    Text(
+                        // The sign is written once, here, rather than folded into a
+                        // formatted negative — "rugi -12%" was on this screen twice
+                        // before and read as a gain both times.
+                        if (edge > 0) "untung $edge%" else "rugi ${kotlin.math.abs(edge)}%",
+                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (edge > 0) Green else Rose,
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun ImageStrip(staged: List<ByteArray>, onPick: () -> Unit, onRemove: (Int) -> Unit) {
     Button(
@@ -2863,9 +3085,10 @@ fun SlipScreen(
     onOpen: (String) -> Unit,
     onClear: () -> Unit,
     appetite: Appetite = Appetite.SAFE,
+    minOdds: Double = Value.NO_MINIMUM,
 ) {
-    val slip = remember(matches, strategy, odds, chosen, appetite) {
-        val built = Parlay.build(matches, strategy, chosen, appetite.floor)
+    val slip = remember(matches, strategy, odds, chosen, appetite, minOdds) {
+        val built = Parlay.build(matches, strategy, chosen, appetite.floor, minOdds)
         // A hand-typed price wins; otherwise the leg keeps the one the analysis read
         // off the screenshots. Overwriting with 0.0 when the map has no entry threw
         // that away on every app restart, before the seeding runs.
@@ -3473,6 +3696,7 @@ fun SettingsScreen(vm: AppViewModel) {
     val report by vm.modelReport.collectAsStateWithLifecycle()
     val usage by vm.lastUsage.collectAsStateWithLifecycle()
     val appetite by vm.appetite.collectAsStateWithLifecycle()
+    val minOdds by vm.minOdds.collectAsStateWithLifecycle()
     val fixturesBusy by vm.fixturesBusy.collectAsStateWithLifecycle()
     val footballReport by vm.footballReport.collectAsStateWithLifecycle()
     var model by remember(available) { mutableStateOf(vm.store.model) }
@@ -3728,6 +3952,8 @@ fun SettingsScreen(vm: AppViewModel) {
                 style = MaterialTheme.typography.labelSmall,
                 color = Amber,
             )
+            Spacer(Modifier.height(14.dp))
+            MinOddsPicker(minOdds, vm::setMinOdds)
         }
 
         Card(title = "Kalau Semua Model Gagal") {

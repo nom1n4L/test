@@ -260,6 +260,7 @@ object Parlay {
         strategy: Strategy,
         chosen: Map<String, String> = emptyMap(),
         floor: Double = MarketOption.SAFE_LOW,
+        minOdds: Double = Value.NO_MINIMUM,
     ): Slip = Slip(
         matches.distinctBy { it.id }.mapNotNull { m ->
             val safe = m.safePicks()
@@ -271,8 +272,12 @@ object Parlay {
                 // Falls back to the recommendation when this match had no price
                 // screen: a leg dropped for want of odds would silently shrink the
                 // slip, which reads as the app losing a match the user selected.
+                // The price floor applies here for the same reason it applies to the
+                // recommendation: a leg the user would not have backed on its own
+                // does not become acceptable by being bundled with four others.
                 Strategy.VALUE ->
-                    Value.best(m, floor)?.option ?: m.markets.firstOrNull { it.name == m.pick }
+                    Value.best(m, floor, minOdds)?.option
+                        ?: m.markets.firstOrNull { it.name == m.pick }
             } ?: return@mapNotNull null
             Leg(
                 matchId = m.id,

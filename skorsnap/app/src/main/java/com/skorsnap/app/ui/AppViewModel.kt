@@ -106,6 +106,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _appetite.value = value
     }
 
+    /**
+     * The smallest payout worth recommending. Never lowers the safety floor.
+     *
+     * Appetite and this are two different questions — how likely, and how much it
+     * pays — and the app answers both without letting either quietly answer the
+     * other. See Value.
+     */
+    private val _minOdds = MutableStateFlow(store.minOdds)
+    val minOdds: StateFlow<Double> = _minOdds.asStateFlow()
+
+    fun setMinOdds(value: Double) {
+        store.minOdds = value
+        _minOdds.value = store.minOdds
+        // Applied to what is already on screen, not just to the next analysis. A
+        // setting that only takes effect on future matches looks broken to anyone
+        // who changes it while looking at a match.
+        val floor = _appetite.value.floor
+        val redone = _matches.value.map { m ->
+            if (m.prices.isEmpty()) m
+            else com.skorsnap.app.data.Value.apply(m, floor, store.minOdds)
+        }
+        _matches.value = redone
+        store.save(redone)
+    }
+
     /** Fixtures fetched for a date, so a match can be picked instead of photographed. */
     private val _fixtures = MutableStateFlow<List<Football.Fixture>>(emptyList())
     val fixtures: StateFlow<List<Football.Fixture>> = _fixtures.asStateFlow()
@@ -185,6 +210,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val result = analyst.analyse(
                     _staged.value, note, store.model, _mode.value,
                     _matches.value, _slips.value, null, _appetite.value, stats,
+                    _oddsShots.value, _minOdds.value,
                 ).copy(
                     model = store.model,
                     home = fixture.home,
@@ -337,7 +363,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * most and there are only ever a handful, so holding the bytes is simpler than
      * juggling content URIs whose permission grants expire.
      */
-    fun stage(uris: List<Uri>) {
+    fun stage(uris: List<Uri>) = readImages(uris) { _staged.value = _staged.value + it }
+
+    private fun readImages(uris: List<Uri>, onRead: (List<ByteArray>) -> Unit) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
             val resolver = getApplication<Application>().contentResolver
@@ -368,7 +396,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (oversized > 0) {
                 _message.value = "$oversized gambar dilewati karena di atas 40 MB."
             }
-            _staged.value = _staged.value + read
+            onRead(read)
         }
     }
 
@@ -380,11 +408,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         _staged.value = _staged.value.filterIndexed { i, _ -> i != index }
     }
 
+    /**
+     * Bookmaker screens, staged apart from the statistics screens.
+     *
+     * A separate slot rather than a flag on the same list, because the difference
+     * matters at the moment of picking: the user knows which screenshot is the
+     * coupon, and asking them once is cheaper and more reliable than making the
+     * model infer it from every picture, every time.
+     */
+    private val _oddsShots = MutableStateFlow<List<ByteArray>>(emptyList())
+    val oddsShots: StateFlow<List<ByteArray>> = _oddsShots.asStateFlow()
+
+    fun stageOdds(uris: List<Uri>) = readImages(uris) { _oddsShots.value = _oddsShots.value + it }
+
+    fun removeOddsShot(index: Int) {
+        _oddsShots.value = _oddsShots.value.filterIndexed { i, _ -> i != index }
+    }
+
+    fun clearOddsShots() {
+        _oddsShots.value = emptyList()
+    }
+
     fun analyse(note: String, coupon: String = "", dropped: Set<String> = emptySet()) {
         if (_busy.value) return
         val images = _staged.value
+        val odds = _oddsShots.value
         val pages = CaptureBus.notes.value
-        if (images.isEmpty() && pages.isEmpty()) {
+        if (images.isEmpty() && pages.isEmpty() && odds.isEmpty()) {
             _message.value = "Belum ada layar terbaca atau gambar."
             return
         }
@@ -408,6 +458,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     .analyse(
                         images, note, store.model, _mode.value,
                         _matches.value, _slips.value, null, _appetite.value, read,
+                        odds, _minOdds.value,
                     )
                     .copy(model = store.model)
                 _lastUsage.value = analyst.lastUsage
@@ -423,6 +474,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _matches.value = updated
                 store.save(updated)
                 _staged.value = emptyList()
+                _oddsShots.value = emptyList()
                 CaptureBus.clearNotes()
                 _screen.value = Screen.Detail(result.id)
                 if (checked.note.isNotBlank()) {
@@ -452,7 +504,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (_busy.value) return
         val previous = _matches.value.firstOrNull { it.id == id } ?: return
         val images = _staged.value
-        if (images.isEmpty()) {
+        if (images.isEmpty() && _oddsShots.value.isEmpty()) {
             _message.value = "Tambahkan dulu gambarnya."
             return
         }
@@ -463,7 +515,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val analyst = Analyst(store.apiKey)
                 val reread = analyst.analyse(
                     images, note, store.model, previous.mode,
-                    _matches.value, _slips.value, previous, _appetite.value,
+                    _matches.value, _slips.value, previous, _appetite.value, "",
+                    _oddsShots.value, _minOdds.value,
                 )
                 val fresh = reread.copy(
                     id = previous.id,
@@ -481,6 +534,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 _matches.value = updated
                 store.save(updated)
                 _staged.value = emptyList()
+                _oddsShots.value = emptyList()
                 _screen.value = Screen.Detail(id)
                 _message.value = "Analisis diperbarui dengan data tambahan."
             } catch (e: Exception) {
@@ -687,7 +741,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         val settled = calibrate(
-            com.skorsnap.app.data.Value.apply(match, _appetite.value.floor)
+            com.skorsnap.app.data.Value.apply(match, _appetite.value.floor, _minOdds.value)
         )
         seedOdds(settled)
         val updated = _matches.value + settled
@@ -885,6 +939,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val updated = calibrate(
             com.skorsnap.app.data.Value.apply(
                 com.skorsnap.app.data.Devig.blend(priced), _appetite.value.floor,
+                _minOdds.value,
             )
         )
         _matches.value = _matches.value.map { if (it.id == matchId) updated else it }
@@ -897,6 +952,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             if (updated.valuePick) {
                 append(" Rekomendasi pindah ke ${updated.pick}.")
             }
+            if (updated.oddsNote.isNotBlank()) append(" Minimum bayaran tidak terpenuhi.")
         }
     }
 

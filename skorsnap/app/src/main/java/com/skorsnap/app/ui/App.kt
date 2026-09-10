@@ -74,6 +74,8 @@ fun App(
     val notes by vm.notes.collectAsStateWithLifecycle()
     val talking by vm.talking.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
+    val oddsShots by vm.oddsShots.collectAsStateWithLifecycle()
+    val minOdds by vm.minOdds.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     // The system photo picker needs no storage permission and is available back to
@@ -81,6 +83,13 @@ fun App(
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(10)
     ) { uris -> vm.stage(uris) }
+
+    // A second launcher rather than a shared one with a mode flag: the destination
+    // has to be decided before the picker opens, and a flag set beforehand is a
+    // flag that can be stale by the time the result comes back.
+    val oddsPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(10)
+    ) { uris -> vm.stageOdds(uris) }
 
     LaunchedEffect(message) {
         val m = message
@@ -127,6 +136,14 @@ fun App(
                     },
                     onRemove = vm::removeStaged,
                     onAnalyse = vm::analyse,
+                    oddsShots = oddsShots,
+                    onPickOdds = {
+                        oddsPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    onRemoveOdds = vm::removeOddsShot,
+                    minOdds = minOdds,
                     capturing = capturing,
                     captureProblem = captureProblem,
                     notes = notes,
@@ -152,6 +169,14 @@ fun App(
                         if (coupon.isNotBlank()) vm.attachCoupon(s.id, coupon, dropped)
                         vm.reanalyse(s.id, note)
                     },
+                    oddsShots = oddsShots,
+                    onPickOdds = {
+                        oddsPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    onRemoveOdds = vm::removeOddsShot,
+                    minOdds = minOdds,
                     wanted = matches.firstOrNull { it.id == s.id }?.needMore ?: emptyList(),
                 )
                 is Screen.Detail -> {
@@ -204,6 +229,7 @@ fun App(
                     onOpen = { vm.go(Screen.Detail(it)) },
                     onClear = { vm.clearSelection() },
                     appetite = appetite,
+                    minOdds = minOdds,
                 )
                 // Built from the observed match list rather than a plain call into
                 // the view model. vm.report() read the flow's value directly, which

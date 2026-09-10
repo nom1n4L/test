@@ -3904,4 +3904,149 @@ Handicap
         }
         assertEquals(turns, back)
     }
+
+    // --- minimum bayaran, tapi tetap aman ---------------------------------------
+
+    /**
+     * The rule the whole feature stands on. A price floor filters the safe band; it
+     * never reaches under it. If this ever breaks, the app quietly starts
+     * recommending bets the user explicitly said were too risky, and it would look
+     * like the minimum working.
+     */
+    @Test
+    fun aMinimumPayoutNeverDragsTheRecommendationBelowTheSafetyFloor() {
+        val m = priced(
+            Triple("Over 1.5", 0.82, "Total Gol"),
+            Triple("Tandang menang", 0.31, "Hasil Akhir"),
+        ).copy(
+            prices = mapOf(
+                // Nothing safe pays 2.00; the risky one pays 3.10.
+                "Total Gol|Over 1.5" to 1.18,
+                "Hasil Akhir|Tandang menang" to 3.10,
+            )
+        )
+        val out = Value.apply(m, 0.68, minOdds = 2.0)
+        assertEquals("Over 1.5", out.pick)
+        assertTrue(out.markets.first { it.name == out.pick }.prob >= 0.68)
+        assertTrue("tidak ada keterangan kenapa minimumnya tak terpakai", out.oddsNote.isNotBlank())
+    }
+
+    /** Within the band, the minimum does pick the better-paying market. */
+    @Test
+    fun aMinimumPayoutChoosesTheBetterPayingSafeMarket() {
+        val m = priced(
+            Triple("Over 1.5", 0.86, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Ya", 0.70, "Total Gol"),
+        ).copy(
+            prices = mapOf(
+                "Total Gol|Over 1.5" to 1.14,
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 1.55,
+            )
+        )
+        val out = Value.apply(m, 0.68, minOdds = 1.50)
+        assertEquals("Kedua tim cetak gol (BTTS) - Ya", out.pick)
+        assertEquals("", out.oddsNote)
+    }
+
+    /** A market that clears the floor beats a better edge that does not. */
+    @Test
+    fun clearingTheMinimumBeatsAThinnerPricedMarketWithMoreEdge() {
+        val m = priced(
+            Triple("Over 1.5", 0.90, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Ya", 0.70, "Total Gol"),
+        ).copy(
+            prices = mapOf(
+                // 1.25 x 0.90 = +12.5% edge, but pays under the minimum.
+                "Total Gol|Over 1.5" to 1.25,
+                // 1.60 x 0.70 = +12.0% edge — slightly worse, but it pays.
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 1.60,
+            )
+        )
+        assertEquals("Over 1.5", Value.apply(m, 0.68).pick)
+        assertEquals(
+            "Kedua tim cetak gol (BTTS) - Ya",
+            Value.apply(m, 0.68, minOdds = 1.50).pick,
+        )
+    }
+
+    /** No minimum set must behave exactly as before it existed. */
+    @Test
+    fun noMinimumChangesNothingAtAll() {
+        val m = priced(
+            Triple("Over 1.5", 0.80, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Ya", 0.72, "Total Gol"),
+        ).copy(
+            prices = mapOf(
+                "Total Gol|Over 1.5" to 1.20,
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 1.45,
+            )
+        )
+        assertEquals(Value.apply(m, 0.68), Value.apply(m, 0.68, Value.NO_MINIMUM))
+    }
+
+    /** Re-applying must not accumulate, exactly as for the plain value pick. */
+    @Test
+    fun applyingTheMinimumTwiceGivesTheSameAnswer() {
+        val m = priced(
+            Triple("Over 1.5", 0.86, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Ya", 0.70, "Total Gol"),
+        ).copy(
+            prices = mapOf(
+                "Total Gol|Over 1.5" to 1.14,
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 1.55,
+            )
+        )
+        val once = Value.apply(m, 0.68, 1.50)
+        val twice = Value.apply(once, 0.68, 1.50)
+        assertEquals(once, twice)
+        // And turning the setting off lands exactly where never setting it would:
+        // the minimum must leave no residue on the analysis it passed through.
+        assertEquals(Value.apply(m, 0.68), Value.apply(once, 0.68))
+    }
+
+    /** The shortfall has to name a real alternative, not a vague apology. */
+    @Test
+    fun theShortfallSaysWhatTheBestSafePriceActuallyWas() {
+        val m = priced(
+            Triple("Over 1.5", 0.82, "Total Gol"),
+            Triple("Kedua tim cetak gol (BTTS) - Ya", 0.70, "Total Gol"),
+        ).copy(
+            prices = mapOf(
+                "Total Gol|Over 1.5" to 1.18,
+                "Total Gol|Kedua tim cetak gol (BTTS) - Ya" to 1.42,
+            )
+        )
+        val note = Value.shortfall(m, 0.68, 2.0)
+        // Written the way the rest of the app writes a price, so the two agree.
+        assertTrue("minimumnya tidak disebut: $note", Odds.oddsLabel(2.0) in note)
+        assertTrue("harga terbaik yang ada tidak disebut: $note", Odds.oddsLabel(1.42) in note)
+        println(note)
+    }
+
+    /** An unpriced match must not sprout a complaint about payouts. */
+    @Test
+    fun aMatchWithNoPricesGetsNoShortfallComplaint() {
+        val m = priced(
+            Triple("Over 1.5", 0.80, "Total Gol"),
+            Triple("Under 1.5", 0.20, "Total Gol"),
+        )
+        assertEquals("", Value.shortfall(m, 0.68, 2.0))
+        assertEquals(m, Value.apply(m, 0.68, 2.0))
+    }
+
+    /** Odds screenshots must be announced, or their numbers get read as statistics. */
+    @Test
+    fun bookmakerScreensAreLabelledAsPricesNotStatistics() {
+        val heading = Analyst.ODDS_IMAGE_HEADING
+        assertTrue("layar harga tidak diumumkan sebagai harga", "HARGA PASANG" in heading)
+        assertTrue(
+            "tidak dilarang dibaca sebagai statistik",
+            "bukan statistik" in heading,
+        )
+        // And the model must still be told not to copy the bookmaker's own view.
+        assertTrue(
+            "aturan anti-jiplak bandar hilang",
+            "menyalin bandar" in Analyst.ODDS_IMAGE_RULE,
+        )
+    }
 }

@@ -30,6 +30,18 @@ class Store(context: Context) {
 
     val hasFootballKey: Boolean get() = footballKey.isNotBlank()
 
+    /**
+     * The smallest payout worth recommending, or [Value.NO_MINIMUM] for no minimum.
+     *
+     * Separate from appetite on purpose. Appetite says how likely a bet has to be;
+     * this says how much it has to pay. Setting one must not move the other, and in
+     * particular this one never lowers the probability floor — see Value.
+     */
+    var minOdds: Double
+        get() = prefs.getFloat("min_odds", Value.NO_MINIMUM.toFloat()).toDouble()
+            .coerceIn(Value.NO_MINIMUM, 10.0)
+        set(v) = prefs.edit().putFloat("min_odds", v.coerceIn(Value.NO_MINIMUM, 10.0).toFloat()).apply()
+
     var appetite: Appetite
         get() = runCatching { Appetite.valueOf(prefs.getString("appetite", "").orEmpty()) }
             .getOrDefault(Appetite.SAFE)
@@ -163,6 +175,7 @@ class Store(context: Context) {
         put("value_pick", m.valuePick)
         put("value_was", m.valueWas)
         put("value_edge", m.valueEdge)
+        put("odds_note", m.oddsNote)
         put("mode", m.mode.name)
         put("backed", m.backed)
         put("model", m.model)
@@ -265,6 +278,7 @@ class Store(context: Context) {
             valuePick = o.optBoolean("value_pick", false),
             valueWas = o.optString("value_was"),
             valueEdge = o.optDouble("value_edge", 0.0),
+            oddsNote = o.optString("odds_note"),
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
             backed = o.optString("backed"),
             model = o.optString("model"),
