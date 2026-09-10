@@ -1,0 +1,250 @@
+-keep class j$.time.Clock {
+  public static j$.time.Clock systemUTC();
+}
+-keep class j$.time.DateTimeException {
+  public <init>(java.lang.String,java.lang.Throwable);
+}
+-keep class j$.time.Duration {
+  public j$.time.Duration abs();
+  public static j$.time.Duration between(j$.time.temporal.Temporal,j$.time.temporal.Temporal);
+  public int compareTo(j$.time.Duration);
+  public int getNano();
+  public long getSeconds();
+  public boolean isNegative();
+  public static j$.time.Duration of(long,j$.time.temporal.TemporalUnit);
+  public static j$.time.Duration ofMillis(long);
+  public static j$.time.Duration ofMinutes(long);
+  public static j$.time.Duration ofNanos(long);
+  public static j$.time.Duration ofSeconds(long);
+  public static j$.time.Duration ofSeconds(long,long);
+  public static j$.time.Duration parse(java.lang.CharSequence);
+  public long toDays();
+  public long toHours();
+  public long toMillis();
+  public long toMinutes();
+  public long toNanos();
+  public java.lang.String toString();
+}
+-keep class j$.time.Instant {
+  public static j$.time.Instant from(j$.time.temporal.TemporalAccessor);
+  public long getEpochSecond();
+  public int getNano();
+  public boolean isBefore(j$.time.Instant);
+  public static j$.time.Instant now();
+  public static j$.time.Instant ofEpochMilli(long);
+  public static j$.time.Instant ofEpochSecond(long);
+  public static j$.time.Instant ofEpochSecond(long,long);
+  public j$.time.Instant plusSeconds(long);
+  public long toEpochMilli();
+  j$.time.Instant EPOCH;
+  j$.time.Instant MIN;
+}
+-keep class j$.time.LocalDate {
+  public j$.time.LocalDateTime atStartOfDay();
+  public java.lang.String format(j$.time.format.DateTimeFormatter);
+  public static j$.time.LocalDate from(j$.time.temporal.TemporalAccessor);
+  public int getDayOfMonth();
+  public int getMonthValue();
+  public int getYear();
+  public static j$.time.LocalDate of(int,int,int);
+  public static j$.time.LocalDate ofEpochDay(long);
+  public static j$.time.LocalDate parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+  public long toEpochDay();
+  public java.lang.String toString();
+}
+-keep class j$.time.LocalDateTime {
+  public j$.time.ZonedDateTime atZone(j$.time.ZoneId);
+  public java.lang.String format(j$.time.format.DateTimeFormatter);
+  public static j$.time.LocalDateTime from(j$.time.temporal.TemporalAccessor);
+  public int get(j$.time.temporal.TemporalField);
+  public int getDayOfMonth();
+  public int getHour();
+  public int getMinute();
+  public int getMonthValue();
+  public int getNano();
+  public int getSecond();
+  public int getYear();
+  public static j$.time.LocalDateTime of(int,int,int,int,int);
+  public static j$.time.LocalDateTime of(int,int,int,int,int,int);
+  public static j$.time.LocalDateTime of(int,int,int,int,int,int,int);
+  public static j$.time.LocalDateTime parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+}
+-keep class j$.time.LocalTime {
+  public java.lang.String format(j$.time.format.DateTimeFormatter);
+  public int get(j$.time.temporal.TemporalField);
+  public int getHour();
+  public int getMinute();
+  public int getNano();
+  public int getSecond();
+  public static j$.time.LocalTime of(int,int);
+  public static j$.time.LocalTime of(int,int,int);
+  public static j$.time.LocalTime of(int,int,int,int);
+  public static j$.time.LocalTime parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+}
+-keep enum j$.time.Month {
+  public j$.time.Month minus(long);
+  j$.time.Month JANUARY;
+}
+-keep class j$.time.MonthDay {
+  public java.lang.String format(j$.time.format.DateTimeFormatter);
+  public int getDayOfMonth();
+  public int getMonthValue();
+  public static j$.time.MonthDay of(int,int);
+  public static j$.time.MonthDay parse(java.lang.CharSequence);
+  public static j$.time.MonthDay parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+  public java.lang.String toString();
+}
+-keep class j$.time.OffsetDateTime {
+  public static j$.time.OffsetDateTime from(j$.time.temporal.TemporalAccessor);
+  public int getNano();
+  public j$.time.ZoneOffset getOffset();
+  public boolean isEqual(j$.time.OffsetDateTime);
+  public static j$.time.OffsetDateTime now(j$.time.Clock);
+  public static j$.time.OffsetDateTime ofInstant(j$.time.Instant,j$.time.ZoneId);
+  public static j$.time.OffsetDateTime parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+  public long toEpochSecond();
+  public j$.time.Instant toInstant();
+  public j$.time.LocalDateTime toLocalDateTime();
+  public j$.time.OffsetDateTime withOffsetSameInstant(j$.time.ZoneOffset);
+  j$.time.OffsetDateTime MAX;
+  j$.time.OffsetDateTime MIN;
+}
+-keep class j$.time.OffsetTime {
+  public java.lang.String format(j$.time.format.DateTimeFormatter);
+  public int get(j$.time.temporal.TemporalField);
+  public int getHour();
+  public int getMinute();
+  public int getNano();
+  public j$.time.ZoneOffset getOffset();
+  public int getSecond();
+  public static j$.time.OffsetTime of(int,int,int,int,j$.time.ZoneOffset);
+  public static j$.time.OffsetTime parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+  public java.lang.String toString();
+}
+-keep class j$.time.Period {
+  public static j$.time.Period parse(java.lang.CharSequence);
+}
+-keep class j$.time.TimeConversions {
+  public static java.time.Duration convert(j$.time.Duration);
+  public static j$.time.Duration convert(java.time.Duration);
+}
+-keep class j$.time.Year {
+  public java.lang.String format(j$.time.format.DateTimeFormatter);
+  public int getValue();
+  public static j$.time.Year of(int);
+  public static j$.time.Year parse(java.lang.CharSequence);
+  public static j$.time.Year parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+  public java.lang.String toString();
+}
+-keep class j$.time.YearMonth {
+  public java.lang.String format(j$.time.format.DateTimeFormatter);
+  public int getMonthValue();
+  public int getYear();
+  public static j$.time.YearMonth of(int,int);
+  public static j$.time.YearMonth parse(java.lang.CharSequence,j$.time.format.DateTimeFormatter);
+  public java.lang.String toString();
+}
+-keep class j$.time.ZoneId {
+  public j$.time.zone.ZoneRules getRules();
+  public j$.time.ZoneId normalized();
+  public static j$.time.ZoneId of(java.lang.String);
+}
+-keep class j$.time.ZoneOffset {
+  public static j$.time.ZoneOffset of(java.lang.String);
+  public java.lang.String toString();
+}
+-keep class j$.time.ZonedDateTime {
+  public static j$.time.ZonedDateTime from(j$.time.temporal.TemporalAccessor);
+  public int getNano();
+  public static j$.time.ZonedDateTime ofInstant(j$.time.Instant,j$.time.ZoneId);
+  public static j$.time.ZonedDateTime parse(java.lang.CharSequence);
+  public j$.time.OffsetDateTime toOffsetDateTime();
+  public j$.time.ZonedDateTime withZoneSameInstant(j$.time.ZoneId);
+}
+-keep interface j$.time.chrono.ChronoZonedDateTime {
+  public long toEpochSecond();
+  public j$.time.Instant toInstant();
+}
+-keep class j$.time.format.DateTimeFormatter {
+  public java.lang.String format(j$.time.temporal.TemporalAccessor);
+  public j$.time.ZoneId getZone();
+  public static j$.time.format.DateTimeFormatter ofPattern(java.lang.String);
+  public static j$.time.format.DateTimeFormatter ofPattern(java.lang.String,java.util.Locale);
+  public j$.time.temporal.TemporalAccessor parse(java.lang.CharSequence);
+  public java.lang.Object parse(java.lang.CharSequence,j$.time.temporal.TemporalQuery);
+  public j$.time.format.DateTimeFormatter withResolverStyle(j$.time.format.ResolverStyle);
+  public j$.time.format.DateTimeFormatter withZone(j$.time.ZoneId);
+  j$.time.format.DateTimeFormatter ISO_INSTANT;
+  j$.time.format.DateTimeFormatter ISO_LOCAL_DATE;
+  j$.time.format.DateTimeFormatter ISO_LOCAL_DATE_TIME;
+  j$.time.format.DateTimeFormatter ISO_LOCAL_TIME;
+  j$.time.format.DateTimeFormatter ISO_OFFSET_DATE_TIME;
+  j$.time.format.DateTimeFormatter ISO_OFFSET_TIME;
+  j$.time.format.DateTimeFormatter ISO_ZONED_DATE_TIME;
+  j$.time.format.DateTimeFormatter RFC_1123_DATE_TIME;
+}
+-keep class j$.time.format.DateTimeFormatterBuilder {
+  public <init>();
+  public j$.time.format.DateTimeFormatterBuilder appendLiteral(char);
+  public j$.time.format.DateTimeFormatterBuilder appendLiteral(java.lang.String);
+  public j$.time.format.DateTimeFormatterBuilder appendPattern(java.lang.String);
+  public j$.time.format.DateTimeFormatterBuilder appendValue(j$.time.temporal.TemporalField,int);
+  public j$.time.format.DateTimeFormatterBuilder appendValue(j$.time.temporal.TemporalField,int,int,j$.time.format.SignStyle);
+  public j$.time.format.DateTimeFormatterBuilder parseCaseInsensitive();
+  public j$.time.format.DateTimeFormatter toFormatter();
+  public j$.time.format.DateTimeFormatter toFormatter(java.util.Locale);
+}
+-keep class j$.time.format.DateTimeParseException {
+}
+-keep enum j$.time.format.ResolverStyle {
+  j$.time.format.ResolverStyle STRICT;
+}
+-keep enum j$.time.format.SignStyle {
+  j$.time.format.SignStyle EXCEEDS_PAD;
+}
+-keep enum j$.time.temporal.ChronoField {
+  j$.time.temporal.ChronoField DAY_OF_MONTH;
+  j$.time.temporal.ChronoField HOUR_OF_DAY;
+  j$.time.temporal.ChronoField MILLI_OF_SECOND;
+  j$.time.temporal.ChronoField MONTH_OF_YEAR;
+  j$.time.temporal.ChronoField OFFSET_SECONDS;
+  j$.time.temporal.ChronoField YEAR;
+}
+-keep enum j$.time.temporal.ChronoUnit {
+  public long between(j$.time.temporal.Temporal,j$.time.temporal.Temporal);
+  j$.time.temporal.ChronoUnit DAYS;
+  j$.time.temporal.ChronoUnit HALF_DAYS;
+  j$.time.temporal.ChronoUnit HOURS;
+  j$.time.temporal.ChronoUnit MICROS;
+  j$.time.temporal.ChronoUnit MILLIS;
+  j$.time.temporal.ChronoUnit MINUTES;
+  j$.time.temporal.ChronoUnit NANOS;
+  j$.time.temporal.ChronoUnit SECONDS;
+}
+-keep interface j$.time.temporal.Temporal {
+}
+-keep interface j$.time.temporal.TemporalAccessor {
+  public boolean isSupported(j$.time.temporal.TemporalField);
+}
+-keep interface j$.time.temporal.TemporalField {
+}
+-keep interface j$.time.temporal.TemporalQuery {
+  public java.lang.Object queryFrom(j$.time.temporal.TemporalAccessor);
+}
+-keep interface j$.time.temporal.TemporalUnit {
+}
+-keep class j$.time.zone.ZoneRules {
+  public j$.time.ZoneOffset getOffset(j$.time.LocalDateTime);
+}
+-keep class j$.util.Base64 {
+  public static j$.util.Base64$Encoder getEncoder();
+}
+-keep class j$.util.Base64$Encoder {
+  public java.lang.String encodeToString(byte[]);
+}
+-keep class j$.util.DesugarTimeZone {
+  public static java.util.TimeZone getTimeZone(java.lang.String);
+}
+-keep class j$.util.TimeZoneRetargetClass {
+  public static j$.time.ZoneId toZoneId(java.util.TimeZone);
+}

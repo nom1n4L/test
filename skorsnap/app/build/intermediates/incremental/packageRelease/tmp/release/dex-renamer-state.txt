@@ -1,0 +1,4 @@
+#Thu Sep 10 11:55:26 UTC 2026
+base.0=/home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+path.0=classes.dex
+renamed.0=classes.dex

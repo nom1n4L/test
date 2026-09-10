@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#0A0F1A</color>
+    <string name="app_name">Skorsnap</string>
+    <style name="Theme.Skorsnap" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#0A0F1A</item>
+        <item name="android:windowBackground">#0A0F1A</item>
+    </style>
+</resources>
