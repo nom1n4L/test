@@ -176,6 +176,8 @@ class Store(context: Context) {
         put("value_was", m.valueWas)
         put("value_edge", m.valueEdge)
         put("odds_note", m.oddsNote)
+        put("odds_missed", JSONArray(m.oddsMissed))
+        put("odds_shots", m.oddsShots)
         put("mode", m.mode.name)
         put("backed", m.backed)
         put("model", m.model)
@@ -279,6 +281,8 @@ class Store(context: Context) {
             valueWas = o.optString("value_was"),
             valueEdge = o.optDouble("value_edge", 0.0),
             oddsNote = o.optString("odds_note"),
+            oddsMissed = strings("odds_missed"),
+            oddsShots = o.optInt("odds_shots", 0),
             mode = runCatching { Mode.valueOf(o.optString("mode")) }.getOrDefault(Mode.MATCH),
             backed = o.optString("backed"),
             model = o.optString("model"),

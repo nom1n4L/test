@@ -624,10 +624,15 @@ class Analyst(private val apiKey: String) {
                 val label = o.optString("market")
                 val price = o.optDouble("price", 0.0)
                 if (label.isNotBlank() && price > 1.0 && price <= 1000) {
-                    seen.add(Odds.Entry(label, price))
+                    seen.add(Odds.Entry(label, price, o.optString("section")))
                 }
             }
         }
+
+        // Kept rather than dropped on the floor. A price the app could not place is
+        // the user's most useful signal that a coupon was misread — and silently
+        // discarding it was why "beberapa odds tidak kebaca" had no symptom to chase.
+        val placed = Odds.match(seen, markets)
 
         return MatchPrediction(
             id = java.util.UUID.randomUUID().toString(),
@@ -655,7 +660,10 @@ class Analyst(private val apiKey: String) {
             pickProb = json.optDouble("pick_prob", 0.0),
             confidence = json.optString("confidence", "sedang"),
             confidenceWhy = json.optString("confidence_why"),
-            prices = Odds.match(seen, markets).pairs,
+            prices = placed.pairs,
+            oddsMissed = (placed.unmatched + placed.conflicts).map {
+                "${it.label} @ ${Odds.oddsLabel(it.price)}"
+            },
             raw = text,
         )
     }
@@ -852,7 +860,15 @@ class Analyst(private val apiKey: String) {
 Aturan pengisian:
 - "odds": kalau di antara gambar ada layar bandar (Melbet, 1xBet, Pinnacle, dan
   sejenisnya), salin SEMUA harga yang terlihat ke sini: "market" ditulis persis
-  seperti nama market di daftar di atas, "price" angkanya. Kalau tidak ada layar
+  seperti nama market di daftar di atas, "price" angkanya, dan "section" diisi
+  NAMA KELOMPOK market itu persis seperti judul dalam kurung siku di daftar di atas
+  (misalnya "Total Gol", "Total Babak 1", "Corner", "Handicap Asia").
+  "section" itu WAJIB dan bukan formalitas: kupon menulis "Over 0.5" untuk gol,
+  untuk babak 1, dan untuk corner dengan huruf yang sama persis. Tanpa "section"
+  ketiganya jatuh ke satu market dan dua harga hilang. Kalau baris itu ada di bawah
+  judul "Corner", tulis "Corner" — jangan ditebak dari angkanya.
+  Untuk handicap, tanda + dan − WAJIB ikut ditulis: "-0.5" dan "+0.5" itu dua
+  taruhan yang berlawanan, bukan penulisan yang berbeda untuk hal yang sama. Kalau tidak ada layar
   harga sama sekali, isi array kosong. JANGAN mengarang harga, dan JANGAN memakai
   harga itu untuk menggeser peluangmu — peluangmu sudah ditulis sebelum bagian ini,
   dan memang begitu urutannya supaya kamu tidak sekadar menyalin bandar.
@@ -1156,7 +1172,8 @@ Aturan:
                             "items",
                             JSONObject().put("type", "OBJECT").put(
                                 "properties",
-                                JSONObject().put("market", str()).put("price", num()),
+                                JSONObject().put("market", str()).put("price", num())
+                                    .put("section", str()),
                             ).put("required", JSONArray().put("market").put("price")),
                         ),
                     )
@@ -1169,7 +1186,13 @@ Aturan:
                     .put("prob_home").put("prob_draw").put("prob_away")
                     .put("xg_home").put("xg_away").put("markets")
                     .put("pick").put("pick_prob").put("confidence").put("confidence_why")
-                    .put("need_more").put("action").put("verdict").put("odds")
+                    // After the pick, before the prose. Both halves matter: the
+                    // recommendation is already committed, so it cannot be a copy of
+                    // the bookmaker's favourite; and the prices no longer sit behind
+                    // three paragraphs of verdict, where a reply that ran out of room
+                    // lost every one of them before writing a single price.
+                    .put("odds")
+                    .put("need_more").put("action").put("verdict")
             )
             .put(
                 "required",

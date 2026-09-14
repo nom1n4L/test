@@ -1589,7 +1589,7 @@ fun DetailScreen(
             }
         }
 
-        if (match.prices.isNotEmpty()) {
+        if (match.prices.isNotEmpty() || match.oddsMissed.isNotEmpty() || match.oddsShots > 0) {
             item { PriceCard(match) }
         }
 
@@ -2585,13 +2585,69 @@ private fun PriceCard(match: MatchPrediction) {
             match.priceOf(option)?.let { price -> Triple(option, price, match.edgeOf(option) ?: 0) }
         }.sortedByDescending { it.second }
     }
-    if (rows.isEmpty()) return
+    if (rows.isEmpty() && match.oddsMissed.isEmpty() && match.oddsShots == 0) return
     Card(
         accent = Amber,
         title = "Harga Bandar Yang Terbaca",
         subtitle = "${rows.size} market. Cocokkan sebentar dengan kuponmu — kalau ada " +
             "digit yang salah baca, betulkan lewat tempel teks di atas.",
     ) {
+        if (rows.isEmpty() && match.oddsShots > 0) {
+            Surface(
+                color = Rose.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(9.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            ) {
+                Column(Modifier.padding(10.dp)) {
+                    Text(
+                        "${match.oddsShots} layar harga dikirim, TIDAK ADA harga yang terbaca",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Rose,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Biasanya gambarnya terlalu kecil atau terlalu panjang sampai " +
+                            "angkanya buram. Coba screenshot per bagian, jangan satu " +
+                            "layar panjang. Kalau masih juga, tempel teksnya lewat " +
+                            "kotak di atas — itu tidak bisa salah baca digit.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        if (match.oddsMissed.isNotEmpty()) {
+            Surface(
+                color = Rose.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(9.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            ) {
+                Column(Modifier.padding(10.dp)) {
+                    Text(
+                        "${match.oddsMissed.size} harga tidak bisa ditempatkan",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Rose,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    match.oddsMissed.take(10).forEach {
+                        Text("• $it", style = MaterialTheme.typography.labelSmall)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "Baris ini terbaca dari kupon tapi tidak cocok dengan satu pun " +
+                            "market di aplikasi — biasanya market yang memang belum " +
+                            "didukung. Kalau ternyata market yang ada, tempel teksnya " +
+                            "lewat kotak di atas; teks tidak bisa salah baca digit.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
         rows.forEach { (option, price, edge) ->
             Row(
                 Modifier.fillMaxWidth().padding(vertical = 3.dp),

@@ -264,6 +264,22 @@ data class MatchPrediction(
      * true every time the user reopens it.
      */
     val oddsNote: String = "",
+    /**
+     * Prices read off the coupon that could not be placed on a market.
+     *
+     * Shown rather than dropped. These are the ones the user means when they say
+     * some odds did not come through, and until they were kept there was nothing
+     * to look at — the app read forty prices, filed thirty, and reported forty.
+     */
+    val oddsMissed: List<String> = emptyList(),
+    /**
+     * How many bookmaker screens were sent with this analysis.
+     *
+     * Recorded so the app can tell "you sent no coupon" apart from "you sent a
+     * coupon and nothing came back". They look identical on screen otherwise, and
+     * the second one is a fault worth reporting rather than a quiet blank.
+     */
+    val oddsShots: Int = 0,
     val raw: String = "",
 ) {
     val title: String get() = if (home.isBlank()) "Pertandingan" else "$home vs $away"

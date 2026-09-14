@@ -212,6 +212,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     _matches.value, _slips.value, null, _appetite.value, stats,
                     _oddsShots.value, _minOdds.value,
                 ).copy(
+                    oddsShots = _oddsShots.value.size,
                     model = store.model,
                     home = fixture.home,
                     away = fixture.away,
@@ -460,7 +461,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                         _matches.value, _slips.value, null, _appetite.value, read,
                         odds, _minOdds.value,
                     )
-                    .copy(model = store.model)
+                    .copy(model = store.model, oddsShots = odds.size)
                 _lastUsage.value = analyst.lastUsage
                 // After calibration, and after the model has answered: the team
                 // names are only known at this point, so a fixture already on record
@@ -527,6 +528,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     // screens should not throw away a bookmaker screen from the
                     // first pass, and a fresh reading of the same price wins.
                     prices = previous.prices + reread.prices,
+                    oddsShots = previous.oddsShots + _oddsShots.value.size,
                 )
                 _lastUsage.value = analyst.lastUsage
                 seedOdds(fresh)

@@ -59,6 +59,16 @@ object Odds {
     data class Matched(
         val pairs: Map<String, Double>,
         val unmatched: List<Entry>,
+        /**
+         * Prices that landed on a market another price had already taken.
+         *
+         * They used to overwrite in silence, which is the worst of the three
+         * possible behaviours: a coupon printing "Over 0.5" under Total Gol, under
+         * Babak 1 and under Corner sent three different bets to one market, and the
+         * last one won. The user lost two prices and the survivor was attached to
+         * the wrong bet — and nothing on screen said either thing had happened.
+         */
+        val conflicts: List<Entry> = emptyList(),
     )
 
     /**
@@ -395,6 +405,7 @@ object Odds {
     fun match(entries: List<Entry>, markets: List<MarketOption>): Matched {
         val pairs = LinkedHashMap<String, Double>()
         val missed = ArrayList<Entry>()
+        val clashed = ArrayList<Entry>()
 
         entries.forEach { entry ->
             val expanded = expand(entry.label)
@@ -403,10 +414,26 @@ object Odds {
                 val needed = tokens(market.name)
                 needed.isNotEmpty() && words.containsAll(needed)
             }
-            val best = candidates.maxByOrNull { tokens(it.name).size }
-            if (best == null) missed.add(entry) else pairs["${best.group}|${best.name}"] = entry.price
+            // The heading the row sat under is what tells "Over 0.5" the goals bet
+            // from "Over 0.5" the corner bet. The words alone cannot: on the coupon
+            // they are identical, and that is the bookmaker's layout, not a flaw in
+            // the reading. Where a section is known it decides; where it is not,
+            // the longest name still wins as before.
+            val inSection = if (entry.section.isBlank()) emptyList() else candidates.filter {
+                it.group.equals(entry.section, ignoreCase = true)
+            }
+            val best = (inSection.ifEmpty { candidates }).maxByOrNull { tokens(it.name).size }
+            val key = best?.let { "${it.group}|${it.name}" }
+            when {
+                key == null -> missed.add(entry)
+                // First price wins and the rest are reported. Keeping the first is
+                // arbitrary; keeping it *loudly* is not, and a conflict the user can
+                // see is a conflict they can fix by pasting the text instead.
+                pairs.containsKey(key) && pairs[key] != entry.price -> clashed.add(entry)
+                else -> pairs[key] = entry.price
+            }
         }
-        return Matched(pairs, missed)
+        return Matched(pairs, missed, clashed)
     }
 
     /**
@@ -420,14 +447,24 @@ object Odds {
      * one: Melbet writes the line first, as "(0.5) Over", and cutting at the first
      * bracket there left nothing at all to match on.
      */
-    internal fun tokens(name: String): Set<String> = name
-        .replace(Regex("""\s*\([^)]*\)\s*$"""), "")
+    fun tokens(name: String): Set<String> = name
+        // Only a gloss, never a line. "1X (tuan rumah atau seri)" is the app
+        // explaining itself and carries no information; "Over (2.5)" is how Melbet
+        // prints the line, and cutting it left the bare word "Over" — which matches
+        // no market at all, so every bracketed line on the coupon went unread.
+        .replace(Regex("""\s*\([^)0-9]*\)\s*$"""), "")
         .lowercase()
         .replace(',', '.')
-        .replace(Regex("""[^a-z0-9. ]"""), " ")
+        // Glue a sign to the number it belongs to before anything is stripped.
+        // Without this "+0.5" and "-0.5" both became "0.5", so the two sides of a
+        // handicap were indistinguishable and a price could be — and was — filed
+        // against the opposite bet.
+        .replace(Regex("""([+-])\s+(?=[0-9])"""), "$1")
+        .replace(Regex("""[^a-z0-9.+\- ]"""), " ")
         .split(' ')
         .map { it.trim('.') }
-        .filter { it.isNotBlank() && it !in NOISE }
+        // A lone sign is punctuation ("BTTS - Ya"), not part of a number.
+        .filter { it.isNotBlank() && it != "+" && it != "-" && it !in NOISE }
         .toSet()
 
     /**

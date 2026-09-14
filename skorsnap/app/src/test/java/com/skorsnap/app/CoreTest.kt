@@ -3665,13 +3665,22 @@ Handicap
         val order = Analyst.RESPONSE_SCHEMA.getJSONArray("propertyOrdering")
         val fields = (0 until order.length()).map { order.getString(it) }
         assert("odds" in fields) { "odds tidak ada di urutan: $fields" }
-        listOf("prob_home", "prob_away", "markets", "pick", "pick_prob", "verdict").forEach {
+        // The guarantee is that every judgement is committed before a single price
+        // is written, so the answer cannot be a copy of the bookmaker's own view.
+        listOf("prob_home", "prob_away", "markets", "pick", "pick_prob").forEach {
             assert(fields.indexOf(it) < fields.indexOf("odds")) {
                 "$it ditulis setelah odds — modelnya akan menyalin harga bandar"
             }
         }
-        assert(fields.last() == "odds") { "odds harus paling akhir, dapat ${fields.last()}" }
-        println("Urutan jawaban: harga bandar dibaca terakhir, setelah peluangnya terkunci.")
+        // It is NOT that odds come dead last. That was the same rule stated as a
+        // position instead of a reason, and it cost real prices: behind the closing
+        // prose, a reply that ran out of room lost every price before writing one.
+        // "verdict" is written after the decision either way, so moving ahead of it
+        // copies nothing.
+        assert(fields.indexOf("odds") < fields.indexOf("verdict")) {
+            "odds ditulis setelah prosa penutup — hilang duluan kalau jawabannya terpotong"
+        }
+        println("Urutan jawaban: keputusan dikunci dulu, harga bandar disalin sesudahnya.")
     }
 
     /**
@@ -4048,5 +4057,156 @@ Handicap
             "aturan anti-jiplak bandar hilang",
             "menyalin bandar" in Analyst.ODDS_IMAGE_RULE,
         )
+    }
+
+    // --- membaca odds dari foto kupon -------------------------------------------
+
+    private fun option(name: String, group: String) = MarketOption(name, 0.7, "", group)
+
+    /**
+     * The bug that made a handicap price land on the opposite bet.
+     *
+     * "+0.5" and "-0.5" were both stripped down to "0.5", so the two sides of a
+     * handicap were literally the same word to the matcher and the first one in the
+     * list won. A price filed against the reverse bet is the worst kind of wrong:
+     * the number is real, the market is real, and nothing looks broken.
+     */
+    @Test
+    fun aPlusHandicapNeverLandsOnTheMinusHandicap() {
+        val markets = listOf(
+            option("Tuan rumah -0.5", "Handicap Asia"),
+            option("Tuan rumah +0.5", "Handicap Asia"),
+            option("Tandang -1.5", "Handicap Asia"),
+            option("Tandang +1.5", "Handicap Asia"),
+        )
+        val out = Odds.match(
+            listOf(
+                Odds.Entry("Tuan rumah +0.5", 1.30),
+                Odds.Entry("Tandang -1.5", 3.40),
+            ),
+            markets,
+        )
+        assertEquals(1.30, out.pairs["Handicap Asia|Tuan rumah +0.5"])
+        assertEquals(3.40, out.pairs["Handicap Asia|Tandang -1.5"])
+        assertNull("harga nyasar ke handicap sebaliknya", out.pairs["Handicap Asia|Tuan rumah -0.5"])
+        assertNull("harga nyasar ke handicap sebaliknya", out.pairs["Handicap Asia|Tandang +1.5"])
+    }
+
+    /** Melbet prints the line in brackets. Cutting it left nothing to match on. */
+    @Test
+    fun aLineInBracketsIsStillARealLine() {
+        val markets = listOf(option("Over 2.5", "Total Gol"), option("Under 2.5", "Total Gol"))
+        listOf("Over (2.5)", "(2.5) Over", "Total Over (2.5)", "Over 2,5").forEach { label ->
+            val out = Odds.match(listOf(Odds.Entry(label, 1.95)), markets)
+            assertEquals("tidak terbaca: \"$label\"", 1.95, out.pairs["Total Gol|Over 2.5"])
+        }
+    }
+
+    /** But the app's own gloss is still a gloss, and must still be ignored. */
+    @Test
+    fun theAppsOwnBracketedGlossIsStillDropped() {
+        val markets = listOf(option("1X (tuan rumah atau seri)", "Double Chance"))
+        val out = Odds.match(listOf(Odds.Entry("1X", 1.25)), markets)
+        assertEquals(1.25, out.pairs["Double Chance|1X (tuan rumah atau seri)"])
+    }
+
+    /**
+     * Three different bets that a coupon prints with the same two words.
+     *
+     * The heading is the only thing that tells them apart, which is why the model is
+     * asked for it. Without it they all landed on one market and two prices vanished.
+     */
+    @Test
+    fun theSectionKeepsIdenticalLabelsOnTheirOwnMarkets() {
+        val markets = listOf(
+            option("Over 0.5", "Total Gol"),
+            option("Babak 1 Over 0.5", "Total Babak 1"),
+            option("Total corner Over 0.5", "Corner"),
+        )
+        val out = Odds.match(
+            listOf(
+                Odds.Entry("Over 0.5", 1.03, "Total Gol"),
+                Odds.Entry("Babak 1 Over 0.5", 1.45, "Total Babak 1"),
+                Odds.Entry("Total corner Over 0.5", 1.01, "Corner"),
+            ),
+            markets,
+        )
+        assertEquals(3, out.pairs.size)
+        assertEquals(1.03, out.pairs["Total Gol|Over 0.5"])
+        assertEquals(1.45, out.pairs["Total Babak 1|Babak 1 Over 0.5"])
+        assertEquals(1.01, out.pairs["Corner|Total corner Over 0.5"])
+        assertTrue(out.conflicts.isEmpty())
+    }
+
+    /** A price that cannot be placed is reported, never overwritten in silence. */
+    @Test
+    fun aSecondPriceForTheSameMarketIsReportedNotSwallowed() {
+        val markets = listOf(option("Over 0.5", "Total Gol"))
+        val out = Odds.match(
+            listOf(Odds.Entry("Over 0.5", 1.03), Odds.Entry("Over 0.5", 1.45)),
+            markets,
+        )
+        assertEquals(1, out.pairs.size)
+        // The first reading is kept and the second is surfaced rather than winning.
+        assertEquals(1.03, out.pairs["Total Gol|Over 0.5"])
+        assertEquals(1, out.conflicts.size)
+        assertEquals(1.45, out.conflicts.first().price, 1e-9)
+    }
+
+    /** The same price twice is agreement, not a conflict worth reporting. */
+    @Test
+    fun repeatingTheSamePriceIsNotAConflict() {
+        val markets = listOf(option("Over 0.5", "Total Gol"))
+        val out = Odds.match(
+            listOf(Odds.Entry("Over 0.5", 1.03), Odds.Entry("Over 0.5", 1.03)),
+            markets,
+        )
+        assertTrue(out.conflicts.isEmpty())
+        assertEquals(1.03, out.pairs["Total Gol|Over 0.5"])
+    }
+
+    /** Prices read but not placed must reach the analysis, not the floor. */
+    @Test
+    fun unplacedPricesAreKeptOnTheAnalysis() {
+        val reply = """
+        {"home":"A","away":"B","markets":[{"name":"Over 2.5","prob":0.7,"why":"x","group":"Total Gol"}],
+         "pick":"Over 2.5","pick_prob":0.7,
+         "odds":[{"market":"Over 2.5","price":1.95,"section":"Total Gol"},
+                 {"market":"Pencetak gol pertama Haaland","price":4.5,"section":"Lainnya"}]}
+        """
+        val m = Analyst("dummy").parse(reply)
+        assertEquals(1.95, m.prices["Total Gol|Over 2.5"])
+        assertEquals(1, m.oddsMissed.size)
+        assertTrue("harga yang gagal tidak dilaporkan", "Haaland" in m.oddsMissed.first())
+    }
+
+    /** Odds must be generated before the tail, or truncation eats them first. */
+    @Test
+    fun pricesAreWrittenBeforeTheClosingFieldsNotAfter() {
+        val order = Analyst.RESPONSE_SCHEMA.getJSONArray("propertyOrdering")
+        val names = (0 until order.length()).map { order.getString(it) }
+        assertTrue("harga ditulis sebelum rekomendasi — modelnya bisa menjiplak bandar",
+            names.indexOf("odds") > names.indexOf("pick"))
+        assertTrue("harga ditulis paling akhir — hilang duluan kalau jawabannya terpotong",
+            names.indexOf("odds") < names.indexOf("verdict"))
+    }
+
+    /**
+     * "I sent the coupon and nothing happened" must be distinguishable from
+     * "I sent no coupon". Without the count they render identically — an empty
+     * screen — and the user is left guessing which of the two occurred.
+     */
+    @Test
+    fun sendingACouponThatYieldsNothingIsRecordedNotBlank() {
+        val reply = """
+        {"home":"A","away":"B","markets":[{"name":"Over 2.5","prob":0.7,"why":"x","group":"Total Gol"}],
+         "pick":"Over 2.5","pick_prob":0.7,"odds":[]}
+        """
+        val silent = Analyst("dummy").parse(reply).copy(oddsShots = 2)
+        assertTrue(silent.prices.isEmpty())
+        assertEquals(2, silent.oddsShots)
+        // And a match nobody sent a coupon for stays at zero, so the warning that
+        // keys off this never appears where there was nothing to read.
+        assertEquals(0, Analyst("dummy").parse(reply).oddsShots)
     }
 }
