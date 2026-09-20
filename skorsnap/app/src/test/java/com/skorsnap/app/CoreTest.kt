@@ -29,7 +29,9 @@ import com.skorsnap.app.data.Mode
 import com.skorsnap.app.data.Outcome
 import com.skorsnap.app.data.Leg
 import com.skorsnap.app.data.MatchResult
+import com.skorsnap.app.data.Lockdown
 import com.skorsnap.app.data.Odds
+import org.junit.Assert.assertFalse
 import com.skorsnap.app.data.Postmortem
 import com.skorsnap.app.data.Repeat
 import com.skorsnap.app.data.Turn
@@ -4208,5 +4210,140 @@ Handicap
         // And a match nobody sent a coupon for stays at zero, so the warning that
         // keys off this never appears where there was nothing to read.
         assertEquals(0, Analyst("dummy").parse(reply).oddsShots)
+    }
+
+    // --- mode paling aman --------------------------------------------------------
+
+    private fun opt(
+        name: String,
+        prob: Double,
+        group: String = "Total Gol",
+        book: Double? = null,
+        derived: Boolean = false,
+    ) = MarketOption(name, prob, "why", group, derived = derived, marketProb = book)
+
+    private fun match(vararg options: MarketOption, confidence: String = "tinggi") =
+        MatchPrediction(
+            id = "m", home = "A", away = "B", league = "L", readable = true,
+            problem = "", statsSeen = listOf("x"), statsMissing = emptyList(),
+            risks = emptyList(), needMore = emptyList(), action = "pasang",
+            verdict = "v", firstRead = "f", riskSide = "r", adjustment = "a",
+            probHome = 0.4, probDraw = 0.3, probAway = 0.3, xgHome = 1.4, xgAway = 1.1,
+            markets = options.toList(), pick = options.first().name,
+            pickProb = options.first().prob, confidence = confidence, confidenceWhy = "c",
+        )
+
+    /**
+     * The point of the whole mode: every witness has to agree, so a market the
+     * bookmaker disagrees with is refused however confident the app is.
+     */
+    @Test
+    fun theStrictestModeRefusesAMarketTheBookmakerDisagreesWith() {
+        val m = match(
+            opt("Over 0.5", 0.88, book = 0.58),
+            opt("Over 1.5", 0.84, book = 0.81),
+        )
+        val v = Lockdown.judge(m)
+        assertEquals(listOf("Over 1.5"), v.passed.map { it.name })
+        assertTrue(v.rejected.any { it.first.name == "Over 0.5" && "bandar" in it.second })
+    }
+
+    /** A number the app worked out itself is not a second witness. */
+    @Test
+    fun aDerivedMarketNeverCountsAsSafestHoweverHighItReads() {
+        val m = match(opt("Over 0.5", 0.94, derived = true), opt("Over 1.5", 0.83))
+        val v = Lockdown.judge(m)
+        assertEquals(listOf("Over 1.5"), v.passed.map { it.name })
+    }
+
+    /**
+     * A grid that contradicts itself is evidence the reading is wrong, and no single
+     * number inside it can be trusted — not even the one that looks best.
+     */
+    @Test
+    fun aGridThatContradictsItselfBlocksTheWholeMatch() {
+        // Over 2.5 cannot be likelier than Over 1.5: every 3-goal match has 2 goals.
+        val m = match(opt("Over 1.5", 0.82), opt("Over 2.5", 0.90))
+        val v = Lockdown.judge(m)
+        assertTrue(v.passed.isEmpty())
+        assertTrue("tabrakan tidak dilaporkan", v.blocked.isNotBlank())
+        assertFalse(v.hasPick)
+    }
+
+    /** Under lines run the other way, and must be checked the other way. */
+    @Test
+    fun underLinesAreCheckedInTheOppositeDirection() {
+        assertTrue(Lockdown.coherent(listOf(opt("Under 2.5", 0.60), opt("Under 3.5", 0.80))))
+        assertFalse(Lockdown.coherent(listOf(opt("Under 2.5", 0.80), opt("Under 3.5", 0.60))))
+    }
+
+    /** Different families are checked against themselves, not against each other. */
+    @Test
+    fun goalsAndCornersAreNotComparedWithEachOther() {
+        val m = listOf(
+            opt("Over 1.5", 0.85),
+            opt("Total corner Over 8.5", 0.90, group = "Corner"),
+        )
+        assertTrue("corner dibandingkan dengan gol", Lockdown.coherent(m))
+    }
+
+    /** A thin reading produces no safest pick at all, whatever its numbers say. */
+    @Test
+    fun aThinReadingIsRefusedOutright() {
+        val m = match(opt("Over 1.5", 0.88, book = 0.85), confidence = "rendah")
+        val v = Lockdown.judge(m)
+        assertTrue(v.passed.isEmpty())
+        assertTrue("bacaan tipis" in v.blocked || "tipis" in v.blocked)
+    }
+
+    /**
+     * The honest half. When nothing passes, the answer is to skip the match — not
+     * to quietly hand back the next best thing under a safer-sounding name.
+     */
+    @Test
+    fun whenNothingPassesTheAppSaysSkipRatherThanSubstituting() {
+        val m = match(opt("Over 1.5", 0.71, book = 0.70), opt("Over 2.5", 0.55, book = 0.54))
+        val out = Lockdown.apply(m)
+        val v = Lockdown.judge(m)
+        assertTrue(v.passed.isEmpty())
+        assertTrue(out.lockdownNote.isNotBlank())
+        assertTrue("lewati" in out.lockdownNote.lowercase())
+        // The ordinary reading is left intact underneath rather than overwritten.
+        assertEquals("Over 1.5", out.pick)
+    }
+
+    /** The app's own record can veto a band it has been running hot in. */
+    @Test
+    fun aBandTheRecordSaysIsOverconfidentIsRefused() {
+        val m = match(opt("Over 1.5", 0.85, book = 0.84))
+        // Twenty settled results in the 80s at 85% promised, landing barely half.
+        val marks = List(20) { Mark("Total Gol", "Over 1.5", 0.85, it % 2 == 0) }
+        assertTrue(Lockdown.judge(m).passed.isNotEmpty())
+        assertTrue(
+            "rekor buruk tidak memveto",
+            Lockdown.rejection(m.markets.first(), m, marks) != null,
+        )
+    }
+
+    /** Ranking uses the more pessimistic of the two readings, not the app's own. */
+    @Test
+    fun theSafestPickIsRankedByTheLowerOfTheTwoOpinions() {
+        val m = match(
+            // The app likes this more, but the book likes it less.
+            opt("Over 0.5", 0.90, book = 0.74),
+            opt("Over 1.5", 0.85, book = 0.84),
+        )
+        val v = Lockdown.judge(m)
+        assertEquals("Over 1.5", v.passed.first().name)
+    }
+
+    /** Switching the mode off must leave no trace behind on the analysis. */
+    @Test
+    fun leavingTheStrictestModeClearsItsMarks() {
+        val locked = Lockdown.apply(match(opt("Over 1.5", 0.60)))
+        assertTrue(locked.lockdown)
+        val cleared = locked.copy(lockdown = false, lockdownNote = "", lockdownRejects = emptyList())
+        assertFalse(cleared.lockdown)
+        assertEquals("", cleared.lockdownNote)
     }
 }

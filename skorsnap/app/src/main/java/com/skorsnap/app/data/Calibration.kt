@@ -77,6 +77,9 @@ object Calibration {
 
         val label: String get() = "${(low * 100).roundToInt()}–${(high * 100).roundToInt()}%"
 
+        /** Whether a probability falls in this band. */
+        fun holds(prob: Double): Boolean = prob >= low && prob < high
+
         /** Enough to say something, still not proof. */
         val worthReporting: Boolean get() = total >= 8
     }

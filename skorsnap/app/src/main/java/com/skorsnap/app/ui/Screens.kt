@@ -1,6 +1,10 @@
 package com.skorsnap.app.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -1589,6 +1593,10 @@ fun DetailScreen(
             }
         }
 
+        if (match.lockdown) {
+            item { LockdownCard(match) }
+        }
+
         if (match.prices.isNotEmpty() || match.oddsMissed.isNotEmpty() || match.oddsShots > 0) {
             item { PriceCard(match) }
         }
@@ -2566,6 +2574,121 @@ private fun MinOddsPicker(minOdds: Double, onPick: (Double) -> Unit) {
         },
         style = MaterialTheme.typography.labelSmall,
         color = if (minOdds >= 2.20) Amber else Sky,
+    )
+}
+
+/**
+ * The strictest rule's verdict, including the verdict of having nothing to say.
+ *
+ * Given the top of the screen and its own colour, because in this mode "skip this
+ * match" is the product rather than a failure to produce one — and a refusal
+ * printed small, below the ordinary recommendation, would be read as a warning
+ * attached to a pick instead of the answer replacing it.
+ */
+@Composable
+private fun LockdownCard(match: MatchPrediction) {
+    val refused = match.lockdownNote.isNotBlank()
+    val accent = if (refused) Amber else Green
+    var show by remember(match.id) { mutableStateOf(false) }
+    LaunchedEffect(match.id) { show = true }
+    val lift by animateFloatAsState(
+        targetValue = if (show) 1f else 0.94f,
+        animationSpec = tween(420, easing = FastOutSlowInEasing),
+        label = "lift",
+    )
+
+    Card(
+        accent = accent,
+        title = if (refused) "🔒 Lewati Laga Ini" else "🔒 Lolos Semua Pemeriksaan",
+        subtitle = if (refused) "Mode paling aman tidak menemukan market yang layak."
+        else "Market ini lolos setiap pemeriksaan yang dipunyai aplikasi.",
+        modifier = Modifier.scale(lift),
+    ) {
+        if (refused) {
+            Text(match.lockdownNote, style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text(
+                match.pick,
+                style = MaterialTheme.typography.titleLarge,
+                color = Green,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(2.dp))
+            CountUpPercent(match.pickProb, Green)
+            Spacer(Modifier.height(10.dp))
+            listOf(
+                "AI membacanya ${Math.round(match.pickProb * 100)}%, di atas batas 80%",
+                "Bandar sependapat — harganya tidak jauh dari bacaan AI",
+                "Bukan angka turunan: AI benar-benar menimbang market ini",
+                "Bacaan laga ini tidak tipis",
+                "Angka-angka di laga ini tidak saling bertabrakan",
+                "Rekormu tidak bilang rentang ini kelebihan percaya diri",
+            ).forEach { CheckRow(it) }
+        }
+
+        if (match.lockdownRejects.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            var open by remember(match.id) { mutableStateOf(false) }
+            TextButton(onClick = { open = !open }) {
+                Text(
+                    if (open) "Tutup yang ditolak"
+                    else "Lihat ${match.lockdownRejects.size} market yang hampir lolos",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent,
+                )
+            }
+            AnimatedVisibility(open) {
+                Column {
+                    match.lockdownRejects.forEach {
+                        Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                            Text("✕", color = Rose, style = MaterialTheme.typography.labelSmall)
+                            Spacer(Modifier.width(8.dp))
+                            Text(it, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One passed check, ticked. */
+@Composable
+private fun CheckRow(text: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text("✓", color = Green, style = MaterialTheme.typography.labelSmall)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * A probability that counts up to its value.
+ *
+ * Small thing, but it makes the number the eye lands on first, which for this app
+ * is the right place for it to land.
+ */
+@Composable
+private fun CountUpPercent(prob: Double, tint: Color) {
+    var go by remember(prob) { mutableStateOf(false) }
+    LaunchedEffect(prob) { go = true }
+    val shown by animateFloatAsState(
+        targetValue = if (go) prob.toFloat() else 0f,
+        animationSpec = tween(750, easing = FastOutSlowInEasing),
+        label = "count",
+    )
+    Text(
+        "${Math.round(shown * 100)}%",
+        style = MaterialTheme.typography.headlineSmall,
+        color = tint,
+        fontWeight = FontWeight.Bold,
     )
 }
 

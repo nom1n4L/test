@@ -104,6 +104,23 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setAppetite(value: Appetite) {
         store.appetite = value
         _appetite.value = value
+        // Re-judged on the spot. Switching to the strictest mode and seeing the same
+        // recommendation as before would say the mode does nothing, when what it
+        // actually does is refuse most of them.
+        val redone = _matches.value.map { m ->
+            when {
+                value == Appetite.LOCKDOWN ->
+                    com.skorsnap.app.data.Lockdown.apply(m, _matches.value)
+                // Leaving the strictest mode clears its marks, so a match does not
+                // keep claiming a verdict the app is no longer applying.
+                m.lockdown -> m.copy(
+                    lockdown = false, lockdownNote = "", lockdownRejects = emptyList(),
+                )
+                else -> m
+            }
+        }
+        _matches.value = redone
+        store.save(redone)
     }
 
     /**
@@ -113,6 +130,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * pays — and the app answers both without letting either quietly answer the
      * other. See Value.
      */
+    /**
+     * Which job is running, so the waiting screen can name it.
+     *
+     * Reading a result screenshot is not analysing a match, and a progress screen
+     * narrating goal expectations while it transcribes a scoreline would be telling
+     * the user something untrue about their own app.
+     */
+    enum class Job { ANALYSE, RESULT }
+
+    private val _job = MutableStateFlow(Job.ANALYSE)
+    val job: StateFlow<Job> = _job.asStateFlow()
+
     private val _minOdds = MutableStateFlow(store.minOdds)
     val minOdds: StateFlow<Double> = _minOdds.asStateFlow()
 
@@ -201,6 +230,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun analyseFixture(fixture: Football.Fixture, note: String) {
         if (_busy.value) return
         viewModelScope.launch {
+            _job.value = Job.ANALYSE
             _busy.value = true
             _message.value = null
             try {
@@ -225,7 +255,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val checked = com.skorsnap.app.data.Repeat.apply(
                     calibrate(result), _matches.value, _appetite.value.floor,
                 )
-                val calibrated = checked.match
+                // Last, and deliberately so: every other correction has already been
+                // applied, so what the strictest rule inspects is the number the
+                // user would actually have been shown.
+                val calibrated = lock(checked.match)
                 seedOdds(calibrated)
                 val updated = _matches.value + calibrated
                 _matches.value = updated
@@ -451,6 +484,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             pages.forEachIndexed { i, page -> append("--- Halaman ${i + 1} ---\n$page\n\n") }
         }
         viewModelScope.launch {
+            _job.value = Job.ANALYSE
             _busy.value = true
             _message.value = null
             try {
@@ -469,7 +503,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val checked = com.skorsnap.app.data.Repeat.apply(
                     calibrate(result), _matches.value, _appetite.value.floor,
                 )
-                val calibrated = checked.match
+                // Last, and deliberately so: every other correction has already been
+                // applied, so what the strictest rule inspects is the number the
+                // user would actually have been shown.
+                val calibrated = lock(checked.match)
                 seedOdds(calibrated)
                 val updated = _matches.value + calibrated
                 _matches.value = updated
@@ -510,6 +547,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
+            _job.value = Job.ANALYSE
             _busy.value = true
             _message.value = null
             try {
@@ -529,7 +567,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     // first pass, and a fresh reading of the same price wins.
                     prices = previous.prices + reread.prices,
                     oddsShots = previous.oddsShots + _oddsShots.value.size,
-                )
+                ).let(::lock)
                 _lastUsage.value = analyst.lastUsage
                 seedOdds(fresh)
                 val updated = _matches.value.map { if (it.id == id) fresh else it }
@@ -552,6 +590,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
      * made saved verdicts invisible until the screen was reopened. Screens observe
      * [matches] instead.
      */
+    /**
+     * Runs the strictest rule when the user has asked for it, and not otherwise.
+     *
+     * Kept in one place so every path into an analysis gets the same treatment — a
+     * mode that applied on the main screen but not after a second pass would be
+     * worse than no mode at all, because the user would have no way to tell which
+     * rule produced the answer in front of them.
+     */
+    private fun lock(match: MatchPrediction): MatchPrediction =
+        if (_appetite.value != Appetite.LOCKDOWN) match
+        else com.skorsnap.app.data.Lockdown.apply(match, _matches.value)
+
     private fun matchOf(id: String): MatchPrediction? = _matches.value.firstOrNull { it.id == id }
 
     /**
@@ -879,6 +929,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
+            _job.value = Job.RESULT
             _busy.value = true
             _message.value = null
             try {

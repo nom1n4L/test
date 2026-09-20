@@ -99,6 +99,19 @@ data class MarketOption(
  * staking whatever the appetite.
  */
 enum class Appetite(val label: String, val floor: Double, val note: String) {
+    /**
+     * Every check the app has, all at once, and nothing recommended when they
+     * disagree. The floor is nominal here — [Lockdown] does the real work, and a
+     * number alone was never what made this safer. See that file.
+     */
+    LOCKDOWN(
+        "Paling Aman",
+        Lockdown.MODEL_FLOOR,
+        "Cuma market yang lolos SEMUA pemeriksaan: AI 80%+, bandar setuju, bukan " +
+            "hitungan turunan, bacaan tidak tipis, angkanya tidak saling bertabrakan, " +
+            "dan rekormu tidak bilang rentang itu kelebihan percaya diri. Kalau tidak " +
+            "ada yang lolos, aplikasinya menyuruh lewati laga — dan itu memang gunanya.",
+    ),
     SAFE(
         "Aman",
         0.68,
@@ -280,6 +293,12 @@ data class MatchPrediction(
      * the second one is a fault worth reporting rather than a quiet blank.
      */
     val oddsShots: Int = 0,
+    /** Whether this analysis was judged under the strictest rule. See Lockdown. */
+    val lockdown: Boolean = false,
+    /** Why the strictest rule refused to name anything, blank when it did not. */
+    val lockdownNote: String = "",
+    /** The markets that came close, and the single check each one failed. */
+    val lockdownRejects: List<String> = emptyList(),
     val raw: String = "",
 ) {
     val title: String get() = if (home.isBlank()) "Pertandingan" else "$home vs $away"

@@ -337,6 +337,21 @@ class Analyst(private val apiKey: String) {
      * than a surprise.
      */
     private fun appetiteNote(appetite: Appetite): String = when (appetite) {
+        Appetite.LOCKDOWN ->
+            "SELERA RISIKO: PALING AMAN. Pengguna ini tidak peduli bayarannya kecil; " +
+                "yang dia minta cuma jangan kalah.\n" +
+                "- Rekomendasikan hanya market dengan peluang 80% ke atas.\n" +
+                "- JANGAN menaikkan angka supaya ada yang lolos. Kalau memang tidak " +
+                "ada market yang jujur di 80% ke atas, tulis \"lewatkan\" di " +
+                "\"action\" dan katakan terus terang di \"verdict\". Menyuruh " +
+                "lewati laga itu jawaban yang benar, bukan kegagalan.\n" +
+                "- Pastikan angka-angkamu konsisten: peluang Over 1.5 TIDAK BOLEH " +
+                "lebih kecil dari Over 2.5, dan Under 3.5 tidak boleh lebih kecil " +
+                "dari Under 2.5. Aplikasi memeriksa ini dan akan menolak seluruh " +
+                "bacaanmu kalau bertabrakan.\n" +
+                "- Kalau statistik yang kamu butuhkan tidak ada di gambar, turunkan " +
+                "\"confidence\" jadi \"rendah\" dan sebutkan apa yang kurang. " +
+                "Jangan menambal dengan tebakan."
         Appetite.SAFE ->
             "SELERA RISIKO: AMAN. Rekomendasikan hanya market dengan peluang 68% ke " +
                 "atas. Kalau tidak ada yang sampai 68%, katakan lewatkan."

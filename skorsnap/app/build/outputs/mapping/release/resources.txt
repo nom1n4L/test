@@ -4,7 +4,6 @@ Marking id:wrapped_composition_tag:2131034199 reachable: referenced from /home/u
 Marking id:androidx_compose_ui_view_composition_context:2131034150 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:view_tree_on_back_pressed_dispatcher_owner:2131034196 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:hide_in_inspector_tag:2131034161 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
-Marking id:pooling_container_listener_holder_tag:2131034174 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:is_pooling_container_tag:2131034166 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:androidx_startup:2131296256 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:inspection_slot_table_set:2131034165 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
@@ -55,6 +54,7 @@ Marking string:not_selected:2131296330 reachable: referenced from /home/user/tes
 Marking string:template_percent:2131296340 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:in_progress:2131296270 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking string:state_empty:2131296334 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+Marking id:pooling_container_listener_holder_tag:2131034174 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:tag_unhandled_key_listeners:2131034189 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:hide_graphics_layer_in_inspector_tag:2131034159 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
 Marking id:report_drawn:2131034175 reachable: referenced from /home/user/test/skorsnap/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex

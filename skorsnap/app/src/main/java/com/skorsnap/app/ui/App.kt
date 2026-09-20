@@ -76,6 +76,7 @@ fun App(
     val mode by vm.mode.collectAsStateWithLifecycle()
     val oddsShots by vm.oddsShots.collectAsStateWithLifecycle()
     val minOdds by vm.minOdds.collectAsStateWithLifecycle()
+    val job by vm.job.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     // The system photo picker needs no storage permission and is available back to
@@ -111,6 +112,17 @@ fun App(
         bottomBar = { BottomBar(screen, selected.size, matches.count { it.settled }, vm) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
+            // The wait gets its own screen rather than a spinner on a button. A
+            // request that takes half a minute behind a disabled button is
+            // indistinguishable from an app that has hung, and that is exactly what
+            // it was being read as.
+            if (busy) {
+                AnalysingScreen(
+                    strict = appetite == Appetite.LOCKDOWN,
+                    result = job == AppViewModel.Job.RESULT,
+                )
+                return@Box
+            }
             when (val s = screen) {
                 is Screen.Home -> HomeScreen(
                     matches = matches,
