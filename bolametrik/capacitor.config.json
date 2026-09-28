@@ -1,0 +1,8 @@
+{
+  "appId": "id.bolametrik.app",
+  "appName": "BolaMetrik",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  }
+}

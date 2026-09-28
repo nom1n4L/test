@@ -1,0 +1,61 @@
+name: BolaMetrik — build APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "bolametrik/**"
+      - ".github/workflows/bolametrik-apk.yml"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bolametrik
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: bolametrik/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instal dependensi
+        run: npm ci
+
+      - name: Tes & typecheck
+        run: npm test && npm run typecheck
+
+      - name: Build web
+        run: npm run build
+
+      - name: Siapkan proyek Android
+        run: |
+          npx cap add android
+          npx cap sync android
+          node scripts/android-setup.mjs
+
+      - name: Build APK debug
+        working-directory: bolametrik/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BolaMetrik-apk
+          path: bolametrik/android/app/build/outputs/apk/debug/app-debug.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BolaMetrik-web
+          path: |
+            bolametrik/dist/
+            bolametrik/dist-artifact/
