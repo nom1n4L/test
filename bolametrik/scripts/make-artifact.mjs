@@ -7,7 +7,8 @@ const html = readFileSync(new URL("../dist/index.html", import.meta.url), "utf8"
 const sStart = html.indexOf('<script type="module"');
 const sEnd = html.lastIndexOf("</script>") + "</script>".length;
 if (sStart < 0 || sEnd <= sStart) throw new Error("skrip modul tidak ditemukan");
-const script = html.slice(sStart, sEnd);
+// U+FFFD literal (dari pustaka markdown) ditulis sebagai escape JS agar lolos validasi Artifact
+const script = html.slice(sStart, sEnd).replace(/\uFFFD/g, "\\uFFFD");
 const rest = html.slice(0, sStart) + html.slice(sEnd);
 
 const pick = (re) => [...rest.matchAll(re)].map((m) => m[0]);
