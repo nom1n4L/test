@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../state";
-import { aiErrorText, aiStatus, type AIStatus, type Change, diffExtraction, extractFromImages } from "../lib/ai";
+import { aiErrorDetail, aiErrorText, aiStatus, type AIStatus, type Change, diffExtraction, extractFromImages } from "../lib/ai";
 import { ocrImages, parseOcr } from "../lib/ocr";
 import { inArtifact } from "../lib/storage";
-import { ICheck, ISpark, IUpload, IX } from "./icons";
+import { ICheck, ICopy, ISpark, IUpload, IX } from "./icons";
+import { copyText } from "./ui";
 
 /** Unggah screenshot → AI (Claude/Gemini/…) atau OCR membaca data → pengguna meninjau → diterapkan ke formulir. */
 export function UploadPanel() {
@@ -14,6 +15,7 @@ export function UploadPanel() {
   const [changes, setChanges] = useState<Change[] | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [unclear, setUnclear] = useState<string[]>([]);
+  const [err, setErr] = useState<{ text: string; detail: string } | null>(null);
   const [ocrText, setOcrText] = useState<string | null>(null);
   const [ocrHits, setOcrHits] = useState<string[]>([]);
   const ctl = useRef<AbortController | null>(null);
@@ -44,6 +46,7 @@ export function UploadPanel() {
   async function runAI() {
     if (!attachments.length) return;
     ctl.current = new AbortController();
+    setErr(null);
     setBusy("AI sedang membaca screenshot…");
     setChanges(null);
     setOcrText(null);
@@ -59,7 +62,7 @@ export function UploadPanel() {
       setUnclear(ext.unclear ?? []);
       if (!ch.length) toast("Tidak ada data baru yang terbaca dari gambar.");
     } catch (e) {
-      toast(aiErrorText(e), true);
+      if ((e as { code?: string })?.code !== "cancelled") setErr({ text: aiErrorText(e), detail: aiErrorDetail(e) });
     } finally {
       setBusy(null);
     }
@@ -158,6 +161,16 @@ export function UploadPanel() {
               </span>
             )}
           </div>
+          {err && (
+            <div className="notice bad small stack-sm" style={{ marginTop: 10 }} role="alert">
+              <b>{err.text}</b>
+              <span className="dim" style={{ overflowWrap: "anywhere" }}>Detail: {err.detail}</span>
+              <div className="row">
+                <button className="btn btn-sm" type="button" onClick={async () => toast((await copyText(err.detail)) ? "Detail error disalin" : err.detail)}><ICopy /> Salin detail</button>
+                <button className="btn btn-sm btn-ghost" type="button" onClick={() => setErr(null)}>Tutup</button>
+              </div>
+            </div>
+          )}
           {!aiReady && status && (
             <p className="notice small" style={{ marginTop: 10 }}>
               {inArtifact() ? "AI Claude tidak tersedia di tampilan ini. Isi data secara manual dari screenshot." : (

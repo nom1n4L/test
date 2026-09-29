@@ -40,7 +40,7 @@ export interface ModelInfo {
   free: boolean;
 }
 
-async function httpError(res: Response): Promise<AIError> {
+async function httpError(res: Response, provider: "gemini" | "openai" = "openai"): Promise<AIError> {
   let msg = `HTTP ${res.status}`;
   try {
     const j = await res.json();
@@ -52,7 +52,8 @@ async function httpError(res: Response): Promise<AIError> {
   if (res.status === 404) return new AIError("model_not_found", msg);
   if (res.status === 429) return new AIError("rate_limited", msg);
   if (res.status === 402) return new AIError("no_credit", msg);
-  if (res.status === 400 && /image|vision|multimodal|modalit/i.test(msg)) return new AIError("no_vision", msg);
+  if (res.status === 400 && /unable to process input image|invalid image|image.*(too large|corrupt|decode)/i.test(msg)) return new AIError("bad_image", msg);
+  if (provider === "openai" && res.status === 400 && /image|vision|multimodal|modalit/i.test(msg)) return new AIError("no_vision", msg);
   return new AIError("upstream_error", msg);
 }
 
@@ -78,11 +79,22 @@ async function readSSE(res: Response, onData: (j: any) => void) {
       if (!line.startsWith("data:")) continue;
       const payload = line.slice(5).trim();
       if (payload === "[DONE]") return;
+      let j: unknown;
       try {
-        onData(JSON.parse(payload));
+        j = JSON.parse(payload);
       } catch {
-        /* potongan tidak lengkap */
+        continue; // potongan tidak lengkap
       }
+      onData(j);
+    }
+  }
+  // Baris terakhir tanpa newline penutup
+  const last = buf.trim();
+  if (last.startsWith("data:") && last.slice(5).trim() !== "[DONE]") {
+    try {
+      onData(JSON.parse(last.slice(5).trim()));
+    } catch (e) {
+      if (e instanceof AIError) throw e;
     }
   }
 }
@@ -100,10 +112,13 @@ export async function geminiGenerate(key: string, model: string, o: GenOpts): Pr
   const m = (model || "gemini-flash-latest").replace(/^models\//, "");
   const body = {
     contents: [{ role: "user", parts: [...o.images.map((data) => ({ inlineData: { mimeType: "image/jpeg", data } })), { text: o.prompt }] }],
-    generationConfig: { temperature: o.json ? 0.1 : 0.5, maxOutputTokens: 32768, ...(o.json ? { responseMimeType: "application/json" } : {}) },
+    // Suhu & batas token dibiarkan default model: Gemini generasi baru bisa mengulang-ulang
+    // jawaban bila suhunya diturunkan, dan batas token yang dipaksa bisa ditolak model tertentu.
+    ...(o.json ? { generationConfig: { responseMimeType: "application/json" } } : {}),
   };
   let text = "";
   let blocked = "";
+  let finish = "";
   try {
     const res = await fetch(`${GEMINI_BASE}/models/${encodeURIComponent(m)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(key)}`, {
       method: "POST",
@@ -111,9 +126,11 @@ export async function geminiGenerate(key: string, model: string, o: GenOpts): Pr
       body: JSON.stringify(body),
       signal: o.signal,
     });
-    if (!res.ok) throw await httpError(res);
+    if (!res.ok) throw await httpError(res, "gemini");
     await readSSE(res, (j) => {
+      if (j?.error) throw new AIError("upstream_error", j.error.message ?? "Error dari Gemini");
       if (j?.promptFeedback?.blockReason) blocked = j.promptFeedback.blockReason;
+      if (j?.candidates?.[0]?.finishReason) finish = j.candidates[0].finishReason;
       const parts = j?.candidates?.[0]?.content?.parts ?? [];
       const add = parts.filter((p: any) => !p.thought && typeof p.text === "string").map((p: any) => p.text).join("");
       if (add) {
@@ -124,8 +141,8 @@ export async function geminiGenerate(key: string, model: string, o: GenOpts): Pr
   } catch (e) {
     throw netError(e);
   }
-  if (!text && blocked) throw new AIError("refused", `Diblokir: ${blocked}`);
-  if (!text) throw new AIError("empty", "Balasan kosong");
+  if (!text && (blocked || /SAFETY|RECITATION|PROHIBITED|BLOCKLIST|SPII/.test(finish))) throw new AIError("refused", `Diblokir oleh Gemini: ${blocked || finish}`);
+  if (!text) throw new AIError("empty", `Balasan kosong${finish ? ` (${finish})` : ""}`);
   return text;
 }
 

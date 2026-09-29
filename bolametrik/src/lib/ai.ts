@@ -11,6 +11,7 @@ import type { AIOpinion, H2HMatch, MatchInput, OddsInput, Player, Settings, Team
 import type { Prediction } from "./predict";
 import { fmtLine } from "./odds";
 import { AIError, geminiGenerate, oaiGenerate, OAI_PRESETS } from "./providers";
+import { normalizeExtractions, repairJson, toArray } from "./normalize";
 
 export { AIError };
 
@@ -76,6 +77,13 @@ export async function aiStatus(cfg: Settings): Promise<AIStatus> {
   return { sample: false, images: api && maxImages > 0, maxImages, api, label: providerLabel(cfg) };
 }
 
+/** Detail teknis untuk dilaporkan bila terjadi error. */
+export function aiErrorDetail(e: unknown): string {
+  const code = (e as any)?.code ?? (e as any)?.name ?? "error";
+  const msg = (e as any)?.message ?? String(e);
+  return `${code}: ${msg}`.slice(0, 600);
+}
+
 export function aiErrorText(e: unknown): string {
   const code = (e as any)?.code as string | undefined;
   switch (code) {
@@ -115,6 +123,8 @@ export function aiErrorText(e: unknown): string {
       return "Tidak bisa terhubung ke penyedia AI. Periksa koneksi internet.";
     case "empty":
       return "AI tidak memberi jawaban. Coba lagi atau ganti model.";
+    case "bad_image":
+      return "AI gagal memproses gambar. Coba screenshot ulang (PNG/JPG), potong bagian yang penting, atau unggah satu per satu.";
     default:
       return (e as any)?.message ? `Gagal menghubungi AI: ${(e as any).message}` : "Gagal menghubungi AI. Coba lagi.";
   }
@@ -176,10 +186,13 @@ function parseJsonLoose(text: string): unknown {
     try {
       return JSON.parse(t.slice(a, b + 1));
     } catch {
-      /* gagal */
+      /* lanjut */
     }
   }
-  throw new AIError("invalid_json", "Balasan bukan JSON", text);
+  // Balasan terpotong: selamatkan bagian yang utuh
+  const repaired = repairJson(t);
+  if (repaired !== undefined) return repaired;
+  throw new AIError("invalid_json", `Balasan bukan JSON: ${t.slice(0, 160)}`, text);
 }
 
 async function callAI(o: CallOpts): Promise<{ text: string; json?: unknown }> {
@@ -312,18 +325,38 @@ function mergeExtractions(list: Extraction[]): Extraction {
         if (k === "players") continue;
         if (v !== null && v !== undefined && v !== "" && (dst as any)[k] == null) (dst as any)[k] = v;
       }
-      for (const p of src.players ?? []) {
+      for (const p of toArray(src.players)) {
         if (!p?.name) continue;
-        if (!dst.players!.some((x) => x.name?.toLowerCase() === p.name!.toLowerCase())) dst.players!.push(p);
+        const nm = String(p.name).toLowerCase();
+        if (!dst.players!.some((x) => String(x.name ?? "").toLowerCase() === nm)) dst.players!.push({ ...p, name: String(p.name) });
       }
     }
-    for (const m of e.h2h ?? []) out.h2h!.push(m);
+    for (const m of toArray(e.h2h)) out.h2h!.push(m);
     for (const [k, v] of Object.entries(e.referee ?? {})) if (v != null && (out.referee as any)[k] == null) (out.referee as any)[k] = v;
     for (const [k, v] of Object.entries(e.odds ?? {})) if (v != null && (out.odds as any)[k] == null) (out.odds as any)[k] = v;
-    if (e.notes) out.notes = [out.notes, e.notes].filter(Boolean).join("\n");
-    out.unclear!.push(...(e.unclear ?? []));
+    if (e.notes) out.notes = [out.notes, String(e.notes)].filter(Boolean).join("\n");
+    out.unclear!.push(...toArray(e.unclear).map(String));
   }
   return out;
+}
+
+const FATAL = new Set(["auth", "rate_limited", "no_ai", "cancelled", "not_granted", "sampling_disabled", "not_declared", "capability_disabled", "no_credit", "session_expired", "model_not_found", "network"]);
+const isFatal = (e: unknown) => FATAL.has((e as any)?.code);
+
+async function readImages(imgs: Blob[], input: MatchInput, o: { cfg: Settings; signal?: AbortSignal }): Promise<Extraction[]> {
+  const prompt = extractionPrompt(input, imgs.length);
+  let raw: unknown;
+  try {
+    raw = (await callAI({ prompt, images: imgs, json: true, tier: "default", signal: o.signal, cfg: o.cfg })).json;
+  } catch (e) {
+    if (isFatal(e) || !["invalid_json", "empty"].includes((e as any)?.code)) throw e;
+    // Coba sekali lagi tanpa mode JSON khusus
+    const r = await callAI({ prompt: `${prompt}\n\nPENTING: jawab dengan SATU objek JSON saja, tanpa penjelasan.`, images: imgs, tier: "default", signal: o.signal, cfg: o.cfg });
+    raw = parseJsonLoose(r.text);
+  }
+  const list = normalizeExtractions(raw);
+  if (!list.length) throw new AIError("invalid_json", "Bentuk balasan tidak dikenali");
+  return list;
 }
 
 export async function extractFromImages(
@@ -332,15 +365,41 @@ export async function extractFromImages(
   opts: { cfg: Settings; maxImages: number; signal?: AbortSignal; onProgress?: (msg: string) => void },
 ): Promise<Extraction> {
   const per = Math.max(1, Math.min(opts.maxImages || 5, 20));
-  const batches: Blob[][] = [];
-  for (let i = 0; i < files.length; i += per) batches.push(files.slice(i, i + per));
+  const batches: number[][] = [];
+  for (let i = 0; i < files.length; i += per) batches.push(files.slice(i, i + per).map((_, j) => i + j));
   const results: Extraction[] = [];
+  const failed: string[] = [];
+  let lastErr: unknown = null;
   for (let b = 0; b < batches.length; b++) {
-    opts.onProgress?.(batches.length > 1 ? `Membaca kelompok gambar ${b + 1} dari ${batches.length}…` : "AI sedang membaca screenshot…");
-    const r = await callAI({ prompt: extractionPrompt(input, batches[b].length), images: batches[b], json: true, tier: "default", signal: opts.signal, cfg: opts.cfg });
-    if (r.json && typeof r.json === "object") results.push(r.json as Extraction);
+    const idx = batches[b];
+    opts.onProgress?.(batches.length > 1 ? `Membaca kelompok gambar ${b + 1} dari ${batches.length}…` : files.length > 1 ? `AI sedang membaca ${files.length} screenshot…` : "AI sedang membaca screenshot…");
+    try {
+      results.push(...(await readImages(idx.map((i) => files[i]), input, opts)));
+      continue;
+    } catch (e) {
+      if (isFatal(e)) throw e;
+      lastErr = e;
+      if (idx.length === 1) {
+        failed.push(`Gambar ${idx[0] + 1}: ${aiErrorText(e)}`);
+        continue;
+      }
+    }
+    // Kelompok gagal → baca satu per satu agar gambar yang bermasalah tidak menggagalkan semuanya
+    for (const i of idx) {
+      opts.onProgress?.(`Membaca gambar ${i + 1} dari ${files.length} satu per satu…`);
+      try {
+        results.push(...(await readImages([files[i]], input, opts)));
+      } catch (e) {
+        if (isFatal(e)) throw e;
+        lastErr = e;
+        failed.push(`Gambar ${i + 1}: ${aiErrorText(e)}`);
+      }
+    }
   }
-  return mergeExtractions(results);
+  if (!results.length) throw lastErr ?? new AIError("empty", "Tidak ada gambar yang terbaca");
+  const merged = mergeExtractions(results);
+  merged.unclear!.push(...failed);
+  return merged;
 }
 
 // ---------- menerapkan ekstraksi ----------
@@ -382,8 +441,9 @@ export function diffExtraction(input: MatchInput, e: Extraction): Change[] {
       if (f && f !== input[side].form)
         ch.push({ id: `${side}.form`, label: `${teamName}: Form terakhir`, from: show(input[side].form), to: f, apply: (m) => (m[side].form = f) });
     }
-    for (const p of src.players ?? []) {
+    for (const p of toArray(src.players)) {
       if (!p?.name) continue;
+      p.name = String(p.name);
       const existing = input[side].players.find((x) => x.name.toLowerCase() === p.name!.toLowerCase());
       const pos = (["GK", "DEF", "MID", "FWD"] as const).includes(p.pos as any) ? (p.pos as Player["pos"]) : "MID";
       const status = (["fit", "doubt", "out"] as const).includes(p.status as any) ? (p.status as Player["status"]) : "fit";
@@ -408,7 +468,7 @@ export function diffExtraction(input: MatchInput, e: Extraction): Change[] {
       });
     }
   }
-  const h2h = (e.h2h ?? []).filter((m) => num(m.hg) !== null && num(m.ag) !== null);
+  const h2h = toArray(e.h2h).filter((m) => m && num(m.hg) !== null && num(m.ag) !== null);
   if (h2h.length)
     ch.push({
       id: "h2h",
@@ -434,7 +494,7 @@ export function diffExtraction(input: MatchInput, e: Extraction): Change[] {
     if (v === null || !(key in input.odds) || input.odds[key] === v) continue;
     ch.push({ id: `odds.${k}`, label: `Odds: ${k === "ahLine" ? "garis handicap tuan rumah" : k}`, from: show(input.odds[key]), to: k === "ahLine" ? fmtLine(v) : String(v), apply: (m) => (m.odds[key] = v) });
   }
-  if (e.notes && e.notes.trim())
+  if (typeof e.notes === "string" && e.notes.trim())
     ch.push({ id: "notes", label: "Catatan konteks dari AI", from: input.notes ? "ada" : "—", to: e.notes.slice(0, 140) + (e.notes.length > 140 ? "…" : ""), apply: (m) => (m.notes = [m.notes, e.notes].filter(Boolean).join("\n")) });
   return ch;
 }

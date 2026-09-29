@@ -1,7 +1,7 @@
 {
   "name": "bolametrik",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "BolaMetrik — aplikasi prediksi sepak bola berbasis model statistik (Poisson/Dixon-Coles) yang belajar dari hasil pertandingan.",
   "type": "module",
   "scripts": {

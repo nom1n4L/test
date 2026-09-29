@@ -157,8 +157,13 @@ export function AIProviderPanel() {
                 <input id="gem-model" className="input num grow" value={d.geminiModel} placeholder="gemini-flash-latest" onChange={(e) => set({ geminiModel: e.target.value })} />
                 <button className="btn btn-sm" type="button" disabled={!d.geminiKey.trim() || !!busy} onClick={loadModels}>Muat daftar model</button>
               </div>
+              <div className="row" style={{ gap: 6 }}>
+                {["gemini-flash-latest", "gemini-flash-lite-latest"].map((mm) => (
+                  <button key={mm} type="button" className={`btn btn-sm${d.geminiModel === mm ? " btn-primary" : ""}`} onClick={() => set({ geminiModel: mm })}>{mm}</button>
+                ))}
+              </div>
               {modelPicker(d.geminiModel, (id) => set({ geminiModel: id }))}
-              <span className="hint">"gemini-flash-latest" selalu mengarah ke model Flash terbaru (cepat, bisa membaca gambar). Model "pro" lebih pintar tetapi kuota gratisnya lebih kecil.</span>
+              <span className="hint">"gemini-flash-latest" selalu mengarah ke model Flash terbaru (cepat, bisa membaca gambar). Sering kena batas kuota? Pakai "gemini-flash-lite-latest" — kuota gratisnya lebih longgar. Model "pro" lebih pintar tetapi kuota gratisnya paling kecil.</span>
             </div>
             <p className="muted tiny">Kuota gratis Gemini dibatasi per menit dan per hari. Pada tingkat gratis, Google dapat memakai isi permintaan untuk meningkatkan layanannya — jangan kirim data pribadi.</p>
           </div>

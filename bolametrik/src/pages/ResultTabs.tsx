@@ -7,7 +7,7 @@ import { ahIndo, fmtLine, fmtTotalLine, kelly, removeMargin } from "../lib/odds"
 import { CAT_LABEL, type Rec, type Tier } from "../lib/recommend";
 import { likelihoodLabel } from "../lib/extras";
 import { simulateMatch, type SimEvent } from "../lib/simulate";
-import { aiErrorText, analyzeMatch, aiStatus, type AIStatus } from "../lib/ai";
+import { aiErrorDetail, aiErrorText, analyzeMatch, aiStatus, type AIStatus } from "../lib/ai";
 import { useApp } from "../state";
 import { DistBars, Gauge, HBars, ScoreHeatmap } from "../components/charts";
 import { ConfChip, Meter, Panel, ProbBar, odds2, pct } from "../components/ui";
@@ -657,6 +657,7 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [withImgs, setWithImgs] = useState(true);
+  const [errDetail, setErrDetail] = useState<string | null>(null);
   const ctl = useRef<AbortController | null>(null);
   useEffect(() => {
     aiStatus(meta.settings).then(setStatus);
@@ -667,6 +668,7 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
     ctl.current = new AbortController();
     setBusy(true);
     setText("");
+    setErrDetail(null);
     try {
       const imgs = withImgs && status?.images ? attachments.map((a) => a.file).slice(0, status.maxImages || 5) : undefined;
       const op = await analyzeMatch(rec.input, pred, lessons, { cfg: meta.settings, images: imgs, signal: ctl.current.signal, onText: setText });
@@ -676,7 +678,10 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
     } catch (e) {
       const partial = (e as { text?: string; partial?: string })?.text ?? (e as { partial?: string })?.partial;
       if (partial) setText(partial);
-      if ((e as { code?: string })?.code !== "cancelled") toast(aiErrorText(e), true);
+      if ((e as { code?: string })?.code !== "cancelled") {
+        toast(aiErrorText(e), true);
+        setErrDetail(`${aiErrorText(e)} — ${aiErrorDetail(e)}`);
+      }
     } finally {
       setBusy(false);
     }
@@ -699,6 +704,7 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
           )}
           {ready && <p className="dim">AI menerima semua data formulir, output model, dan {lessons.length} pelajaran dari kesalahan sebelumnya. Estimasi peluang AI digabung dengan model; bobotnya dipelajari dari mana yang lebih akurat.</p>}
           {busy && !text && <span className="row dim"><span className="spin" /> AI sedang berpikir… (bisa 30-90 detik)</span>}
+          {errDetail && !busy && <p className="notice bad" role="alert" style={{ overflowWrap: "anywhere" }}>{errDetail}</p>}
         </div>
       </Panel>
       {rec.ai?.probs && !busy && (
