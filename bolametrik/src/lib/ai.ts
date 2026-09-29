@@ -1,14 +1,18 @@
-// Integrasi AI (Claude): membaca screenshot menjadi data terstruktur, dan
-// analisis naratif mendalam. Dua jalur:
+// Integrasi AI: membaca screenshot menjadi data terstruktur, dan analisis naratif.
+// Jalur yang dipakai:
 //  1) Di dalam Artifact claude.ai → kapabilitas `sample` (memakai akun Claude penonton).
-//  2) Aplikasi mandiri / APK → Anthropic SDK dengan API key milik pengguna.
+//  2) Aplikasi mandiri / APK → penyedia pilihan pengguna dengan API key sendiri:
+//     Google Gemini (ada kuota gratis), layanan kompatibel OpenAI (OpenRouter, Groq, …), atau Claude.
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { ALL_TEAM_FIELDS, fieldLabel } from "./fields";
 import { uid } from "./sample";
-import type { AIOpinion, H2HMatch, MatchInput, OddsInput, Player, TeamInput } from "./types";
+import type { AIOpinion, H2HMatch, MatchInput, OddsInput, Player, Settings, TeamInput } from "./types";
 import type { Prediction } from "./predict";
 import { fmtLine } from "./odds";
+import { AIError, geminiGenerate, oaiGenerate, OAI_PRESETS } from "./providers";
+
+export { AIError };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -16,7 +20,8 @@ export interface AIStatus {
   sample: boolean; // runtime Artifact
   images: boolean;
   maxImages: number;
-  api: boolean; // API key tersedia
+  api: boolean; // penyedia dengan API key siap
+  label: string; // nama penyedia untuk ditampilkan
 }
 
 let sampleFn: any = null;
@@ -38,10 +43,23 @@ export async function getSample(): Promise<any> {
   return sampleFn;
 }
 
-export async function aiStatus(apiKey: string): Promise<AIStatus> {
+export function providerLabel(cfg: Settings): string {
+  if (cfg.aiProvider === "gemini") return `Gemini (${cfg.geminiModel || "gemini-flash-latest"})`;
+  if (cfg.aiProvider === "openai") return `${OAI_PRESETS.find((p) => p.id === cfg.oaiPreset)?.label ?? "OpenAI-kompatibel"} (${cfg.oaiModel || "model belum dipilih"})`;
+  return `Claude (${cfg.aiModel})`;
+}
+
+/** Apakah penyedia yang dipilih sudah lengkap pengaturannya. */
+export function providerReady(cfg: Settings): boolean {
+  if (cfg.aiProvider === "gemini") return !!cfg.geminiKey.trim();
+  if (cfg.aiProvider === "openai") return !!cfg.oaiBase.trim() && !!cfg.oaiModel.trim() && (!!cfg.oaiKey.trim() || cfg.oaiPreset === "custom");
+  return !!cfg.apiKey.trim();
+}
+
+export async function aiStatus(cfg: Settings): Promise<AIStatus> {
   const s = await getSample();
-  let images = false, maxImages = 0;
   if (s) {
+    let images = false, maxImages = 0;
     try {
       const lim = await s.limits();
       if (lim?.images) {
@@ -51,23 +69,11 @@ export async function aiStatus(apiKey: string): Promise<AIStatus> {
     } catch {
       /* tanpa gambar */
     }
+    return { sample: true, images, maxImages, api: false, label: "Claude (akun claude.ai)" };
   }
-  const api = !!apiKey;
-  if (!s && api) {
-    images = true;
-    maxImages = 20;
-  }
-  return { sample: !!s, images, maxImages, api };
-}
-
-export class AIError extends Error {
-  code: string;
-  partial?: string;
-  constructor(code: string, message: string, partial?: string) {
-    super(message);
-    this.code = code;
-    this.partial = partial;
-  }
+  const api = providerReady(cfg);
+  const maxImages = cfg.aiProvider === "claude" ? 20 : cfg.aiProvider === "gemini" ? 10 : cfg.oaiPreset === "deepseek" ? 0 : 5;
+  return { sample: false, images: api && maxImages > 0, maxImages, api, label: providerLabel(cfg) };
 }
 
 export function aiErrorText(e: unknown): string {
@@ -84,7 +90,7 @@ export function aiErrorText(e: unknown): string {
     case "image_rejected":
       return "Gambar ditolak (format/ukuran). Coba screenshot PNG/JPG yang lebih kecil.";
     case "rate_limited":
-      return "Terlalu banyak permintaan atau batas pemakaian tercapai. Coba lagi nanti.";
+      return "Batas pemakaian tercapai (kuota gratis biasanya reset per menit/hari). Coba lagi nanti atau ganti model.";
     case "session_expired":
       return "Sesi claude.ai berakhir. Masuk lagi lalu coba ulang.";
     case "refused":
@@ -96,9 +102,19 @@ export function aiErrorText(e: unknown): string {
     case "cancelled":
       return "Dibatalkan.";
     case "auth":
-      return "API key tidak valid. Periksa di menu Pengaturan.";
+      return "API key ditolak (salah atau tidak aktif). Periksa di menu Pengaturan.";
     case "no_ai":
-      return "AI belum aktif. Buka aplikasi ini sebagai Artifact di claude.ai, atau isi API key Anthropic di Pengaturan.";
+      return "AI belum aktif. Isi API key di Pengaturan (Gemini punya kuota gratis), atau buka aplikasi sebagai Artifact di claude.ai.";
+    case "model_not_found":
+      return "Model tidak ditemukan. Buka Pengaturan → Muat daftar model, lalu pilih model yang tersedia.";
+    case "no_credit":
+      return "Saldo/kredit akun penyedia AI habis. Pilih model gratis atau penyedia lain.";
+    case "no_vision":
+      return "Model ini tidak bisa membaca gambar. Pilih model yang mendukung gambar, atau pakai Gemini.";
+    case "network":
+      return "Tidak bisa terhubung ke penyedia AI. Periksa koneksi internet.";
+    case "empty":
+      return "AI tidak memberi jawaban. Coba lagi atau ganti model.";
     default:
       return (e as any)?.message ? `Gagal menghubungi AI: ${(e as any).message}` : "Gagal menghubungi AI. Coba lagi.";
   }
@@ -137,8 +153,7 @@ interface CallOpts {
   tier?: "default" | "complex" | "quick";
   onText?: (text: string) => void;
   signal?: AbortSignal;
-  apiKey: string;
-  model: string;
+  cfg: Settings;
 }
 
 function parseJsonLoose(text: string): unknown {
@@ -181,18 +196,32 @@ async function callAI(o: CallOpts): Promise<{ text: string; json?: unknown }> {
     const r = await sample(o.prompt, opts);
     return { text: r.text };
   }
-  if (!o.apiKey) throw new AIError("no_ai", "AI tidak tersedia");
+  const cfg = o.cfg;
+  if (!providerReady(cfg)) throw new AIError("no_ai", "AI tidak tersedia");
+  const prompt = o.json ? `${o.prompt}\n\nBalas hanya dengan JSON yang valid, tanpa teks lain.` : o.prompt;
+
+  if (cfg.aiProvider === "gemini" || cfg.aiProvider === "openai") {
+    const images: string[] = [];
+    for (const img of o.images ?? []) images.push((await fileToBase64Jpeg(img)).data);
+    const g = { prompt, images, json: o.json, onText: o.onText, signal: o.signal };
+    const text = cfg.aiProvider === "gemini"
+      ? await geminiGenerate(cfg.geminiKey.trim(), cfg.geminiModel.trim(), g)
+      : await oaiGenerate(cfg.oaiBase.trim(), cfg.oaiKey.trim(), cfg.oaiModel.trim(), cfg.oaiPreset, g);
+    return o.json ? { text, json: parseJsonLoose(text) } : { text };
+  }
+
+  // Claude (Anthropic SDK)
   const { default: AnthropicSDK } = await import("@anthropic-ai/sdk");
-  const client = new AnthropicSDK({ apiKey: o.apiKey, dangerouslyAllowBrowser: true });
+  const client = new AnthropicSDK({ apiKey: cfg.apiKey.trim(), dangerouslyAllowBrowser: true });
   const content: Anthropic.Beta.BetaContentBlockParam[] = [];
   for (const img of o.images ?? []) {
     const { data, media } = await fileToBase64Jpeg(img);
     content.push({ type: "image", source: { type: "base64", media_type: media, data } });
   }
-  content.push({ type: "text", text: o.json ? `${o.prompt}\n\nBalas hanya dengan JSON yang valid.` : o.prompt });
+  content.push({ type: "text", text: prompt });
   try {
     const params: any = {
-      model: o.model || "claude-opus-5-5",
+      model: cfg.aiModel || "claude-opus-5-5",
       max_tokens: 32000,
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
@@ -214,6 +243,12 @@ async function callAI(o: CallOpts): Promise<{ text: string; json?: unknown }> {
     if (e instanceof AnthropicSDK.APIError) throw new AIError("upstream_error", `${e.status ?? ""} ${e.message}`);
     throw e;
   }
+}
+
+/** Tes singkat koneksi ke penyedia yang dipilih. */
+export async function testAI(cfg: Settings, signal?: AbortSignal): Promise<string> {
+  const r = await callAI({ prompt: "Balas persis dengan satu kata: SIAP", cfg, tier: "quick", signal });
+  return r.text.trim().slice(0, 80);
 }
 
 // ---------- ekstraksi screenshot ----------
@@ -294,15 +329,15 @@ function mergeExtractions(list: Extraction[]): Extraction {
 export async function extractFromImages(
   files: Blob[],
   input: MatchInput,
-  opts: { apiKey: string; model: string; maxImages: number; signal?: AbortSignal; onProgress?: (msg: string) => void },
+  opts: { cfg: Settings; maxImages: number; signal?: AbortSignal; onProgress?: (msg: string) => void },
 ): Promise<Extraction> {
   const per = Math.max(1, Math.min(opts.maxImages || 5, 20));
   const batches: Blob[][] = [];
   for (let i = 0; i < files.length; i += per) batches.push(files.slice(i, i + per));
   const results: Extraction[] = [];
   for (let b = 0; b < batches.length; b++) {
-    opts.onProgress?.(batches.length > 1 ? `Membaca kelompok gambar ${b + 1} dari ${batches.length}…` : "Claude sedang membaca screenshot…");
-    const r = await callAI({ prompt: extractionPrompt(input, batches[b].length), images: batches[b], json: true, tier: "default", signal: opts.signal, apiKey: opts.apiKey, model: opts.model });
+    opts.onProgress?.(batches.length > 1 ? `Membaca kelompok gambar ${b + 1} dari ${batches.length}…` : "AI sedang membaca screenshot…");
+    const r = await callAI({ prompt: extractionPrompt(input, batches[b].length), images: batches[b], json: true, tier: "default", signal: opts.signal, cfg: opts.cfg });
     if (r.json && typeof r.json === "object") results.push(r.json as Extraction);
   }
   return mergeExtractions(results);
@@ -461,7 +496,8 @@ ${model}
 PELAJARAN DARI KESALAHAN PREDIKSI SEBELUMNYA (gunakan untuk mengoreksi bias):
 ${lessons.length ? lessons.slice(0, 12).map((l) => `- ${l}`).join("\n") : "- Belum ada riwayat."}
 
-${"Jika ada screenshot terlampir, periksa setiap angka yang terlihat dan gunakan sebagai data utama; sebutkan angka yang tidak terbaca, jangan mengarang."}
+Jika ada screenshot terlampir, periksa setiap angka yang terlihat dan gunakan sebagai data utama; sebutkan angka yang tidak terbaca, jangan mengarang.
+Data di atas bisa saja MINIM (banyak "—"). Jika begitu: katakan dengan jelas data apa yang kurang dan turunkan keyakinan. Kamu boleh memakai pengetahuan umummu tentang kekuatan, gaya main, dan kondisi kedua tim, tetapi tandai sebagai [PENGETAHUAN UMUM — bisa usang], jangan mengarang angka statistik spesifik, dan utamakan data yang diberikan bila bertentangan.
 
 TULIS ANALISIS DALAM BAHASA INDONESIA (Markdown, pakai tabel bila membantu), dengan urutan:
 1. **Form terkini** (≥5 laga: M/S/K, gol, clean sheet, BTTS, O/U) — jelaskan artinya, jangan hanya mengulang angka.
@@ -491,9 +527,9 @@ export async function analyzeMatch(
   input: MatchInput,
   pred: Prediction,
   lessons: string[],
-  opts: { apiKey: string; model: string; images?: Blob[]; signal?: AbortSignal; onText?: (t: string) => void },
+  opts: { cfg: Settings; images?: Blob[]; signal?: AbortSignal; onText?: (t: string) => void },
 ): Promise<AIOpinion> {
-  const r = await callAI({ prompt: analysisPrompt(input, pred, lessons), images: opts.images, tier: "complex", onText: opts.onText, signal: opts.signal, apiKey: opts.apiKey, model: opts.model });
+  const r = await callAI({ prompt: analysisPrompt(input, pred, lessons), images: opts.images, tier: "complex", onText: opts.onText, signal: opts.signal, cfg: opts.cfg });
   return parseOpinion(r.text);
 }
 

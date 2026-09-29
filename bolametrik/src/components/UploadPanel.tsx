@@ -5,7 +5,7 @@ import { ocrImages, parseOcr } from "../lib/ocr";
 import { inArtifact } from "../lib/storage";
 import { ICheck, ISpark, IUpload, IX } from "./icons";
 
-/** Unggah screenshot → AI (Claude) atau OCR membaca data → pengguna meninjau → diterapkan ke formulir. */
+/** Unggah screenshot → AI (Claude/Gemini/…) atau OCR membaca data → pengguna meninjau → diterapkan ke formulir. */
 export function UploadPanel() {
   const { attachments, addFiles, removeAttachment, draft, setDraft, meta, toast, go } = useApp();
   const [over, setOver] = useState(false);
@@ -21,11 +21,11 @@ export function UploadPanel() {
 
   useEffect(() => {
     let alive = true;
-    aiStatus(meta.settings.apiKey).then((s) => alive && setStatus(s));
+    aiStatus(meta.settings).then((s) => alive && setStatus(s));
     return () => {
       alive = false;
     };
-  }, [meta.settings.apiKey]);
+  }, [meta.settings]);
 
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
@@ -39,19 +39,19 @@ export function UploadPanel() {
     return () => window.removeEventListener("paste", onPaste);
   }, [addFiles, toast]);
 
-  const aiReady = !!status && (status.sample ? status.images : status.api);
+  const aiReady = !!status && status.images && (status.sample || status.api);
 
   async function runAI() {
     if (!attachments.length) return;
     ctl.current = new AbortController();
-    setBusy("Claude sedang membaca screenshot…");
+    setBusy("AI sedang membaca screenshot…");
     setChanges(null);
     setOcrText(null);
     try {
       const ext = await extractFromImages(
         attachments.map((a) => a.file),
         draft,
-        { apiKey: meta.settings.apiKey, model: meta.settings.aiModel, maxImages: status?.maxImages ?? 5, signal: ctl.current.signal, onProgress: setBusy },
+        { cfg: meta.settings, maxImages: status?.maxImages ?? 5, signal: ctl.current.signal, onProgress: setBusy },
       );
       const ch = diffExtraction(draft, ext);
       setChanges(ch);
@@ -102,7 +102,7 @@ export function UploadPanel() {
           <span className="muted small">klasemen, statistik tim, form, H2H, pemain, cedera, odds, wasit</span>
         </div>
         {status && (
-          <span className={`chip ${aiReady ? "good" : "warn"}`}>{aiReady ? (status.sample ? "AI Claude aktif" : "AI via API key") : "AI belum aktif"}</span>
+          <span className={`chip ${aiReady ? "good" : "warn"}`}>{aiReady ? `AI aktif: ${status.label}` : "AI belum aktif"}</span>
         )}
       </div>
       <div
@@ -144,7 +144,7 @@ export function UploadPanel() {
           </div>
           <div className="row" style={{ marginTop: 12 }}>
             <button className="btn btn-primary" type="button" disabled={!!busy || !aiReady} onClick={runAI}>
-              <ISpark /> Baca dengan AI Claude
+              <ISpark /> Baca dengan AI
             </button>
             {!inArtifact() && (
               <button className="btn" type="button" disabled={!!busy} onClick={runOCR}>
@@ -161,7 +161,7 @@ export function UploadPanel() {
           {!aiReady && status && (
             <p className="notice small" style={{ marginTop: 10 }}>
               {inArtifact() ? "AI Claude tidak tersedia di tampilan ini. Isi data secara manual dari screenshot." : (
-                <>AI membaca screenshot jauh lebih akurat daripada OCR. Aktifkan dengan API key Anthropic di <button className="btn btn-sm btn-ghost" type="button" onClick={() => go({ page: "settings" })}>Pengaturan</button>, atau buka aplikasi sebagai Artifact di claude.ai.</>
+                <>AI membaca screenshot jauh lebih akurat daripada OCR. Aktifkan gratis dengan API key Google Gemini di <button className="btn btn-sm btn-ghost" type="button" onClick={() => go({ page: "settings" })}>Pengaturan</button>. Tanpa AI pun prediksi tetap jalan — isi data yang Anda punya secara manual.</>
               )}
             </p>
           )}

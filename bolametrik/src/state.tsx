@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { computeStats, type LearnState, relearn, type Stats } from "./lib/learning";
-import { DEFAULT_SETTINGS, inArtifact, loadLocalSecret, openCloudStore, openLocalStore, saveLocalSecret, type Store, type StoreKind } from "./lib/storage";
+import { DEFAULT_SETTINGS, inArtifact, loadSecrets, openCloudStore, openLocalStore, saveSecrets, type Store, type StoreKind, withoutSecrets } from "./lib/storage";
 import type { AppMeta, MatchInput, MatchRecord, Settings, TeamInput } from "./lib/types";
 import { demoMatch, emptyMatch, uid } from "./lib/sample";
 
@@ -95,7 +95,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [storeKind, setStoreKind] = useState<StoreKind>("memory");
   const [records, setRecords] = useState<MatchRecord[]>([]);
-  const [meta, setMeta] = useState<AppMeta>({ settings: { ...DEFAULT_SETTINGS, apiKey: loadLocalSecret() }, teams: {} });
+  const [meta, setMeta] = useState<AppMeta>({ settings: { ...DEFAULT_SETTINGS, ...loadSecrets() }, teams: {} });
   const [route, setRoute] = useState<Route>(loadRoute);
   const [draft, setDraftState] = useState<MatchInput>(loadDraft);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -109,7 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const applyLoaded = (data: { records: MatchRecord[]; meta: AppMeta | null }) => {
     setRecords(data.records);
-    if (data.meta) setMeta({ settings: { ...DEFAULT_SETTINGS, ...data.meta.settings, apiKey: loadLocalSecret() }, teams: data.meta.teams ?? {} });
+    if (data.meta) setMeta({ settings: { ...DEFAULT_SETTINGS, ...withoutSecrets({ ...DEFAULT_SETTINGS, ...data.meta.settings }), ...loadSecrets() }, teams: data.meta.teams ?? {} });
   };
 
   useEffect(() => {
@@ -195,7 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const persistMeta = useCallback(async (m: AppMeta) => {
     try {
-      await storeRef.current?.putMeta({ ...m, settings: { ...m.settings, apiKey: "" } });
+      await storeRef.current?.putMeta({ ...m, settings: withoutSecrets(m.settings) });
     } catch {
       /* diabaikan */
     }
@@ -268,7 +268,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (s: Partial<Settings>) => {
       setMeta((m) => {
         const next = { ...m, settings: { ...m.settings, ...s } };
-        if (s.apiKey !== undefined) saveLocalSecret(s.apiKey);
+        saveSecrets(s);
         void persistMeta(next);
         return next;
       });

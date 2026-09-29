@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "../state";
-import { aiStatus, type AIStatus } from "../lib/ai";
-import { inArtifact } from "../lib/storage";
+import { AIProviderPanel } from "../components/AIProviderPanel";
+import { withoutSecrets } from "../lib/storage";
 import type { AppMeta, MatchRecord } from "../lib/types";
-import { Panel, Seg, copyText } from "../components/ui";
+import { Panel, copyText } from "../components/ui";
 import { ICloud, ICopy, IDownload, IUpload } from "../components/icons";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -37,21 +37,14 @@ async function offerDownload(filename: string, data: string): Promise<boolean> {
 }
 
 export function Settings() {
-  const { meta, updateSettings, storeKind, records, importData, wipeAll, toast, stats } = useApp();
-  const [status, setStatus] = useState<AIStatus | null>(null);
-  const [key, setKey] = useState(meta.settings.apiKey);
+  const { meta, storeKind, records, importData, wipeAll, toast, stats } = useApp();
   const [paste, setPaste] = useState("");
   const [confirmWipe, setConfirmWipe] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const artifact = inArtifact();
   const nativeApp = !!(window as any).Capacitor?.isNativePlatform?.();
 
-  useEffect(() => {
-    aiStatus(meta.settings.apiKey).then(setStatus);
-  }, [meta.settings.apiKey]);
-
   const real = records.filter((r) => !r.demo);
-  const backup = () => JSON.stringify({ app: "bolametrik", version: 1, exportedAt: new Date().toISOString(), records: real, meta: { ...meta, settings: { ...meta.settings, apiKey: "" } } }, null, 1);
+  const backup = () => JSON.stringify({ app: "bolametrik", version: 1, exportedAt: new Date().toISOString(), records: real, meta: { ...meta, settings: withoutSecrets(meta.settings) } }, null, 1);
 
   async function doImport(text: string) {
     try {
@@ -74,34 +67,14 @@ export function Settings() {
         </div>
       </div>
 
-      <div className="grid-2">
+      <AIProviderPanel />
+
+      <div className="stack">
         <Panel title="Penyimpanan">
           <div className="stack-sm small">
             <div className="row"><ICloud width={20} height={20} /><b>{storeKind === "cloud" ? "Cloud claude.ai — tersinkron antar perangkat" : storeKind === "local" ? "Perangkat ini (IndexedDB browser)" : "Sementara (hilang saat ditutup)"}</b></div>
             <p className="dim">{real.length} prediksi · {stats.settled} sudah ada hasilnya.</p>
             {storeKind !== "cloud" && <p className="dim">Data tersimpan di browser ini saja. Buat cadangan berkala agar riwayat pembelajaran tidak hilang saat data browser dibersihkan.</p>}
-          </div>
-        </Panel>
-        <Panel title="AI Claude">
-          <div className="stack-sm small">
-            {!status ? <span className="row dim"><span className="spin" /> Memeriksa…</span> : status.sample ? (
-              <p className="notice good">Aktif lewat claude.ai (memakai akun Claude Anda; izin diminta saat pertama dipakai). {status.images ? `Bisa membaca hingga ${status.maxImages} gambar per permintaan.` : "Tampilan ini tidak mendukung gambar."}</p>
-            ) : artifact ? (
-              <p className="notice">AI tidak tersedia di tampilan ini.</p>
-            ) : (
-              <>
-                <p className="dim">Untuk aplikasi mandiri / APK: masukkan API key Anthropic Anda (console.anthropic.com). Key hanya disimpan di perangkat ini dan dikirim langsung ke api.anthropic.com.</p>
-                <div className="row">
-                  <input className="input num grow" type="password" autoComplete="off" aria-label="API key Anthropic" placeholder="sk-ant-..." value={key} onChange={(e) => setKey(e.target.value)} />
-                  <button className="btn btn-primary" type="button" onClick={() => { updateSettings({ apiKey: key.trim() }); toast(key.trim() ? "API key disimpan" : "API key dihapus"); }}>Simpan</button>
-                </div>
-                <div className="field">
-                  <span className="lbl">Model</span>
-                  <Seg<string> label="Model AI" value={meta.settings.aiModel} onChange={(v) => updateSettings({ aiModel: v })} options={[{ v: "claude-opus-5-5", label: "Claude Opus 5.5 (terbaik)" }, { v: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 (lebih murah)" }]} />
-                </div>
-                <p className="muted tiny">Biaya pemakaian API ditagih ke akun Anthropic Anda.</p>
-              </>
-            )}
           </div>
         </Panel>
       </div>
@@ -140,7 +113,7 @@ export function Settings() {
 
       <Panel title="Tentang BolaMetrik">
         <div className="stack-sm small dim">
-          <p>Model: Poisson bivariat dengan koreksi Dixon-Coles, penggabungan berbobot dari 9 sumber data, Negative Binomial untuk corner & kartu, dan pembelajaran online (Hedge + gradien log-likelihood) dari hasil nyata.</p>
+          <p>Model: Poisson bivariat dengan koreksi Dixon-Coles, penggabungan berbobot dari 12 sumber data (termasuk odds bandar, posisi klasemen, dan penilaian Anda), Negative Binomial untuk corner & kartu, dan pembelajaran online (Hedge + gradien log-likelihood) dari hasil nyata.</p>
           <p>Tidak ada model yang bisa menjamin hasil pertandingan. Aplikasi ini membantu menilai peluang secara disiplin, memperlihatkan bukti yang berlawanan, dan mengukur akurasinya sendiri secara jujur.</p>
           <p>Taruhan berisiko dan dibatasi hukum di banyak wilayah, termasuk Indonesia. Patuhi hukum setempat dan jangan bertaruh dengan uang yang tidak siap hilang.</p>
         </div>

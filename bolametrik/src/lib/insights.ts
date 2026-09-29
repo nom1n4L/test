@@ -55,6 +55,8 @@ function teamCompleteness(t: TeamInput, venueRelevant: boolean): number {
     [ok(t.cornersFor), 0.25],
     [ok(t.yellowPg), 0.25],
     [ok(t.fhGFPct), 0.25],
+    [ok(t.position), 0.3],
+    [ok(t.rating), 0.15],
   ];
   const tot = items.reduce((s, [, w]) => s + w, 0);
   return items.reduce((s, [v, w]) => s + (v ? w : 0), 0) / tot;
@@ -62,7 +64,8 @@ function teamCompleteness(t: TeamInput, venueRelevant: boolean): number {
 
 export function dataCompleteness(input: MatchInput): number {
   const c = (teamCompleteness(input.home, !input.neutral) + teamCompleteness(input.away, !input.neutral)) / 2;
-  const extra = (input.h2h.length > 0 ? 0.03 : 0) + (ok(input.referee.yellowPg) ? 0.02 : 0);
+  const o = input.odds;
+  const extra = (input.h2h.length > 0 ? 0.03 : 0) + (ok(input.referee.yellowPg) ? 0.02 : 0) + (ok(o.home) && ok(o.draw) && ok(o.away) ? 0.18 : 0);
   return clamp(c + extra, 0, 1);
 }
 

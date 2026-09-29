@@ -2,9 +2,11 @@
 // matriks skor Dixon-Coles untuk FT, babak 1 dan babak 2.
 
 import type { MatchInput, ModelParams, SignalKey, TeamInput } from "./types";
-import { clamp, indepMatrix, type Matrix, scoreMatrix } from "./math";
+import { clamp, indepMatrix, lambdasFromOdds, type Matrix, scoreMatrix } from "./math";
+import { leagueByKey } from "./leagues";
+import { removeMargin } from "./odds";
 
-export const SIGNAL_KEYS: SignalKey[] = ["season", "venue", "form", "xg", "shots", "table", "formPts", "h2h", "league"];
+export const SIGNAL_KEYS: SignalKey[] = ["season", "venue", "form", "xg", "shots", "table", "formPts", "h2h", "odds", "position", "rating", "league"];
 
 export const BASE_WEIGHTS: Record<SignalKey, number> = {
   season: 1.0,
@@ -15,6 +17,9 @@ export const BASE_WEIGHTS: Record<SignalKey, number> = {
   table: 0.4,
   formPts: 0.35,
   h2h: 0.35,
+  odds: 1.5,
+  position: 0.35,
+  rating: 0.45,
   league: 0.45,
 };
 
@@ -27,6 +32,9 @@ export const SIGNAL_LABEL: Record<SignalKey, string> = {
   table: "Poin per laga musim ini",
   formPts: "Poin dari form terakhir",
   h2h: "Head-to-head",
+  odds: "Odds bandar (pasar)",
+  position: "Posisi klasemen",
+  rating: "Penilaian kekuatan (Anda)",
   league: "Rata-rata liga (prior)",
 };
 
@@ -212,17 +220,20 @@ export function computeSignals(input: MatchInput, params: ModelParams): Signal[]
     });
   }
 
-  // 7) Poin form
-  if (fH.n >= 3 && fA.n >= 3) {
-    const diff = fH.ppg - fA.ppg;
-    const n = Math.min(fH.n, fA.n);
+  // 7) Poin form (bila hanya satu tim yang punya form, lawan dianggap rata-rata)
+  if (fH.n >= 3 || fA.n >= 3) {
+    const both = fH.n >= 3 && fA.n >= 3;
+    const pH = fH.n >= 3 ? fH.ppg : 1.35;
+    const pA = fA.n >= 3 ? fA.ppg : 1.35;
+    const diff = pH - pA;
+    const n = both ? Math.min(fH.n, fA.n) : Math.max(fH.n, fA.n);
     out.push({
       key: "formPts",
       label: SIGNAL_LABEL.formPts,
       lh: baseH * Math.exp(0.14 * diff),
       la: baseA * Math.exp(-0.14 * diff),
-      rel: n / (n + 5),
-      detail: `Form ${H.name} ${fH.letters} (${fmt(fH.ppg)} ppg) vs ${A.name} ${fA.letters} (${fmt(fA.ppg)} ppg)`,
+      rel: (n / (n + 5)) * (both ? 1 : 0.6),
+      detail: `Form ${H.name} ${fH.letters || "—"} (${fH.n >= 3 ? fmt(fH.ppg) : "?"} ppg) vs ${A.name} ${fA.letters || "—"} (${fA.n >= 3 ? fmt(fA.ppg) : "?"} ppg)`,
     });
   }
 
@@ -251,7 +262,54 @@ export function computeSignals(input: MatchInput, params: ModelParams): Signal[]
     });
   }
 
-  // 9) Prior liga
+  // 9) Odds bandar: peluang pasar (margin dihapus) dibalik menjadi ekspektasi gol
+  const o = input.odds;
+  if (has(o.home, o.draw, o.away) && (o.home as number) > 1 && (o.draw as number) > 1 && (o.away as number) > 1) {
+    const fair = removeMargin([o.home as number, o.draw as number, o.away as number]);
+    let pOver: number | null = null;
+    if (has(o.over25, o.under25) && (o.over25 as number) > 1 && (o.under25 as number) > 1) pOver = removeMargin([o.over25 as number, o.under25 as number])[0];
+    else if (has(o.over25) && (o.over25 as number) > 1) pOver = clamp(1 / (o.over25 as number) / 1.05, 0.05, 0.95);
+    const inv = lambdasFromOdds(fair[0], fair[1], fair[2], pOver, baseH + baseA);
+    out.push({
+      key: "odds",
+      label: SIGNAL_LABEL.odds,
+      lh: inv.lh,
+      la: inv.la,
+      rel: pOver !== null ? 0.9 : 0.75,
+      detail: `Odds ${o.home}/${o.draw}/${o.away} → peluang adil ${fair.map((x) => `${Math.round(x * 100)}%`).join(" / ")}${pOver !== null ? ` · Over 2.5 ${Math.round(pOver * 100)}%` : ""}`,
+    });
+  }
+
+  // 10) Posisi klasemen (berguna bila statistik lain belum ada)
+  const N = leagueByKey(input.leagueKey).teams;
+  if (N >= 6 && has(H.position, A.position) && (H.position as number) >= 1 && (A.position as number) >= 1 && (H.position as number) <= N && (A.position as number) <= N) {
+    const r = (pos: number) => 1 - (2 * (pos - 1)) / (N - 1);
+    const diff = r(H.position as number) - r(A.position as number);
+    out.push({
+      key: "position",
+      label: SIGNAL_LABEL.position,
+      lh: baseH * Math.exp(0.3 * diff),
+      la: baseA * Math.exp(-0.3 * diff),
+      rel: 0.55,
+      detail: `${H.name} #${H.position} vs ${A.name} #${A.position} dari ${N} tim`,
+    });
+  }
+
+  // 11) Penilaian kekuatan cepat dari pengguna (1-5); bobotnya ikut dipelajari
+  const rH = H.rating ?? null, rA = A.rating ?? null;
+  if (rH !== null || rA !== null) {
+    const a = rH ?? 3, b = rA ?? 3;
+    out.push({
+      key: "rating",
+      label: SIGNAL_LABEL.rating,
+      lh: baseH * Math.exp(0.17 * (a - b)),
+      la: baseA * Math.exp(-0.17 * (a - b)),
+      rel: 0.6,
+      detail: `${H.name} ${a}/5 vs ${A.name} ${b}/5`,
+    });
+  }
+
+  // 12) Prior liga
   out.push({ key: "league", label: SIGNAL_LABEL.league, lh: baseH, la: baseA, rel: 1, detail: `Rata-rata ${input.leagueName}: ${fmt(hAvg)} - ${fmt(aAvg)}` });
 
   return out.map((s) => ({ ...s, lh: clamp(s.lh, 0.1, 6), la: clamp(s.la, 0.1, 6), weight: BASE_WEIGHTS[s.key] * (params.weights[s.key] ?? 1) * s.rel }));

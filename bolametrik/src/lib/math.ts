@@ -207,3 +207,32 @@ export function round(x: number, d = 2) {
   const f = Math.pow(10, d);
   return Math.round(x * f) / f;
 }
+
+/**
+ * Balik peluang pasar (1X2 tanpa margin, opsional Over 2.5) menjadi ekspektasi gol
+ * kedua tim lewat pencarian grid pada model Poisson/Dixon-Coles.
+ */
+export function lambdasFromOdds(pH: number, pD: number, pA: number, pOver: number | null, priorTotal: number, rho = -0.07) {
+  const err = (lh: number, la: number) => {
+    const m = scoreMatrix(lh, la, rho, 1);
+    const o = matrixOutcome(m);
+    let e = (o.home - pH) ** 2 + (o.away - pA) ** 2 + 0.5 * (o.draw - pD) ** 2;
+    if (pOver !== null) e += (over(totalDist(m), 2.5) - pOver) ** 2;
+    else e += 0.01 * ((lh + la - priorTotal) / priorTotal) ** 2;
+    return e;
+  };
+  let best = { lh: priorTotal / 2, la: priorTotal / 2, e: Infinity };
+  for (let lh = 0.15; lh <= 4.5; lh += 0.1)
+    for (let la = 0.15; la <= 4.5; la += 0.1) {
+      const e = err(lh, la);
+      if (e < best.e) best = { lh, la, e };
+    }
+  const c = { ...best };
+  for (let lh = c.lh - 0.1; lh <= c.lh + 0.1 + 1e-9; lh += 0.02)
+    for (let la = c.la - 0.1; la <= c.la + 0.1 + 1e-9; la += 0.02) {
+      if (lh <= 0.05 || la <= 0.05) continue;
+      const e = err(lh, la);
+      if (e < best.e) best = { lh, la, e };
+    }
+  return { lh: best.lh, la: best.la, err: best.e };
+}

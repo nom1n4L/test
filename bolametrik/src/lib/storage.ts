@@ -14,11 +14,26 @@ export interface Store {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  aiProvider: "gemini",
   apiKey: "",
   aiModel: "claude-opus-5-5",
+  geminiKey: "",
+  geminiModel: "gemini-flash-latest",
+  oaiPreset: "openrouter",
+  oaiBase: "https://openrouter.ai/api/v1",
+  oaiKey: "",
+  oaiModel: "",
   bankroll: 1000000,
   kellyFraction: 0.25,
 };
+
+export const SECRET_FIELDS = ["apiKey", "geminiKey", "oaiKey"] as const;
+type SecretField = (typeof SECRET_FIELDS)[number];
+
+/** API key tidak pernah ikut disimpan ke cloud atau file cadangan. */
+export function withoutSecrets(s: Settings): Settings {
+  return { ...s, apiKey: "", geminiKey: "", oaiKey: "" };
+}
 
 const clone = <T,>(x: T): T => JSON.parse(JSON.stringify(x));
 
@@ -151,9 +166,8 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), ms))]);
 }
 
-/** API key tidak pernah disimpan ke cloud. */
 function stripSecrets(m: AppMeta): AppMeta {
-  return { ...m, settings: { ...m.settings, apiKey: "" } };
+  return { ...m, settings: withoutSecrets(m.settings) };
 }
 
 export async function openCloudStore(): Promise<Store | null> {
@@ -199,19 +213,29 @@ export function inArtifact(): boolean {
 }
 
 // API key hanya disimpan di perangkat ini
-export function loadLocalSecret(): string {
-  try {
-    return localStorage.getItem("bolametrik:apikey") ?? "";
-  } catch {
-    return "";
+const SECRET_KEY: Record<SecretField, string> = { apiKey: "bolametrik:apikey", geminiKey: "bolametrik:key:gemini", oaiKey: "bolametrik:key:openai" };
+
+export function loadSecrets(): Pick<Settings, SecretField> {
+  const out = { apiKey: "", geminiKey: "", oaiKey: "" };
+  for (const f of SECRET_FIELDS) {
+    try {
+      out[f] = localStorage.getItem(SECRET_KEY[f]) ?? "";
+    } catch {
+      /* diabaikan */
+    }
   }
+  return out;
 }
 
-export function saveLocalSecret(v: string) {
-  try {
-    if (v) localStorage.setItem("bolametrik:apikey", v);
-    else localStorage.removeItem("bolametrik:apikey");
-  } catch {
-    /* diabaikan */
+export function saveSecrets(s: Partial<Settings>) {
+  for (const f of SECRET_FIELDS) {
+    const v = s[f];
+    if (v === undefined) continue;
+    try {
+      if (v) localStorage.setItem(SECRET_KEY[f], v);
+      else localStorage.removeItem(SECRET_KEY[f]);
+    } catch {
+      /* diabaikan */
+    }
   }
 }

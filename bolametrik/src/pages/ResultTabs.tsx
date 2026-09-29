@@ -110,9 +110,16 @@ export function SummaryTab({ rec, pred, ev }: { rec: MatchRecord; pred: Predicti
     { k: "Seri", p: x.draw },
     { k: A, p: x.away },
   ].sort((a, b) => b.p - a.p);
+  const used = pred.lam.signals.filter((s) => s.key !== "league");
+  const comp = pred.confidence.parts[0].value;
   return (
     <div className="stack">
       {ev && <EvalPanel rec={rec} ev={ev} />}
+      {used.length === 0 ? (
+        <p className="notice bad small">Belum ada data tim — prediksi ini hanya memakai rata-rata liga dan keunggulan kandang, jadi hampir sama untuk semua laga. Tambahkan posisi klasemen, form, penilaian kekuatan, atau odds lewat <b>Edit data</b>.</p>
+      ) : comp < 0.35 ? (
+        <p className="notice small">Data minim: prediksi berdasarkan {used.map((s) => s.label.toLowerCase()).join(", ")}. Keyakinan diturunkan; tambah data untuk hasil yang lebih tajam.</p>
+      ) : null}
       <div>
         <div className="row-between" style={{ marginBottom: 10 }}>
           <h2>Jawaban cepat</h2>
@@ -652,8 +659,8 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
   const [withImgs, setWithImgs] = useState(true);
   const ctl = useRef<AbortController | null>(null);
   useEffect(() => {
-    aiStatus(meta.settings.apiKey).then(setStatus);
-  }, [meta.settings.apiKey]);
+    aiStatus(meta.settings).then(setStatus);
+  }, [meta.settings]);
   const ready = !!status && (status.sample || status.api);
 
   async function run() {
@@ -662,8 +669,8 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
     setText("");
     try {
       const imgs = withImgs && status?.images ? attachments.map((a) => a.file).slice(0, status.maxImages || 5) : undefined;
-      const op = await analyzeMatch(rec.input, pred, lessons, { apiKey: meta.settings.apiKey, model: meta.settings.aiModel, images: imgs, signal: ctl.current.signal, onText: setText });
-      await saveRecord({ ...rec, ai: op });
+      const op = await analyzeMatch(rec.input, pred, lessons, { cfg: meta.settings, images: imgs, signal: ctl.current.signal, onText: setText });
+      await saveRecord({ ...rec, ai: { ...op, source: status?.label } });
       setText("");
       toast(op.probs ? "Analisis AI tersimpan — konsensus model+AI diperbarui" : "Analisis AI tersimpan");
     } catch (e) {
@@ -678,20 +685,20 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
   const shown = busy || text ? text : rec.ai?.text ?? "";
   return (
     <div className="stack">
-      <Panel title="Analis AI (Claude)" sub="narasi mendalam: fakta → interpretasi → inferensi → prediksi" right={
+      <Panel title="Analis AI" sub={status ? `${status.label} · fakta → interpretasi → inferensi → prediksi` : "fakta → interpretasi → inferensi → prediksi"} right={
         busy ? <button className="btn btn-sm" type="button" onClick={() => ctl.current?.abort()}><IStop /> Hentikan</button> :
           <button className="btn btn-primary btn-sm" type="button" disabled={!ready} onClick={run}><ISpark /> {rec.ai ? "Analisis ulang" : "Minta analisis AI"}</button>
       }>
         <div className="stack-sm small">
           {!status && <span className="row dim"><span className="spin" /> Memeriksa ketersediaan AI…</span>}
           {status && !ready && (
-            <p className="notice">AI belum aktif. Buka aplikasi ini sebagai Artifact di claude.ai (memakai akun Claude Anda), atau isi API key Anthropic di <button className="btn btn-sm btn-ghost" type="button" onClick={() => go({ page: "settings" })}>Pengaturan</button>.</p>
+            <p className="notice">AI belum aktif. Isi API key di <button className="btn btn-sm btn-ghost" type="button" onClick={() => go({ page: "settings" })}>Pengaturan</button> — Google Gemini punya kuota gratis. Prediksi statistik di tab lain tetap berjalan tanpa AI.</p>
           )}
           {ready && attachments.length > 0 && status?.images && (
             <label className="check"><input type="checkbox" checked={withImgs} onChange={(e) => setWithImgs(e.target.checked)} /> Sertakan {attachments.length} screenshot yang diunggah</label>
           )}
           {ready && <p className="dim">AI menerima semua data formulir, output model, dan {lessons.length} pelajaran dari kesalahan sebelumnya. Estimasi peluang AI digabung dengan model; bobotnya dipelajari dari mana yang lebih akurat.</p>}
-          {busy && !text && <span className="row dim"><span className="spin" /> Claude sedang berpikir… (bisa 30-90 detik)</span>}
+          {busy && !text && <span className="row dim"><span className="spin" /> AI sedang berpikir… (bisa 30-90 detik)</span>}
         </div>
       </Panel>
       {rec.ai?.probs && !busy && (
@@ -700,7 +707,7 @@ export function AITab({ rec, pred }: { rec: MatchRecord; pred: Prediction }) {
             <thead><tr><th></th><th className="r">{rec.input.home.name}</th><th className="r">Seri</th><th className="r">{rec.input.away.name}</th><th className="r">Over 2.5</th><th className="r">BTTS</th></tr></thead>
             <tbody>
               <tr><td>Model statistik</td><td className="r num">{pct(pred.mk.x12.home, 1)}</td><td className="r num">{pct(pred.mk.x12.draw, 1)}</td><td className="r num">{pct(pred.mk.x12.away, 1)}</td><td className="r num">{pct(pred.mk.totals[2].over, 1)}</td><td className="r num">{pct(pred.mk.btts.yes, 1)}</td></tr>
-              <tr><td>AI Claude</td><td className="r num">{pct(rec.ai.probs.home, 1)}</td><td className="r num">{pct(rec.ai.probs.draw, 1)}</td><td className="r num">{pct(rec.ai.probs.away, 1)}</td><td className="r num">{pct(rec.ai.probs.over25, 1)}</td><td className="r num">{pct(rec.ai.probs.btts, 1)}</td></tr>
+              <tr><td>{rec.ai.source ?? "AI"}</td><td className="r num">{pct(rec.ai.probs.home, 1)}</td><td className="r num">{pct(rec.ai.probs.draw, 1)}</td><td className="r num">{pct(rec.ai.probs.away, 1)}</td><td className="r num">{pct(rec.ai.probs.over25, 1)}</td><td className="r num">{pct(rec.ai.probs.btts, 1)}</td></tr>
               {pred.consensus && <tr className="hl"><td><b>Konsensus</b></td><td className="r num">{pct(pred.consensus.home, 1)}</td><td className="r num">{pct(pred.consensus.draw, 1)}</td><td className="r num">{pct(pred.consensus.away, 1)}</td><td className="r num">{pct(pred.consensus.over25, 1)}</td><td className="r num">{pct(pred.consensus.btts, 1)}</td></tr>}
             </tbody>
           </table>

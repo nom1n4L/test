@@ -61,6 +61,7 @@ export interface TeamInput {
   absDefense: number; // 0..3 absen lini belakang
   motivation: number; // -2..2
   restDays: Num;
+  rating?: Num; // penilaian kekuatan cepat 1 (sangat lemah) .. 5 (sangat kuat)
   players: Player[];
 }
 
@@ -121,6 +122,9 @@ export type SignalKey =
   | "table"
   | "formPts"
   | "h2h"
+  | "odds"
+  | "position"
+  | "rating"
   | "league";
 
 export type MarketCat =
@@ -165,6 +169,7 @@ export interface ModelParams {
 /** Hasil analisis AI (Claude) yang dipakai sebagai "pakar kedua". */
 export interface AIOpinion {
   createdAt: string;
+  source?: string; // penyedia/model yang menulis analisis
   text: string; // narasi markdown
   probs: {
     home: number;
@@ -201,9 +206,18 @@ export interface MatchRecord {
   demo?: boolean;
 }
 
+export type AIProvider = "gemini" | "openai" | "claude";
+
 export interface Settings {
-  apiKey: string;
-  aiModel: string;
+  aiProvider: AIProvider;
+  apiKey: string; // Claude (Anthropic) — hanya disimpan di perangkat
+  aiModel: string; // model Claude
+  geminiKey: string; // hanya disimpan di perangkat
+  geminiModel: string;
+  oaiPreset: string; // openrouter | groq | openai | custom
+  oaiBase: string;
+  oaiKey: string; // hanya disimpan di perangkat
+  oaiModel: string;
   bankroll: number;
   kellyFraction: number;
 }

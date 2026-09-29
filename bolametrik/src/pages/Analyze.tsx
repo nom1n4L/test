@@ -10,11 +10,28 @@ import { FormLetters, Meter, NumField, Panel, Seg, TextField, pct } from "../com
 import { IChevron, IPlus, ITrash } from "../components/icons";
 
 type Side = "home" | "away";
+type Mode = "cepat" | "lengkap";
 
 export function Analyze({ editId }: { editId?: string }) {
   const { draft, setDraft, resetDraft, createFromDraft, records, saveRecord, go, toast, learn, meta, saveTeam, clearAttachments } = useApp();
   const editing = editId ? records.find((r) => r.id === editId) : undefined;
   const [loadedEdit, setLoadedEdit] = useState<string | null>(null);
+  const [mode, setModeState] = useState<Mode>(() => {
+    try {
+      return (localStorage.getItem("bolametrik:mode") as Mode) || "cepat";
+    } catch {
+      return "cepat";
+    }
+  });
+  const setMode = (m: Mode) => {
+    setModeState(m);
+    try {
+      localStorage.setItem("bolametrik:mode", m);
+    } catch {
+      /* diabaikan */
+    }
+  };
+  const quick = mode === "cepat";
 
   useEffect(() => {
     if (editing && loadedEdit !== editing.id) {
@@ -65,7 +82,17 @@ export function Analyze({ editId }: { editId?: string }) {
         </div>
       </div>
 
-      <UploadPanel />
+      <div className="row-between">
+        <Seg<Mode> label="Mode input" value={mode} onChange={setMode} options={[{ v: "cepat", label: "Mode cepat" }, { v: "lengkap", label: "Mode lengkap" }]} />
+        <span className="muted small">{quick ? "Cukup nama tim — data lain opsional" : "Semua statistik untuk akurasi maksimal"}</span>
+      </div>
+      {quick && (
+        <p className="notice small">
+          Isi <b>nama kedua tim</b> saja sudah bisa dihitung. Setiap tambahan (posisi klasemen, form, penilaian kekuatan, <b>odds bandar</b>) menaikkan akurasi & keyakinan. Odds 1X2 + Over/Under paling membantu bila statistik tim tidak ada.
+        </p>
+      )}
+
+      {!quick && <UploadPanel />}
 
       <Panel title="Pertandingan" sub="liga menentukan rata-rata gol dasar">
         <div className="field-grid wide">
@@ -85,10 +112,11 @@ export function Analyze({ editId }: { editId?: string }) {
             <label htmlFor="kickoff">Waktu kick-off</label>
             <input id="kickoff" type="datetime-local" className="input" value={draft.kickoff} onChange={(e) => set((m) => void (m.kickoff = e.target.value))} />
           </div>
-          <NumField id="homeAvg" label="Rata-rata gol tuan rumah (liga)" value={draft.homeAvg} onChange={(v) => set((m) => void (m.homeAvg = v ?? leagueByKey(m.leagueKey).homeAvg))} hint={`Faktor liga dipelajari: ${(learn.params.leagueFactor[draft.leagueKey] ?? 1).toFixed(2)}`} />
-          <NumField id="awayAvg" label="Rata-rata gol tim tamu (liga)" value={draft.awayAvg} onChange={(v) => set((m) => void (m.awayAvg = v ?? leagueByKey(m.leagueKey).awayAvg))} />
+          {!quick && <NumField id="homeAvg" label="Rata-rata gol tuan rumah (liga)" value={draft.homeAvg} onChange={(v) => set((m) => void (m.homeAvg = v ?? leagueByKey(m.leagueKey).homeAvg))} hint={`Faktor liga dipelajari: ${(learn.params.leagueFactor[draft.leagueKey] ?? 1).toFixed(2)}`} />}
+          {!quick && <NumField id="awayAvg" label="Rata-rata gol tim tamu (liga)" value={draft.awayAvg} onChange={(v) => set((m) => void (m.awayAvg = v ?? leagueByKey(m.leagueKey).awayAvg))} />}
         </div>
         <div className="row" style={{ marginTop: 14, gap: 16 }}>
+          {!quick && <>
           <div className="stack-sm">
             <span className="upper muted">Jenis laga</span>
             <Seg<Competition> label="Jenis laga" value={draft.competition} onChange={(v) => set((m) => void (m.competition = v))} options={[{ v: "league", label: "Liga" }, { v: "cup", label: "Piala" }, { v: "continental", label: "Kontinental" }, { v: "friendly", label: "Persahabatan" }]} />
@@ -97,52 +125,75 @@ export function Analyze({ editId }: { editId?: string }) {
             <span className="upper muted">Kepentingan</span>
             <Seg<Importance> label="Kepentingan" value={draft.importance} onChange={(v) => set((m) => void (m.importance = v))} options={[{ v: "normal", label: "Normal" }, { v: "high", label: "Penting" }, { v: "final", label: "Final" }]} />
           </div>
+          </>}
           <label className="check"><input type="checkbox" checked={draft.derby} onChange={(e) => set((m) => void (m.derby = e.target.checked))} /> Derby / rivalitas</label>
           <label className="check"><input type="checkbox" checked={draft.neutral} onChange={(e) => set((m) => void (m.neutral = e.target.checked))} /> Venue netral</label>
         </div>
       </Panel>
 
-      <div className="grid-2">
-        <TeamPanel side="home" team={draft.home} neutral={draft.neutral} onChange={(t) => set((m) => void (m.home = t))} teams={meta.teams} />
-        <TeamPanel side="away" team={draft.away} neutral={draft.neutral} onChange={(t) => set((m) => void (m.away = t))} teams={meta.teams} />
-      </div>
-
-      <div className="grid-2">
-        <PlayersPanel side="home" team={draft.home} onChange={(t) => set((m) => void (m.home = t))} />
-        <PlayersPanel side="away" team={draft.away} onChange={(t) => set((m) => void (m.away = t))} />
-      </div>
-
-      <H2HPanel h2h={draft.h2h} homeName={draft.home.name || "Tuan rumah"} awayName={draft.away.name || "Tim tamu"} onChange={(h) => set((m) => void (m.h2h = h))} />
-
-      <div className="grid-2">
-        <Panel title="Wasit" sub="opsional — memengaruhi kartu & penalti">
-          <div className="field-grid">
-            <TextField id="ref-name" label="Nama" value={draft.referee.name} onChange={(v) => set((m) => void (m.referee.name = v))} />
-            <NumField id="ref-y" label="Kuning / laga" value={draft.referee.yellowPg} onChange={(v) => set((m) => void (m.referee.yellowPg = v))} />
-            <NumField id="ref-r" label="Merah / laga" value={draft.referee.redPg} onChange={(v) => set((m) => void (m.referee.redPg = v))} />
-            <NumField id="ref-p" label="Penalti / laga" value={draft.referee.pensPg} onChange={(v) => set((m) => void (m.referee.pensPg = v))} />
+      {quick ? (
+        <>
+          <div className="grid-2">
+            <QuickTeam side="home" team={draft.home} onChange={(t) => set((m) => void (m.home = t))} teams={meta.teams} />
+            <QuickTeam side="away" team={draft.away} onChange={(t) => set((m) => void (m.away = t))} teams={meta.teams} />
           </div>
-        </Panel>
-        <Panel title="Odds bandar" sub="desimal — untuk mendeteksi value bet">
-          <div className="field-grid">
-            <NumField id="o-h" label="1 (tuan rumah)" value={draft.odds.home} onChange={(v) => set((m) => void (m.odds.home = v))} />
-            <NumField id="o-d" label="X (seri)" value={draft.odds.draw} onChange={(v) => set((m) => void (m.odds.draw = v))} />
-            <NumField id="o-a" label="2 (tim tamu)" value={draft.odds.away} onChange={(v) => set((m) => void (m.odds.away = v))} />
-            <NumField id="o-o" label="Over 2.5" value={draft.odds.over25} onChange={(v) => set((m) => void (m.odds.over25 = v))} />
-            <NumField id="o-u" label="Under 2.5" value={draft.odds.under25} onChange={(v) => set((m) => void (m.odds.under25 = v))} />
-            <NumField id="o-by" label="BTTS Ya" value={draft.odds.bttsYes} onChange={(v) => set((m) => void (m.odds.bttsYes = v))} />
-            <NumField id="o-bn" label="BTTS Tidak" value={draft.odds.bttsNo} onChange={(v) => set((m) => void (m.odds.bttsNo = v))} />
-            <NumField id="o-al" label="Garis AH tuan rumah" value={draft.odds.ahLine} onChange={(v) => set((m) => void (m.odds.ahLine = v))} hint="mis. -0.5, -0.25, 0.25" />
-            <NumField id="o-ah" label="Odds AH tuan rumah" value={draft.odds.ahHome} onChange={(v) => set((m) => void (m.odds.ahHome = v))} />
-            <NumField id="o-aa" label="Odds AH tim tamu" value={draft.odds.ahAway} onChange={(v) => set((m) => void (m.odds.ahAway = v))} />
-          </div>
-          <p className="muted tiny" style={{ marginTop: 8 }}>Punya odds Indo/Malay/HK? Ubah ke desimal di menu Alat.</p>
-        </Panel>
-      </div>
+          <Panel title="Odds bandar (opsional)" sub="desimal — sangat membantu bila statistik tim minim">
+            <div className="field-grid">
+              <NumField id="q-o-h" label="1 (tuan rumah)" value={draft.odds.home} onChange={(v) => set((m) => void (m.odds.home = v))} />
+              <NumField id="q-o-d" label="X (seri)" value={draft.odds.draw} onChange={(v) => set((m) => void (m.odds.draw = v))} />
+              <NumField id="q-o-a" label="2 (tim tamu)" value={draft.odds.away} onChange={(v) => set((m) => void (m.odds.away = v))} />
+              <NumField id="q-o-o" label="Over 2.5" value={draft.odds.over25} onChange={(v) => set((m) => void (m.odds.over25 = v))} />
+              <NumField id="q-o-u" label="Under 2.5" value={draft.odds.under25} onChange={(v) => set((m) => void (m.odds.under25 = v))} />
+            </div>
+            <p className="muted tiny" style={{ marginTop: 8 }}>Odds Indo/Malay/HK bisa diubah ke desimal di menu Alat. Butuh statistik lebih lengkap? Pindah ke Mode lengkap — data yang sudah diisi tetap tersimpan.</p>
+          </Panel>
+          <UploadPanel />
+        </>
+      ) : (
+        <>
+        <div className="grid-2">
+          <TeamPanel side="home" team={draft.home} neutral={draft.neutral} onChange={(t) => set((m) => void (m.home = t))} teams={meta.teams} />
+          <TeamPanel side="away" team={draft.away} neutral={draft.neutral} onChange={(t) => set((m) => void (m.away = t))} teams={meta.teams} />
+        </div>
 
-      <Panel title="Catatan & konteks" sub="berita tim, rotasi, cuaca, jadwal padat">
-        <textarea id="notes" className="input" value={draft.notes} onChange={(e) => set((m) => void (m.notes = e.target.value))} placeholder="Mis.: kapten cedera sejak pekan lalu; tim tamu main Kamis di Eropa." />
-      </Panel>
+        <div className="grid-2">
+          <PlayersPanel side="home" team={draft.home} onChange={(t) => set((m) => void (m.home = t))} />
+          <PlayersPanel side="away" team={draft.away} onChange={(t) => set((m) => void (m.away = t))} />
+        </div>
+
+        <H2HPanel h2h={draft.h2h} homeName={draft.home.name || "Tuan rumah"} awayName={draft.away.name || "Tim tamu"} onChange={(h) => set((m) => void (m.h2h = h))} />
+
+        <div className="grid-2">
+          <Panel title="Wasit" sub="opsional — memengaruhi kartu & penalti">
+            <div className="field-grid">
+              <TextField id="ref-name" label="Nama" value={draft.referee.name} onChange={(v) => set((m) => void (m.referee.name = v))} />
+              <NumField id="ref-y" label="Kuning / laga" value={draft.referee.yellowPg} onChange={(v) => set((m) => void (m.referee.yellowPg = v))} />
+              <NumField id="ref-r" label="Merah / laga" value={draft.referee.redPg} onChange={(v) => set((m) => void (m.referee.redPg = v))} />
+              <NumField id="ref-p" label="Penalti / laga" value={draft.referee.pensPg} onChange={(v) => set((m) => void (m.referee.pensPg = v))} />
+            </div>
+          </Panel>
+          <Panel title="Odds bandar" sub="desimal — untuk mendeteksi value bet">
+            <div className="field-grid">
+              <NumField id="o-h" label="1 (tuan rumah)" value={draft.odds.home} onChange={(v) => set((m) => void (m.odds.home = v))} />
+              <NumField id="o-d" label="X (seri)" value={draft.odds.draw} onChange={(v) => set((m) => void (m.odds.draw = v))} />
+              <NumField id="o-a" label="2 (tim tamu)" value={draft.odds.away} onChange={(v) => set((m) => void (m.odds.away = v))} />
+              <NumField id="o-o" label="Over 2.5" value={draft.odds.over25} onChange={(v) => set((m) => void (m.odds.over25 = v))} />
+              <NumField id="o-u" label="Under 2.5" value={draft.odds.under25} onChange={(v) => set((m) => void (m.odds.under25 = v))} />
+              <NumField id="o-by" label="BTTS Ya" value={draft.odds.bttsYes} onChange={(v) => set((m) => void (m.odds.bttsYes = v))} />
+              <NumField id="o-bn" label="BTTS Tidak" value={draft.odds.bttsNo} onChange={(v) => set((m) => void (m.odds.bttsNo = v))} />
+              <NumField id="o-al" label="Garis AH tuan rumah" value={draft.odds.ahLine} onChange={(v) => set((m) => void (m.odds.ahLine = v))} hint="mis. -0.5, -0.25, 0.25" />
+              <NumField id="o-ah" label="Odds AH tuan rumah" value={draft.odds.ahHome} onChange={(v) => set((m) => void (m.odds.ahHome = v))} />
+              <NumField id="o-aa" label="Odds AH tim tamu" value={draft.odds.ahAway} onChange={(v) => set((m) => void (m.odds.ahAway = v))} />
+            </div>
+            <p className="muted tiny" style={{ marginTop: 8 }}>Punya odds Indo/Malay/HK? Ubah ke desimal di menu Alat.</p>
+          </Panel>
+        </div>
+
+        <Panel title="Catatan & konteks" sub="berita tim, rotasi, cuaca, jadwal padat">
+          <textarea id="notes" className="input" value={draft.notes} onChange={(e) => set((m) => void (m.notes = e.target.value))} placeholder="Mis.: kapten cedera sejak pekan lalu; tim tamu main Kamis di Eropa." />
+        </Panel>
+        </>
+      )}
 
       <div className="panel runbar">
         <div className="row-between">
@@ -160,6 +211,75 @@ export function Analyze({ editId }: { editId?: string }) {
 }
 
 const LEVELS = [{ v: 0, label: "0" }, { v: 1, label: "1" }, { v: 2, label: "2" }, { v: 3, label: "3" }];
+
+const RATING_OPTS = [
+  { v: 0, label: "?" },
+  { v: 1, label: "1" },
+  { v: 2, label: "2" },
+  { v: 3, label: "3" },
+  { v: 4, label: "4" },
+  { v: 5, label: "5" },
+];
+const RATING_WORD = ["belum dinilai", "sangat lemah", "lemah", "rata-rata", "kuat", "sangat kuat"];
+
+function RatingField({ side, team, onChange }: { side: Side; team: TeamInput; onChange: (t: TeamInput) => void }) {
+  const r = team.rating ?? 0;
+  return (
+    <div className="field">
+      <span className="lbl">Penilaian kekuatan Anda (1 = sangat lemah, 5 = sangat kuat)</span>
+      <div className="row">
+        <Seg<number> label={`Kekuatan ${side === "home" ? "tuan rumah" : "tim tamu"}`} value={r} options={RATING_OPTS} onChange={(v) => onChange({ ...team, rating: v === 0 ? null : v })} />
+        <span className="small dim">{RATING_WORD[r]}</span>
+      </div>
+      <span className="hint">Opsional. Model mempelajari seberapa akurat penilaian Anda dari hasil nyata.</span>
+    </div>
+  );
+}
+
+function SavedTeamPicker({ teams, onPick }: { teams: Record<string, { name: string; team: TeamInput }>; onPick: (t: TeamInput) => void }) {
+  const saved = Object.keys(teams).sort();
+  if (!saved.length) return null;
+  return (
+    <select className="input" style={{ width: "auto", maxWidth: 200, padding: "6px 8px", fontSize: 13 }} aria-label="Muat tim tersimpan" value="" onChange={(e) => {
+      const t = teams[e.target.value];
+      if (t) onPick({ ...emptyTeam(), ...JSON.parse(JSON.stringify(t.team)) });
+    }}>
+      <option value="">Muat tim tersimpan…</option>
+      {saved.map((n) => <option key={n} value={n}>{n}</option>)}
+    </select>
+  );
+}
+
+/** Kartu tim ringkas untuk mode cepat: hanya nama yang wajib. */
+function QuickTeam({ side, team, onChange, teams }: { side: Side; team: TeamInput; onChange: (t: TeamInput) => void; teams: Record<string, { name: string; team: TeamInput }> }) {
+  const upd = (patch: Partial<TeamInput>) => onChange({ ...team, ...patch });
+  return (
+    <section className="panel" style={{ borderTop: `3px solid ${side === "home" ? "var(--home)" : "var(--away)"}` }}>
+      <div className="panel-head">
+        <span className={`chip ${side}`}>{side === "home" ? "Tuan rumah" : "Tim tamu"}</span>
+        <SavedTeamPicker teams={teams} onPick={onChange} />
+      </div>
+      <div className="stack">
+        <TextField id={`q-${side}-name`} label="Nama tim (wajib)" value={team.name} onChange={(v) => upd({ name: v })} placeholder={side === "home" ? "mis. Persib" : "mis. Persija"} />
+        <div className="field-grid">
+          <NumField id={`q-${side}-pos`} label="Posisi klasemen" value={team.position} onChange={(v) => upd({ position: v })} />
+          <NumField id={`q-${side}-fgf`} label="Gol 5 laga terakhir" value={team.formGF} onChange={(v) => upd({ formGF: v })} hint="total dicetak" />
+          <NumField id={`q-${side}-fga`} label="Kebobolan 5 laga" value={team.formGA} onChange={(v) => upd({ formGA: v })} hint="total" />
+        </div>
+        <div className="field">
+          <label htmlFor={`q-${side}-form`}>Form terakhir (terbaru di kiri)</label>
+          <div className="row">
+            <input id={`q-${side}-form`} className="input num" style={{ maxWidth: 170 }} value={team.form} placeholder="WWDLW / MMSKM" onChange={(e) => upd({ form: e.target.value.toUpperCase().replace(/[^WDLMSK]/g, "").slice(0, 10) })} />
+            <FormLetters form={team.form} />
+          </div>
+        </div>
+        <RatingField side={side} team={team} onChange={onChange} />
+        <div className="row"><span className="small grow">Pemain penting absen (serang)</span><Seg label="Absen lini serang" value={team.absAttack} options={LEVELS} onChange={(v) => upd({ absAttack: v })} /></div>
+        <div className="row"><span className="small grow">Pemain penting absen (bertahan)</span><Seg label="Absen lini belakang" value={team.absDefense} options={LEVELS} onChange={(v) => upd({ absDefense: v })} /></div>
+      </div>
+    </section>
+  );
+}
 
 function TeamPanel({ side, team, neutral, onChange, teams }: { side: Side; team: TeamInput; neutral: boolean; onChange: (t: TeamInput) => void; teams: Record<string, { name: string; team: TeamInput }> }) {
   const upd = (patch: Partial<TeamInput>) => onChange({ ...team, ...patch });
@@ -190,6 +310,7 @@ function TeamPanel({ side, team, neutral, onChange, teams }: { side: Side; team:
             <FormLetters form={team.form} />
           </div>
         </div>
+        <RatingField side={side} team={team} onChange={onChange} />
         {groups.map((g, gi) => (
           <details key={g.id} className="fold" open={gi < 3}>
             <summary><b>{g.title}</b><span className="caret"><IChevron width={16} height={16} /></span></summary>

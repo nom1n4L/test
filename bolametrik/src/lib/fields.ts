@@ -3,7 +3,7 @@
 import type { TeamInput } from "./types";
 
 export type TeamNumKey = {
-  [K in keyof TeamInput]: TeamInput[K] extends number | null ? K : never;
+  [K in keyof TeamInput]-?: TeamInput[K] extends number | null ? K : never;
 }[keyof TeamInput];
 
 export interface FieldDef {

@@ -47,6 +47,7 @@ export function emptyTeam(name = ""): TeamInput {
     absDefense: 0,
     motivation: 0,
     restDays: null,
+    rating: null,
     players: [],
   };
 }
